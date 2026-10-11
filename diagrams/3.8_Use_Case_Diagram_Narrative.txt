@@ -1,0 +1,422 @@
+==============================================================================================================
+USE CASE DIAGRAM NARRATIVE
+AI-Based Intelligent Dental Appointment Scheduling System Using
+Machine Learning for Optimized Clinic Management
+
+Companion document for : use_case_diagrams.drawio (Figures 13, 14 and 15)
+Notation               : UML use case diagram, one system boundary per figure
+Related diagram        : Figure 12, Entity Relationship Diagram (erd_dental_ai.drawio)
+==============================================================================================================
+
+NOTATION LEGEND
+  Actor               A stick figure drawn outside the system boundary. It is a
+                      person or an external service that reaches a function of
+                      the system. The primary actor of each figure is drawn at
+                      full size; a supporting actor is drawn smaller and in
+                      grey. The database and the prediction model are not
+                      actors, because they are parts of the system itself.
+
+  Use case            An ellipse inside the system boundary. It is one complete
+                      function that an actor can carry out, and it always
+                      carries a verb phrase, for example "Book an appointment".
+
+  Association         A plain solid line joining an actor to every use case that
+                      the actor may carry out. It carries no arrowhead because
+                      the exchange is two way.
+
+  <<include>>         A dashed line with an open arrowhead pointing at the
+                      included use case. The included function always runs as
+                      part of the base function, so it is not optional. For
+                      example, "Book an appointment" always includes "Check
+                      dentist availability".
+
+  <<extend>>          A dashed line with an open arrowhead pointing at the base
+                      use case. The extending function runs only under a
+                      condition that the base function does not require. For
+                      example, "Complete patient visit" extends "Start serving
+                      next patient" because the visit may be left open.
+
+  System boundary     The plain rectangle on each page. Everything inside it
+                      belongs to the proposed system; every actor stands
+                      outside it. Its four sides carry no label, following the
+                      sample figure supplied by the researcher.
+
+ACTORS AND THEIR ACCESS LEVELS
+  The system recognises three roles and two supporting parties.
+
+  1. Patient. A registered account holder. The role is written to the session
+     by login.php:76 and the dashboard is routed by login.php:86-89. The
+     patient reaches 15 of the 22 use cases of Figure 13.
+
+  2. Dentist. A clinician account. Routed by login.php:88-89. The dentist
+     reaches 9 of the 12 use cases of Figure 14, which is the smallest of the
+     three figures because the dentist reads the schedule that the
+     administrator maintains.
+
+  3. Clinic Administrator. Routed by login.php:84-85. The administrator
+     reaches 14 of the 22 use cases of Figure 15, including the clinic
+     settings, the dentist records and the reports with the AI forecast.
+
+  4. Guest. A visitor who holds no account. The guest reaches only "Register
+     account" (register.php) and "Recover password" (forgot_password.php with
+     reset_password.php). This actor is what closes the entry point of the
+     diagram: without it, "Log in" would have no way of coming into existence.
+
+  5. Walk-in Patient. A patient who arrives at the clinic without an account
+     and without logging in. The public page walkin_qr.php lets this actor
+     reach "Submit walk-in details (QR)", which writes the queue row that the
+     administrator later serves. This actor is drawn in Figure 13 only.
+
+  6. Email Service. The external Gmail account that delivers the messages of
+     the clinic, implemented as sendClinicGmail() in config.php. It is drawn in
+     Figure 15 because the reminder is handed over to it by the administrator.
+
+  The database (users, patients, dentists, appointments, queue,
+  appointment_concerns, notifications, clinic_services and the rest of
+  dental_ai.sql) is deliberately not drawn as an actor, and neither is the
+  prediction model, because both live inside the boundary.
+
+
+FIGURE 13. USE CASE DIAGRAM - PATIENT ROLE
+  The patient figure contains 22 use cases, 15 associations and 9 <<include>>
+  relationships. Three actors are drawn: the patient at full size, and the
+  guest and the walk-in patient as smaller grey actors. The left column holds
+  the use cases that an actor starts directly; the right column holds the use
+  cases that are reached through an <<include>> relationship, so an arrow
+  always points into them.
+
+  1. Log in. The patient submits the username and the password at login.php:29
+     and the credentials are tested against the users table with
+     password_verify() at login.php:64 before the session is created at
+     login.php:73-76 and the browser is sent to patient_dashboard.php at
+     login.php:86-87.
+
+  2. View patient dashboard. patient_dashboard.php shows the next appointment,
+     the appointment counters and the action menu of the patient.
+
+  3. Book an appointment. patient/book_appointment.php handles
+     action=book_appointment with the fields dentist_id, service_type,
+     appointment_date, start_time, end_time and notes, and saves the row with
+     the status Pending.
+
+  4. View appointment calendar. patient/calendar.php presents the appointments
+     of the patient on a month grid.
+
+  5. View my appointments. patient/my_appointments.php lists every appointment
+     of the patient together with its status, and holds the three actions that
+     follow.
+
+  6. Confirm attendance. my_appointments.php accepts action=confirm_attendance
+     only while the appointment is still Pending or Confirmed, because the
+     status is checked at my_appointments.php:52 and a past appointment is
+     refused at my_appointments.php:55.
+
+  7. Request reschedule. my_appointments.php accepts action=request_reschedule
+     with the fields preferred_date and preferred_time, and the reason written
+     to reschedule_reason. The request is stored as an appointment concern with
+     the status New at my_appointments.php:95.
+
+  8. Cancel appointment. my_appointments.php accepts action=cancel_appointment
+     and stores the reason given in cancel_notes, after which the appointment
+     carries the status Cancelled.
+
+  9. Submit appointment concern. patient/appointment_concern.php accepts the
+     fields appointment_id, reason and message and inserts the row into the
+     appointment_concerns table, which the administrator answers in Figure 15.
+
+  10. View notifications. patient/notifications.php lists the reminders, the
+     confirmations and the automatic no-show notices that config.php:246
+     raises, and records the opening of a reminder through log_email_click.
+
+  11. Update profile. patient/profile.php handles action=update_profile with
+     first_name, last_name, birth_date, gender, contact_number, address and
+     email; the same page carries action=change_password.
+
+  12. Log out. logout.php clears the session and returns the browser to the
+     login page.
+
+  13. Register account. Reachable by the guest actor. register.php creates the
+     users row and the matching patients row with a generated patient number
+     from functions.php:75, and it is the only way an account comes into
+     existence apart from the administrator in Figure 15.
+
+  14. Recover password. Reachable by the guest actor. forgot_password.php
+     requests the reset and reset_password.php writes the new value.
+
+  15. Submit walk-in details (QR). Reachable by the walk-in patient actor
+     without any login. walkin_qr.php accepts the name, the contact number and
+     the service, and inserts the row that gives the patient number, the
+     walk-in number and the queue number of the day.
+
+  The nine <<include>> relationships of Figure 13 are the following.
+
+  1. Book an appointment includes View available time slots, because the free
+     slots of the chosen dentist and date are produced by
+     patient/get_available_slots.php before the form can be submitted.
+
+  2. Book an appointment includes Check dentist availability, which tests the
+     dentist against the requested date and time.
+
+  3. Book an appointment includes Detect schedule conflict, which tests the
+     weekly schedule of the dentist, the rest day, the clinic day-off and the
+     service duration against the requested slot and rejects the booking when
+     the slot is already taken.
+
+  4. Request reschedule includes Check dentist availability, because the new
+     slot is tested again.
+
+  5. Request reschedule includes Detect schedule conflict, for the same reason
+     as relationship 3.
+
+  6. Book an appointment includes Send confirmation email, which is the hand
+     over to sendClinicGmail() in config.php.
+
+  7. Book an appointment includes View available dental services, because the
+     form is filled from the clinic_services table at
+     book_appointment.php:517.
+
+  8. View my appointments includes View appointment history, which is the past
+     appointment list that the same page renders.
+
+  9. Update profile includes Change password, because the password form is
+     handled by the same page through action=change_password.
+
+  No <<extend>> relationship is drawn in Figure 13: every listed function runs
+  whenever its base function runs, and none of them is conditional.
+
+FIGURE 14. USE CASE DIAGRAM - DENTIST ROLE
+  The dentist figure contains 12 use cases, 9 associations, 3 <<include>>
+  relationships and 1 <<extend>> relationship. Only one actor is drawn, the
+  dentist, because the clinician does not hand any function over to a second
+  party: the schedule that is read here is written by the administrator in
+  Figure 15. This is the smallest of the three figures.
+
+  1. Log in. The dentist is routed to dentist_dashboard.php by login.php:88-89.
+
+  2. View today's schedule. dentist/dentist_dashboard.php lists the
+     appointments assigned to the dentist for the current day from the
+     appointments table, and posts action together with appointment_id,
+     queue_id and status to move an appointment forward.
+
+  3. View patient queue. dentist/queue.php lists the queue of the day and
+     filters it by the status through the filter parameter, so the dentist may
+     look at the All, Waiting, Serving or Completed entries.
+
+  4. Start serving next patient. dentist/queue.php posts queue_id together
+     with status=Serving, which moves the next waiting entry into the serving
+     state.
+
+  5. Complete patient visit. dentist/queue.php posts the closing status and
+     dentist/dentist_dashboard.php posts status as well, which sets the
+     appointment to Completed and the queue entry to Completed.
+
+  6. View appointments. dentist/appointments.php lists the appointments of the
+     dentist and allows a single appointment to be opened through the view
+     parameter.
+
+  7. View notifications. dentist/notifications.php lists the appointment
+     activity for the dentist and accepts the filters All, New, Upcoming and
+     Cancelled.
+
+  8. Update profile. dentist/profile.php writes full_name, specialization and
+     contact_number.
+
+  9. Log out. logout.php ends the session.
+
+  10. Review patient record. Reached through an <<include>> relationship, never
+      started on its own. dentist/patients.php shows the patient information
+      and the medical record for the patient_id that the dentist asked for.
+
+  11. View patient appointment history. Reached through an <<include>>
+      relationship. The same page renders the appointment history that belongs
+      to the patient record.
+
+  12. Change password. Reached through an <<include>> relationship from Update
+      profile, and handled by dentist/settings.php through
+      action=change_password with current_password, new_password and
+      confirm_password.
+
+  The relationships of Figure 14 are the following.
+
+  1. Start serving next patient includes Review patient record, because the
+     record is opened for the patient who is being served, exactly as the
+     activity diagram of Figure 9 draws it.
+
+  2. Review patient record includes View patient appointment history, so the
+     dentist sees the earlier visits while reading the record.
+
+  3. Update profile includes Change password.
+
+  4. Complete patient visit extends Start serving next patient. The arrowhead
+     points at Start serving next patient because the visit may also be left
+     open: the dentist may close the consultation, in which case the
+     appointment becomes Completed, or may stop at the queue entry, in which
+     case the appointment keeps its status. This condition is exactly the
+     "Close the visit?" decision of Figure 9.
+
+FIGURE 15. USE CASE DIAGRAM - ADMINISTRATOR ROLE
+  The administrator figure contains 22 use cases, 15 associations and 9
+  <<include>> relationships. Two actors are drawn: the clinic administrator at
+  full size and the email service as a smaller grey actor. The figure is the
+  largest of the three because the administrator owns every maintenance
+  function of the clinic.
+
+  1. Log in. The administrator is routed to admin/dashboard.php by
+     login.php:84-85, and admin/includes.php builds the navigation of every
+     administrator page.
+
+  2. View clinic dashboard. admin/dashboard.php shows the clinic overview,
+     including the buttons that open the forecast view.
+
+  3. Manage patients. admin/patients.php writes first_name, middle_name,
+     last_name, contact_number and email for a patient_id, and also creates the
+     account of a walk-in patient who has no username yet.
+
+  4. Schedule an appointment. admin/appointments.php handles action=add with
+     patient_id, dentist_id, service_type, appointment_date, start_time,
+     end_time and notes.
+
+  5. Update appointment status. admin/appointments.php handles action=status
+     with id and status, which is how Pending becomes Confirmed or Completed
+     and how a cancellation is recorded.
+
+  6. Reschedule appointment. admin/appointments.php handles action=reschedule
+     and rechecks the new date and time before it is written.
+
+  7. Manage daily queue. admin/queue.php handles action=status with id and
+     status and moves an entry through Waiting, Serving and Completed; the
+     priority and the is_senior flag are written by the same page.
+
+  8. Register walk-in patient (QR). admin/queue.php handles action=qr_add with
+     qr_name, qr_service and qr_priority and prints the public form. The page
+     walkin_qr.php that the walk-in patient uses in Figure 13 is the other half
+     of this function.
+
+  9. Mark no-show. admin/no_show.php handles appointment_id and action. The
+     status is also set without a click, because config.php:207-237 marks an
+     appointment that was never served as No-Show and config.php:246-268 sends
+     the notice to the patient.
+
+  10. Manage appointment concerns. admin/appointment_concern.php lists the
+      concerns that the patients submitted, marks them as read through
+      notification_id, and stores the reply that is sent back.
+
+  11. Manage dentists. admin/dentists.php handles action=add and action=edit
+      with dentist_name, specialization and contact_number, and
+      action=toggle_status to activate or deactivate an account.
+
+  12. Manage clinic settings. admin/settings.php handles action=clinic with
+      clinic_name, address, contact_number, email, opening_time and
+      closing_time.
+
+  13. Generate reports. admin/reports.php builds the appointment analytics and
+      accepts the period parameter, and it is where the demand forecast is
+      displayed together with the high-demand and the low-demand days at
+      admin/reports.php:302-306.
+
+  14. Send appointment reminder. admin/appointments.php handles action=remind,
+      and the message is delivered by the external Gmail account
+      sendClinicGmail() in config.php. This is the only use case of the three
+      figures that is shared with a supporting actor, so the email service is
+      joined to it as well as the administrator.
+
+  The nine <<include>> relationships of Figure 15 are the following.
+
+  1. Schedule an appointment includes Check dentist availability.
+
+  2. Reschedule appointment includes Check dentist availability, because the
+     new slot is tested in the same way.
+
+  3. Schedule an appointment includes Detect schedule conflict, which tests the
+     dentist schedule, the rest day, the clinic day-off and the service
+     duration, exactly as the patient side does in Figure 13.
+
+  4. Manage dentists includes Manage dentist schedules, which admin/dentists.php
+     handles through action=schedule with schedule_date, start_time and
+     end_time and through action=delete_schedule with schedule_id.
+
+  5. Manage dentist schedules includes Register day-off, handled by
+     action=dayoff_add with off_date, rest_day and reason and by
+     action=dayoff_delete with dayoff_id.
+
+  6. Manage clinic settings includes Manage dental services, handled by
+     action=service_save and action=service_status with service_id,
+     service_name, description and duration_minutes; the active rows of
+     clinic_services are the services that the patient books in Figure 13.
+
+  7. Manage clinic settings includes Manage user accounts, handled by
+     action=user_save with username, password and role.
+
+  8. Manage clinic settings includes Validate clinic operating hours, because
+     the opening time and the closing time are tested before they are written
+     and the clinic_business_hours rows are kept consistent with them.
+
+  9. Generate reports includes Generate AI demand forecast, which
+     admin/demand_forecast.php performs: the historical demand is read, the
+     straight line that fits it is computed by linearRegression() at
+     admin/demand_forecast.php:51 and applied at line 246, the demand of the
+     next seven days is predicted, and each day is classified as a high, medium
+     or low demand day against 125 and 75 per cent of the historical average.
+     The model is not drawn as an actor because it runs inside the boundary.
+
+TRACEABILITY TO THE IMPLEMENTATION
+  Every use case of the three figures is traceable to a page or to a handler of
+  the delivered system, which is what makes the diagrams verifiable rather than
+  aspirational. The mapping is the following.
+
+  1. Authentication. Log in, Register account, Recover password and Log out map
+     to login.php, register.php, forgot_password.php, reset_password.php and
+     logout.php. The role is read from the users table and written to the
+     session at login.php:73-76.
+
+  2. Appointment booking. Book an appointment, View available time slots and
+     View available dental services map to patient/book_appointment.php,
+     patient/book_scheduling.php, patient/get_available_slots.php and the
+     clinic_services table.
+
+  3. Appointment management. View my appointments, Confirm attendance, Request
+     reschedule, Cancel appointment and View appointment history map to
+     patient/my_appointments.php, which is also the page that raises the
+     appointment concern of a reschedule request at line 95.
+
+  4. Clinical queue. View patient queue, Start serving next patient and Complete
+     patient visit map to dentist/queue.php and to the queue table, whose status
+     column holds Waiting, Serving and Completed.
+
+  5. Clinic maintenance. Manage patients, Manage dentists, Manage dentist
+     schedules, Register day-off, Manage dental services, Manage user accounts
+     and Manage clinic settings map to admin/patients.php, admin/dentists.php
+     and admin/settings.php.
+
+  6. Concerns and notifications. Submit appointment concern, Manage appointment
+     concerns, View notifications, Mark no-show and Send appointment reminder
+     map to the appointment_concerns, notifications and admin_notifications
+     tables, to admin/appointment_concern.php, to admin/no_show.php, to the
+     automatic marking in config.php:207-268 and to sendClinicGmail().
+
+  7. Reporting and prediction. Generate reports and Generate AI demand forecast
+     map to admin/reports.php and to admin/demand_forecast.php, whose
+     linearRegression() at line 51 is the prediction model of the study.
+
+RELATIONSHIP TO THE OTHER DIAGRAMS
+  The three figures describe what each actor is able to do, and the other
+  diagrams of chapter 3 describe how that work is carried out and what it
+  changes. Figure 12, the entity relationship diagram, holds the entities that
+  the use cases read and write: the registration use cases of Figures 13 and 15
+  insert into the users and the patients entities, the booking use cases of
+  Figures 13 and 15 insert into the appointments entity, the queue use cases of
+  Figures 14 and 15 write the queue entity, and the concern, notification and
+  settings use cases write the corresponding entities of the same diagram. The
+  data flow diagram of Figure 5 and Figure 6 shows the same functions as
+  processes with the flows that carry data between them, the activity diagrams
+  of Figures 8 to 11 show the same functions as ordered actions with their
+  decisions, and the use case diagrams of Figures 13 to 15 show the same
+  functions as the capabilities of the actors. The status values that the use
+  cases produce, namely Pending, Confirmed, Completed, Cancelled and No-Show
+  for an appointment and Waiting, Serving and Completed for a queue entry, are
+  the values documented for those columns in the Data Dictionary of Section
+  3.9.
+==============================================================================================================
+
+
+

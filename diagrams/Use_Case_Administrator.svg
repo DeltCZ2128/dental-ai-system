@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1169" height="1654" viewBox="0 0 1169 1654">
+<rect x="0" y="0" width="1169" height="1654" fill="#FFFFFF"/>
+<rect x="200.0" y="40.0" width="929.0" height="1400.0" fill="none" stroke="#000000" stroke-width="1"/>
+<ellipse cx="420.0" cy="100.0" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="420.0" y="100.0" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">Log in</text>
+<ellipse cx="420.0" cy="199.6" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="420.0" y="199.6" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">View clinic dashboard</text>
+<ellipse cx="420.0" cy="299.2" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="420.0" y="299.2" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">Manage patients</text>
+<ellipse cx="420.0" cy="398.8" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="420.0" y="398.8" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">Schedule an appointment</text>
+<ellipse cx="420.0" cy="498.5" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="420.0" y="498.5" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">Update appointment status</text>
+<ellipse cx="420.0" cy="598.1" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="420.0" y="598.1" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">Reschedule appointment</text>
+<ellipse cx="420.0" cy="697.7" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="420.0" y="697.7" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">Manage daily queue</text>
+<ellipse cx="420.0" cy="797.3" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="420.0" y="797.3" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">Register walk-in patient (QR)</text>
+<ellipse cx="420.0" cy="896.9" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="420.0" y="896.9" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">Mark no-show</text>
+<ellipse cx="420.0" cy="996.5" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="420.0" y="996.5" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">Manage appointment concerns</text>
+<ellipse cx="420.0" cy="1096.2" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="420.0" y="1096.2" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">Manage dentists</text>
+<ellipse cx="420.0" cy="1195.8" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="420.0" y="1195.8" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">Manage clinic settings</text>
+<ellipse cx="420.0" cy="1295.4" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="420.0" y="1295.4" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">Generate reports</text>
+<ellipse cx="420.0" cy="1395.0" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="420.0" y="1395.0" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">Send appointment reminder</text>
+<ellipse cx="909.0" cy="100.0" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="909.0" y="100.0" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">Detect schedule conflict</text>
+<ellipse cx="909.0" cy="199.6" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="909.0" y="199.6" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">Check dentist availability</text>
+<ellipse cx="909.0" cy="299.2" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="909.0" y="299.2" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">Manage dentist schedules</text>
+<ellipse cx="909.0" cy="398.8" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="909.0" y="398.8" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">Register day-off</text>
+<ellipse cx="909.0" cy="498.5" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="909.0" y="498.5" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">Manage dental services</text>
+<ellipse cx="909.0" cy="598.1" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="909.0" y="598.1" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">Manage user accounts</text>
+<ellipse cx="909.0" cy="697.7" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="909.0" y="697.7" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">Validate clinic operating hours</text>
+<ellipse cx="909.0" cy="797.3" rx="160.0" ry="28.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="909.0" y="797.3" font-family="Arial" font-size="11" text-anchor="middle" dominant-baseline="middle">Generate AI demand forecast</text>
+<circle cx="70.0" cy="716.9" r="7.7" fill="none" stroke="#000000" stroke-width="1.4"/>
+<line x1="70.0" y1="724.5" x2="70.0" y2="758.3" stroke="#000000" stroke-width="1.4"/>
+<line x1="53.2" y1="734.9" x2="86.8" y2="734.9" stroke="#000000" stroke-width="1.4"/>
+<line x1="70.0" y1="758.3" x2="54.4" y2="781.7" stroke="#000000" stroke-width="1.4"/>
+<line x1="70.0" y1="758.3" x2="85.6" y2="781.7" stroke="#000000" stroke-width="1.4"/>
+<text x="70.0" y="808.5" font-family="Arial" font-size="11" text-anchor="middle" fill="#000000">Clinic Administrator</text>
+<circle cx="70.0" cy="1370.5" r="6.1" fill="none" stroke="#6B7280" stroke-width="1.4"/>
+<line x1="70.0" y1="1376.6" x2="70.0" y2="1403.6" stroke="#6B7280" stroke-width="1.4"/>
+<line x1="56.6" y1="1384.9" x2="83.4" y2="1384.9" stroke="#6B7280" stroke-width="1.4"/>
+<line x1="70.0" y1="1403.6" x2="57.5" y2="1422.4" stroke="#6B7280" stroke-width="1.4"/>
+<line x1="70.0" y1="1403.6" x2="82.5" y2="1422.4" stroke="#6B7280" stroke-width="1.4"/>
+<text x="70.0" y="1447.0" font-family="Arial" font-size="10" text-anchor="middle" fill="#6B7280">Email Service</text>
+<line x1="100.0" y1="747.5" x2="260.0" y2="100.0" stroke="#000000" stroke-width="1"/>
+<line x1="100.0" y1="747.5" x2="260.0" y2="199.6" stroke="#000000" stroke-width="1"/>
+<line x1="100.0" y1="747.5" x2="260.0" y2="299.2" stroke="#000000" stroke-width="1"/>
+<line x1="100.0" y1="747.5" x2="260.0" y2="398.8" stroke="#000000" stroke-width="1"/>
+<line x1="100.0" y1="747.5" x2="260.0" y2="498.5" stroke="#000000" stroke-width="1"/>
+<line x1="100.0" y1="747.5" x2="260.0" y2="598.1" stroke="#000000" stroke-width="1"/>
+<line x1="100.0" y1="747.5" x2="260.0" y2="697.7" stroke="#000000" stroke-width="1"/>
+<line x1="100.0" y1="747.5" x2="260.0" y2="797.3" stroke="#000000" stroke-width="1"/>
+<line x1="100.0" y1="747.5" x2="260.0" y2="896.9" stroke="#000000" stroke-width="1"/>
+<line x1="100.0" y1="747.5" x2="260.0" y2="996.5" stroke="#000000" stroke-width="1"/>
+<line x1="100.0" y1="747.5" x2="260.0" y2="1096.2" stroke="#000000" stroke-width="1"/>
+<line x1="100.0" y1="747.5" x2="260.0" y2="1195.8" stroke="#000000" stroke-width="1"/>
+<line x1="100.0" y1="747.5" x2="260.0" y2="1295.4" stroke="#000000" stroke-width="1"/>
+<line x1="100.0" y1="747.5" x2="260.0" y2="1395.0" stroke="#000000" stroke-width="1"/>
+<line x1="94.0" y1="1395.0" x2="260.0" y2="1395.0" stroke="#000000" stroke-width="1"/>
+<line x1="580.0" y1="398.8" x2="749.0" y2="199.6" stroke="#000000" stroke-width="1" stroke-dasharray="6 4"/>
+<polygon points="749.0,199.6 740.0,195.6 740.0,203.6" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="664.5" y="299.2" font-family="Arial" font-size="9" font-style="italic" text-anchor="middle" dominant-baseline="middle">&amp;lt;&amp;lt;include&amp;gt;&amp;gt;</text>
+<line x1="580.0" y1="598.1" x2="749.0" y2="199.6" stroke="#000000" stroke-width="1" stroke-dasharray="6 4"/>
+<polygon points="749.0,199.6 740.0,195.6 740.0,203.6" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="664.5" y="398.8" font-family="Arial" font-size="9" font-style="italic" text-anchor="middle" dominant-baseline="middle">&amp;lt;&amp;lt;include&amp;gt;&amp;gt;</text>
+<line x1="580.0" y1="398.8" x2="749.0" y2="100.0" stroke="#000000" stroke-width="1" stroke-dasharray="6 4"/>
+<polygon points="749.0,100.0 740.0,96.0 740.0,104.0" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="664.5" y="249.4" font-family="Arial" font-size="9" font-style="italic" text-anchor="middle" dominant-baseline="middle">&amp;lt;&amp;lt;include&amp;gt;&amp;gt;</text>
+<line x1="580.0" y1="1096.2" x2="749.0" y2="299.2" stroke="#000000" stroke-width="1" stroke-dasharray="6 4"/>
+<polygon points="749.0,299.2 740.0,295.2 740.0,303.2" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="664.5" y="697.7" font-family="Arial" font-size="9" font-style="italic" text-anchor="middle" dominant-baseline="middle">&amp;lt;&amp;lt;include&amp;gt;&amp;gt;</text>
+<line x1="909.0" y1="327.2" x2="909.0" y2="370.8" stroke="#000000" stroke-width="1" stroke-dasharray="6 4"/>
+<polygon points="909.0,370.8 900.0,366.8 900.0,374.8" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="909.0" y="349.0" font-family="Arial" font-size="9" font-style="italic" text-anchor="middle" dominant-baseline="middle">&amp;lt;&amp;lt;include&amp;gt;&amp;gt;</text>
+<line x1="580.0" y1="1195.8" x2="749.0" y2="498.5" stroke="#000000" stroke-width="1" stroke-dasharray="6 4"/>
+<polygon points="749.0,498.5 740.0,494.5 740.0,502.5" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="664.5" y="847.1" font-family="Arial" font-size="9" font-style="italic" text-anchor="middle" dominant-baseline="middle">&amp;lt;&amp;lt;include&amp;gt;&amp;gt;</text>
+<line x1="580.0" y1="1195.8" x2="749.0" y2="598.1" stroke="#000000" stroke-width="1" stroke-dasharray="6 4"/>
+<polygon points="749.0,598.1 740.0,594.1 740.0,602.1" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="664.5" y="896.9" font-family="Arial" font-size="9" font-style="italic" text-anchor="middle" dominant-baseline="middle">&amp;lt;&amp;lt;include&amp;gt;&amp;gt;</text>
+<line x1="580.0" y1="1195.8" x2="749.0" y2="697.7" stroke="#000000" stroke-width="1" stroke-dasharray="6 4"/>
+<polygon points="749.0,697.7 740.0,693.7 740.0,701.7" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="664.5" y="946.7" font-family="Arial" font-size="9" font-style="italic" text-anchor="middle" dominant-baseline="middle">&amp;lt;&amp;lt;include&amp;gt;&amp;gt;</text>
+<line x1="580.0" y1="1295.4" x2="749.0" y2="797.3" stroke="#000000" stroke-width="1" stroke-dasharray="6 4"/>
+<polygon points="749.0,797.3 740.0,793.3 740.0,801.3" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="664.5" y="1046.3" font-family="Arial" font-size="9" font-style="italic" text-anchor="middle" dominant-baseline="middle">&amp;lt;&amp;lt;include&amp;gt;&amp;gt;</text>
+</svg>

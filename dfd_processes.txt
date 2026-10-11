@@ -1,0 +1,482 @@
+## DATA FLOW DIAGRAM: Processes 1-5 (Proposed System)
+
+Based on the Dental AI System with dark emerald theming, three dashboards (Admin/Dentist/Patient), QR walk-in flow, and the database structure from dental_ai.sql.
+
+---
+
+### **PROCESS 1: Patient Registration & Login**
+
+**Description:** Handles new patient onboarding and existing patient authentication into the system.
+
+**External Entities:**
+- New Patient (first-time user)
+- Returning Patient (existing user)
+
+**Inputs:**
+- Patient personal information (name, contact, address, birth date)
+- Login credentials (username, password)
+- QR code data (for walk-in patients)
+
+**Outputs:**
+- Patient record creation confirmation
+- Login session token
+- Patient profile dashboard access
+
+**Data Stores Accessed:**
+- `patients_table` (create new record or retrieve existing)
+- `users_table` (authenticate login)
+- `clinic_services` (available service list for new patients)
+
+**Process Flow:**
+```
+NEW PATIENT FLOW:
+1. Enter patient data → 2. Validate required fields → 
+3. Generate patient_number (PAT-YYYYMMDDXXX) → 
+4. Create records in patients_table + users_table → 
+5. Send welcome notification → 
+6. Display dashboard access → END
+
+RETURNING PATIENT FLOW:
+1. Enter login credentials → 2. Validate against users_table →
+3. Retrieve patient record from patients_table →
+4. Check role and permissions → 
+5. Navigate to appropriate dashboard → END
+```
+
+**DFD Diagram Text for draw.io:**
+```
++==========================+
+|   PROCESS 1: Patient     |
+|   Registration & Login   |
++==========================+
+|                          |
+|  EXTERNAL ENTITIES:      |
+|  │                     |
+|  ├── New Patient         │
+|  │  (input: personal data)│
+|  │                     |
+|  └── Returning Patient   │
+|     (input: login credentials)│
+|                          |
+|  DATA FLOWS:             |
+|  │                     |
+|  │  Patient data         │→ patients_table (INSERT)  |
+|  │  Login credentials    │→ users_table (SELECT)      |
+|  │  Patient record       │← patients_table (SELECT)     |
+|  │  Welcome message      │→ notifications (INSERT)    |
+|  │  Dashboard access     │→ user session                |
+|                          |
+|  OUTPUTS:                |
+|  │                     |
+|  │  New patient record  │ (patient_number generated)|
+|  │  Login authenticated │ (role-based access)        |
+|  │  Dashboard navigation│ (admin/dentist/patient)      |
+|  │  Welcome notification│ (sent to patient)            |
+|                          |
++==========================+
+```
+
+---
+
+### **PROCESS 2: Appointment Scheduling**
+
+**Description:** Manages the booking of dental appointments with dentist assignment and queue entry.
+
+**External Entities:**
+- Patient (appointed or walk-in)
+- Dentist (availability checker)
+- Admin (system oversight)
+
+**Inputs:**
+- Patient ID (from login or QR scan)
+- Preferred date and time
+- Service type (from clinic_services list)
+- Dentist preference/specialization
+
+**Outputs:**
+- Appointment confirmation with date/time
+- Queue number assignment (if walk-in)
+- Reminder notifications setup
+
+**Data Stores Accessed:**
+- `appointments_table` (create new appointment)
+- `patients_table` (verify patient exists)
+- `dentists_table` (check availability)
+- `queue_table` (add walk-in patients)
+- `clinic_services` (get service duration and details)
+
+**Process Flow:**
+```
+APPOINTMENT SCHEDULING FLOW:
+1. Select appointment date/time → 
+2. Choose service type → 
+3. Check dentist availability → 
+4. If walk-in: assign queue_number → 
+5. Create appointment record → 
+6. Add to queue (if applicable) → 
+7. Generate confirmation → 
+8. Send reminder notification → 
+9. Display success screen → END
+
+WALK-IN PATH:
+1. QR scan OR manual entry → 
+2. Select service type → 
+3. Get queue number → 
+4. Wait for dentist assignment → 
+5. Proceed to queue position → END
+```
+
+**DFD Diagram Text for draw.io:**
+```
++==========================+
+|   PROCESS 2: Appointment |
+|   Scheduling             |
++==========================+
+|                          |
+|  EXTERNAL ENTITIES:      |
+|  │                     |
+|  ├── Patient (appointed) │
+|  │  (input: date/time prefs)│
+|  │                     |
+|  ├── Patient (walk-in)   │
+|  │  (input: QR code or manual)│
+|  │                     |
+|  └── Dentist             │
+     (input: availability)│
+|                          |
+|  DATA FLOWS:             |
+|  │                     |
+|  │  Appointment details  │→ appointments_table (INSERT)   |
+|  │  Patient ID           │→ patients_table (VERIFY)       |
+|  │  Dentist ID           │→ dentists_table (CHECK AVAIL)    |
+|  │  Queue number         │→ queue_table (INSERT, if walk-in)|
+|  │  Service type         │→ clinic_services (GET DURATION)  |
+|  │  Confirmation number  │→ notifications (INSERT, reminder)|
+|                          |
+|  OUTPUTS:                |
+|  │                     |
+|  │  Appointment confirmed│ (date, time, dentist assigned)   |
+|  │  Queue position       │ (for walk-ins: #XX in queue)     |
+|  │  Reminder set         │ (automated notification schedule)  |
+|  │  Patient notification │ (SMS/email confirmation)          |
+|                          |
++==========================+
+```
+
+---
+
+### **PROCESS 3: Queue Management**
+
+**Description:** Handles the walking queue system for walk-in patients, including priority ranking and service type classification.
+
+**External Entities:**
+- Walk-in Patient (scanning QR or manual registration)
+- Dentist (receiving patients from queue)
+- Admin (monitoring queue status)
+
+**Inputs:**
+- Patient ID (from QR code or manual form)
+- Service type (General, Ortho, Surgery, Cosmetic, etc.)
+- Priority level (Normal, Priority, Emergency)
+- Queue date
+
+**Outputs:**
+- Queue position display (number + estimated wait)
+- Service type assignment
+- Priority re-ordering
+- Next patient notification to dentist
+
+**Data Stores Accessed:**
+- `queue_table` (INSERT new entry, UPDATE status)
+- `patients_table` (VERIFY patient existence)
+- `clinic_services` (GET service duration by type)
+- `dentist_schedules` (CHECK available slots)
+
+**Process Flow:**
+```
+QUEUE MANAGEMENT FLOW:
+1. Patient arrives → 2. Scan QR code OR manual registration → 
+3. Select service type from list → 
+4. Assign queue_number (sequential) → 
+5. Set priority (based on service + emergency flags) → 
+6. Update queue status → "Waiting" → 
+7. Calculate estimated wait time → 
+8. Display: "You are #XX in queue, wait ~YY minutes" → 
+9. Dentist: "Serve next patient" → 
+10. UPDATE queue status → "In-Progress" → 
+11. Patient proceeds to dentist → 
+12. UPDATE queue status → "Completed/Cancelled" → END
+
+EMERGENCY PATH:
+1. Emergency flag detected → 
+2. Bypass normal queue order → 
+3. Assign Priority status → 
+4. Immediate dentist assignment → 
+5. Send emergency notification → 
+6. Patient seen immediately → END
+```
+
+**DFD Diagram Text for draw.io:**
+```
++==========================+
+|   PROCESS 3: Queue       |
+|   Management             |
++==========================+
+|                          |
+|  EXTERNAL ENTITIES:      |
+|  │                     |
+|  ├── Walk-in Patient     │
+|  │  (input: QR code or manual)│
+|  │                     |
+|  ├── Dentist            │
+|  │  (input: serve next)   │
+|  │                     |
+|  └── Admin              │
+     (input: monitor queue)│
+|                          |
+|  DATA FLOWS:             |
+|  │                     |
+|  │  QR code data         │→ queue_table (INSERT)     |
+|  │  Patient info          │→ patients_table (VERIFY)    |
+|  │  Service type          │→ clinic_services (LOOKUP)   |
+|  │  Queue number          │→ queue_table (ASSIGN)       |
+|  │  Priority level        │→ queue_table (SET)          |
+|  │  Wait time calculation │→ computed display             |
+|  │  Next patient          │→ dentist dashboard          |
+|  │  Queue status update   │→ queue_table (UPDATE)       |
+|                          |
+|  OUTPUTS:                |
+|  │                     |
+|  │  Queue position       │ ("You are #XX in queue")   |
+|  │  Estimated wait time  │ (minutes based on priority)    |
+|  │  Service type icon    │ (color-coded: General, etc.)   |
+|  │  Priority badge       │ (Normal/Priority/Emergency)    |
+|  │  Dentist notification │ ("Next patient: #YY")          |
+|  │  Queue removal        │ (status: Completed/Cancelled)  |
+|                          |
++==========================+
+```
+
+---
+
+### **PROCESS 4: Dentist Assignment & Treatment**
+
+**Description:** Routes patients to available dentists based on specialty, manages appointment flow, and tracks treatment progress.
+
+**External Entities:**
+- Patient (being treated)
+- Dentist (performing treatment)
+- Admin (overseeing quality and scheduling)
+
+**Inputs:**
+- Patient ID and queue position
+- Service type and complexity
+- Dentist availability and specialization
+- Appointment status (Scheduled/In-Progress/Completed)
+
+**Outputs:**
+- Patient-dentist matching
+- Treatment progress tracking
+- Appointment status updates
+- Post-treatment notifications
+
+**Data Stores Accessed:**
+- `appointments_table` (UPDATE status)
+- `dentists_table` (CHECK availability + specialization match)
+- `queue_table` (UPDATE patient status)
+- `appointment_concerns` (CREATE if issues arise)
+- `admin_notifications` (CREATE if concerns flagged)
+
+**Process Flow:**
+```
+DENTIST ASSIGNMENT FLOW:
+1. Dentist available → 2. Check queue for next patient → 
+3. Match patient by service_type → 
+4. Assign dentist_id to appointment → 
+5. UPDATE appointment status → "In-Progress" → 
+6. Patient meets dentist → 
+7. Treatment performed → 
+8. UPDATE status → "Completed" → 
+9. Create post-treatment note → 
+10. Send completion notification → patient → 
+11. UPDATE queue → "Completed" → 
+12. END
+
+CONCERN PATH:
+1. Patient reports issue → 2. Create appointment_concern → 
+3. SET status → "New" → 
+4. Admin reviews concern → 
+5. RESPOND to patient → 
+6. UPDATE status → "Reviewed" → 
+7. Reschedule or close concern → END
+```
+
+**DFD Diagram Text for draw.io:**
+```
++==========================+
+|   PROCESS 4: Dentist     |
+|   Assignment & Treatment |
++==========================+
+|                          |
+|  EXTERNAL ENTITIES:      |
+|  │                     |
+|  ├── Patient             │
+|  │  (input: treatment status)│
+|  │                     |
+|  ├── Dentist            │
+|  │  (input: available/busy)│
+|  │                     |
+|  └── Admin              │
+     (input: review concerns)│
+|                          |
+|  DATA FLOWS:             |
+|  │                     |
+|  │  Patient ID           │→ appointments_table (UPDATE status)   |
+|  │  Service type         │→ dentists_table (MATCH SPECIALTY)   |
+|  │  Dentist ID           │→ assigned to appointment            |
+|  │  Treatment status     │→ updated: Scheduled→In-Progress→Completed|
+|  │  Appointment concerns │→ appointment_concerns (INSERT if needed)|
+|  │  Notifications        │→ admin_notifications + patient notifications|
+|                          |
+|  OUTPUTS:                |
+|  │                     |
+|  │  Patient-dentist match│ (by specialization)                 |
+|  │  Treatment in progress│ (status badge, timer)               |
+|  │  Completion notice    │ (sent to patient)                   |
+|  │  Concern flagged      │ (if patient reports issue)          |
+|  │  Appointment updated  │ (status flow: Scheduled→In-Progress→Completed)|
+|                          |
++==========================+
+```
+
+---
+
+### **PROCESS 5: Notification & Reporting**
+
+**Description:** Sends notifications to patients/admin, generates reports for clinic management, and handles filter-based views.
+
+**External Entities:**
+- Patient (receives notifications)
+- Admin (views reports and monitors system)
+- Dentist (receives patient-specific updates)
+
+**Inputs:**
+- Notification type (Appointment Concern, Confirmation, Reminder, etc.)
+- Patient ID or appointment ID
+- Filter criteria (date range, status, category, priority)
+- Report type (appointments, queue, revenue, patient stats)
+
+**Outputs:**
+- Colored notification cards (based on type)
+- Filtered report displays
+- Count summaries with category colors
+- Export/download options
+
+**Data Stores Accessed:**
+- `admin_notifications` (INSERT new notifications, UPDATE is_read)
+- `notifications` (INSERT, SELECT by patient_id)
+- `appointments_table` (filter by date/status)
+- `queue_table` (filter by priority/status)
+- `appointment_concerns` (filter by status: New/Reviewed)
+- `patients_table` (get patient counts, demographics)
+
+**Process Flow:**
+```
+NOTIFICATION FLOW:
+1. Trigger event (appointment, concern, reminder) → 
+2. Determine notification TYPE → 
+3. MAP TYPE TO COLOR → 
+   • Appointment → Blue (#318ce7)
+   • Concern → Orange (#fd7e14)
+   • Confirmed → Green (#28a745)
+   • Completed → Green (#28a745)
+   • Reschedule → Orange (#fd7e14)
+   • Reminder → Yellow (#ffc107)
+   • Cancelled → Red (#dc3545)
+   • No-Show → Dark Gray (#6c757d)
+4. CREATE record in admin_notifications/notifications → 
+5. Send to patient dashboard → 
+6. Display with color-coded badge → 
+7. Patient marks as read → 
+8. UPDATE is_read → 1 → 
+9. Report counts update → END
+
+REPORTING FLOW:
+1. Admin selects report type → 
+2. Apply filters (date range, status, category) → 
+3. Query relevant tables → 
+4. Generate summary statistics → 
+5. Display with emerald-themed charts/KPIs → 
+6. Export options (PDF/CSV) → 
+7. END
+```
+
+**DFD Diagram Text for draw.io:**
+```
++==========================+
+|   PROCESS 5: Notification|
+|   & Reporting            |
++==========================+
+|                          |
+|  EXTERNAL ENTITIES:      |
+|  │                     |
+|  ├── Patient            │
+|  │  (input: receive notifications)│
+|  │                     |
+|  ├── Admin              │
+|  │  (input: generate reports)│
+|  │                     |
+|  └── Dentist            │
+     (input: patient updates)│
+|                          |
+|  DATA FLOWS:             |
+|  │                     |
+|  │  Notification type    │→ determined by event           |
+|  │  Patient ID           │→ targeted delivery               |
+|  │  Appointment ID       │→ linked record reference         |
+|  │  Filter criteria      │→ date range, status, category    |
+|  │  Report data          │→ from appointments/queue/concerns|
+|  │  Color code           │→ type mapping (see below)        |
+|  │  Read status          │→ is_read flag (0/1)              |
+|                          |
+|  OUTPUTS:                |
+|  │                     |
+|  │  Color-coded notification │ (badge color by type)             |
+|  │  Inbox with filters      │ (search by date, type, status)    |
+|  │  Summary counts          │ (with category colors)            |
+|  │  Report dashboard        │ (emerald-themed KPI cards)        |
+|  │  Export data             │ (PDF/CSV download)                |
+|                          |
+|  NOTIFICATION TYPE → COLOR MAPPING:                     |
+|  │  Appointment        → Blue (#318ce7)                 |
+|  │  Appointment Concern → Orange (#fd7e14)            |
+|  │  Confirmed          → Green (#28a745)                |
+|  │  Completed          → Green (#28a745)                |
+|  │  Reschedule         → Orange (#fd7e14)             |
+|  │  Reminder           → Yellow (#ffc107)               |
+|  │  Cancelled          → Red (#dc3545)                  |
+|  │  No-Show            → Dark Gray (#6c757d)              |
+|                          |
++==========================+
+```
+
+---
+
+## SUMMARY: DFD Processes 1-5 (Proposed System)
+
+| Process | Focus | Key Data Stores | New Features |
+|---------|-------|-----------------|--------------|
+| **1** | Patient Registration & Login | patients_table, users_table | QR walk-in integration, role-based dashboard access |
+| **2** | Appointment Scheduling | appointments_table, queue_table | service_type classification, queue entry for walk-ins |
+| **3** | Queue Management | queue_table, clinic_services | Priority ranking, service type, emergency bypass |
+| **4** | Dentist Assignment | appointments_table, dentists_table | Specialty matching, concern flagging, status tracking |
+| **5** | Notifications & Reporting | admin_notifications, notifications, all tables | Color-coded badges, filter system, emerald-themed reports |
+
+**Color Theme Application:**
+- All process boxes: `#064e3b` (emerald medium)
+- Decision points: `#059669` (emerald light)
+- Emergency paths: `#dc3545` (red accent)
+- Start/End ovals: `#022c22` (dark emerald)
+- Text: white where possible, or appropriate contrast colors
+
+**For draw.io:** Copy each process section above and paste into separate draw.io pages or frames. Use the color codes specified for consistency with your system's dark emerald theme.

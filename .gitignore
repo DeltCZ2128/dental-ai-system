@@ -1,0 +1,11 @@
+.venv/
+ngrok.exe
+*.docx
+~$*
+.DS_Store
+Thumbs.db
+backup_*/
+*.log
+*.tmp
+__pycache__/
+*.pyc

@@ -1,0 +1,670 @@
+<?php
+
+require_once __DIR__ . '/../config.php';
+
+if (!isset($_SESSION['user_id'])) {
+    header('Location: ../login.php');
+    exit;
+}
+
+$message = '';
+$messageType = 'success';
+$savedEdit = false;
+
+
+/*
+|--------------------------------------------------------------------------
+| CROSS-SITE REQUEST FORGERY CHECK
+|--------------------------------------------------------------------------
+| Every request that changes data is compared with the token held in the
+| session before any handler of this page runs. A submission that carries
+| no token, or a token that does not match, is refused.
+*/
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCsrf();
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+    $firstName = trim($_POST['first_name'] ?? '');
+    $middleName = trim($_POST['middle_name'] ?? '');
+    $lastName = trim($_POST['last_name'] ?? '');
+    $contactNumber = trim($_POST['contact_number'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+
+    if ($action === 'delete') {
+        $deleteId = (int) ($_POST['patient_id'] ?? 0);
+        if ($deleteId <= 0) {
+            $message = 'Invalid patient selected.';
+            $messageType = 'danger';
+        } else {
+            try {
+                $checkStmt = $pdo->prepare('SELECT id FROM patients WHERE id = ? LIMIT 1');
+                $checkStmt->execute([$deleteId]);
+                if (!$checkStmt->fetchColumn()) {
+                    $message = 'Patient not found.';
+                    $messageType = 'danger';
+                } else {
+                    /* Walang FK ang ibang related tables kaya linisin muna bago burahin ang patient. */
+                    foreach (['appointment_concerns', 'admin_notifications'] as $relatedTable) {
+                        try {
+                            $pdo->prepare("DELETE FROM {$relatedTable} WHERE patient_id = ?")->execute([$deleteId]);
+                        } catch (PDOException $e) {
+                        }
+                    }
+                    /* Appointments, queue, notifications, medical records: ON DELETE CASCADE. */
+                    $delStmt = $pdo->prepare('DELETE FROM patients WHERE id = ?');
+                    $delStmt->execute([$deleteId]);
+                    $message = 'Patient deleted successfully.';
+                }
+            } catch (PDOException $e) {
+                $message = 'Unable to delete patient. The record may be linked to other data.';
+                $messageType = 'danger';
+            }
+        }
+    } elseif ($firstName === '' || $lastName === '') {
+        $message = 'First name and last name are required.';
+        $messageType = 'danger';
+    } else {
+        try {
+            if ($action === 'edit') {
+                $stmt = $pdo->prepare("
+                    UPDATE patients
+                    SET first_name = ?, middle_name = ?, last_name = ?,
+                        contact_number = ?, email = ?
+                    WHERE id = ?
+                ");
+                $stmt->execute([
+                    $firstName,
+                    $middleName,
+                    $lastName,
+                    $contactNumber,
+                    $email,
+                    (int) ($_POST['patient_id'] ?? 0)
+                ]);
+                $message = 'Patient information updated successfully.';
+                $savedEdit = true;
+            } else {
+                $patientNumber = 'PAT-' . date('YmdHis') . random_int(10, 99);
+                $stmt = $pdo->prepare("
+                    INSERT INTO patients
+                    (patient_number, first_name, middle_name, last_name, contact_number, email)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([
+                    $patientNumber,
+                    $firstName,
+                    $middleName,
+                    $lastName,
+                    $contactNumber,
+                    $email
+                ]);
+                $message = 'Patient added successfully.';
+            }
+        } catch (PDOException $e) {
+            $message = 'Unable to save patient information.';
+            $messageType = 'danger';
+        }
+    }
+}
+
+$search = trim($_GET['search'] ?? '');
+$searchLike = '%' . $search . '%';
+
+/* Scroll slide — buong listahan ang kinukuha, 10 ang kita sa scroll box. */
+$page = max(1, (int) ($_GET['page'] ?? 1));
+
+$stmt = $pdo->prepare("
+    SELECT p.*
+    FROM patients p
+    LEFT JOIN users u ON u.id = p.user_id
+    WHERE (u.id IS NULL OR u.role = 'patient')
+      AND LOWER(TRIM(CONCAT(p.first_name,' ',p.last_name))) != 'admin admin'
+      AND LOWER(TRIM(p.first_name)) != 'admin'
+      AND (
+        CONCAT(p.first_name, ' ', p.last_name) LIKE ?
+        OR p.contact_number LIKE ?
+        OR p.email LIKE ?
+      )
+    ORDER BY p.id ASC
+");
+$stmt->execute([$searchLike, $searchLike, $searchLike]);
+$patients = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+function patientPageUrl($pageNum, $searchTerm)
+{
+    $params = [];
+    if ($searchTerm !== '') {
+        $params['search'] = $searchTerm;
+    }
+    $params['page'] = max(1, (int) $pageNum);
+    return 'patients.php?' . http_build_query($params);
+}
+
+$selectedPatient = null;
+$history = [];
+$viewId = (int) ($_GET['view'] ?? 0);
+
+if ($viewId > 0) {
+    $stmt = $pdo->prepare('SELECT * FROM patients WHERE id = ? LIMIT 1');
+    $stmt->execute([$viewId]);
+    $selectedPatient = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($selectedPatient) {
+        $stmt = $pdo->prepare("
+            SELECT a.*, d.dentist_name
+            FROM appointments a
+            LEFT JOIN dentists d ON d.id = a.dentist_id
+            WHERE a.patient_id = ?
+            ORDER BY a.appointment_date DESC, a.start_time DESC
+        ");
+        $stmt->execute([$viewId]);
+        $history = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+}
+
+$editPatient = null;
+$editId = (int) ($_GET['edit'] ?? 0);
+if ($editId > 0 && empty($savedEdit)) {
+    $stmt = $pdo->prepare('SELECT * FROM patients WHERE id = ? LIMIT 1');
+    $stmt->execute([$editId]);
+    $editPatient = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+}
+
+function patientPageEscape($value)
+{
+    return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patients | Abalos Dental Clinic</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/style.css?v=2">
+    <style>
+        body { background: linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22) !important; background-size: 300% 300% !important; animation: adminBgAnim 8s ease infinite !important; background-attachment: fixed !important; }
+@keyframes adminBgAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        .shared-sidebar { display: none !important; }
+        .shared-topbar { left: 0 !important; right: 0 !important; background:#ffffff!important;border-bottom:1px solid #e8eef2!important; }
+        /* Tulad sa dentist appointment topbar - date at clinic time */
+        .shared-topbar .admin-area{display:flex!important;align-items:center!important;gap:16px!important;}
+        .admin-topbar-today{display:flex;align-items:center;gap:10px;color:#244f60;}
+        .admin-topbar-today i{font-size:22px;}
+        .admin-topbar-today strong{display:block;font-size:13px;font-weight:800;line-height:1.2;}
+        .admin-topbar-today small{display:block;font-size:11px;opacity:.85;font-weight:600;}
+        .admin-topbar-time{display:flex;align-items:center;gap:10px;color:#244f60;border-left:1px solid #e8eef2;padding-left:16px;}
+        .admin-topbar-time i{font-size:22px;}
+        .admin-topbar-time strong{display:block;font-size:13px;font-weight:800;line-height:1.2;}
+        .admin-topbar-time small{display:block;font-size:11px;opacity:.85;font-weight:600;font-variant-numeric:tabular-nums;}
+        .patients-page { margin-left: 0 !important; width: 100% !important; padding: 110px 24px 40px !important; background: transparent !important; min-height: 100vh; }
+        .patients-page > .mb-3 { margin-left: 14px; margin-right: 14px; }
+        .patients-page > .alert { margin-left: 14px; margin-right: 14px; font-size: 13.5px; border-radius: 12px; }
+        .patients-head { margin: 0 14px 16px 14px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
+        .patients-head h1 { color: #ffffff !important; font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; margin: 0; }
+        .patients-head p { margin: 4px 0 0; color: #C9E9DA; font-size: 13px; }
+        /* Patient panel — katulad ng patient My Appointments white card na table */
+        .patient-panel {
+            background: #ffffff !important;
+            border: 1px solid #C9E9DA !important;
+            border-radius: 16px !important;
+            overflow: hidden !important;
+            box-shadow: 0 8px 24px rgba(14,107,94,.08) !important;
+            padding: 0 !important;
+            min-height: auto !important;
+            margin: 0 14px 24px 14px !important;
+        }
+        .patient-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 18px 20px;
+            background: linear-gradient(135deg, #D9F2E6 0%, #EAF7F0 100%);
+            border-bottom: 1px solid #C9E9DA;
+        }
+        .patient-panel-header h2 {
+            color: #143f51 !important;
+            font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+            font-size: 17px !important;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .patient-panel-header h2 i { color: #0E6B5E; font-size: 18px; }
+        .patient-panel-header p { margin: 3px 0 0 26px; color: #8aa0a8; font-size: 12px; }
+        .patient-panel .table-responsive { min-height: auto; }
+        .patient-panel form.row { padding: 16px 20px 0 20px; }
+        /* Info rows inside selected patient panel */
+        .patient-panel .row.g-3.small { padding: 0 20px; }
+        .patient-panel .d-flex.justify-content-between.mb-3 { padding: 0 20px; margin-top: 16px; }
+        .patient-panel h3.h6 { padding: 0 20px; color: #143f51 !important; font-weight: 800; }
+        /* Table — gaya sa patient My Appointments */
+        .patient-table { margin-bottom: 0 !important; width: 100%; border-collapse: separate; border-spacing: 0; background: #ffffff; }
+        .patient-table thead tr { background: linear-gradient(135deg, #0E6B5E, #0A4A41) !important; }
+        .patient-table thead th {
+            background: transparent !important;
+            color: #ffffff !important;
+            font-size: 11.5px !important;
+            font-family: "Inter", system-ui, sans-serif;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            white-space: nowrap;
+            padding: 14px 16px !important;
+            border-bottom: none !important;
+            border-right: 1px solid rgba(255,255,255,.12) !important;
+        }
+        .patient-table thead th:last-child { border-right: none !important; }
+        .patient-table tbody td {
+            padding: 14px 16px !important;
+            color: #4d6873 !important;
+            font-size: 13.5px !important;
+            font-family: "Inter", "DM Sans", system-ui, sans-serif;
+            vertical-align: middle;
+            background: #ffffff;
+            border-bottom: 1px solid #E6F2EC !important;
+        }
+        .patient-table tbody tr:nth-child(even) td { background: #F6FBF8 !important; }
+        .patient-table tbody tr:hover td { background: #EAF7F0 !important; }
+        .patient-table .patient-name { color: #143f51 !important; font-weight: 700; font-size: 13.5px !important; }
+        .patient-status { background: linear-gradient(135deg, #149A72, #0A4A41) !important; color: #fff !important; border-radius: 20px; padding: 6px 11px !important; font-size: 11.5px !important; font-family: "Inter", system-ui, sans-serif; font-weight: 700; }
+        .history-status { border-radius: 20px; padding: 6px 11px !important; font-size: 11.5px !important; font-family: "Inter", system-ui, sans-serif; font-weight: 700; background: #EAF7F0 !important; color: #0E6B5E !important; border: 1px solid #C9E9DA !important; }
+        .history-status.pending { background: #0E6B5E !important; color: #fff !important; border-color: #0A4A41 !important; }
+        .history-status.cancelled { background: #ef4444 !important; color: #fff !important; border-color: #dc2626 !important; }
+        .patient-table tbody tr:last-child td:first-child { border-bottom-left-radius: 16px; }
+        .patient-table tbody tr:last-child td:last-child { border-bottom-right-radius: 16px; }
+        .patients-page .btn-primary { background: linear-gradient(135deg, #149A72, #0A4A41) !important; border: none !important; border-radius: 8px; box-shadow: 0 6px 14px rgba(14,107,94,.22); font-weight: 700; }
+        .patients-page .btn-primary:hover { background: linear-gradient(135deg, #0E6B5E, #083A32) !important; }
+        .patients-page .btn-outline-primary { color: #0E6B5E !important; border-color: #C9E9DA !important; background: #fff !important; }
+        .patients-page .btn-outline-primary:hover { background: #EAF7F0 !important; color: #0E6B5E !important; border-color: #0E6B5E !important; }
+        .patients-page .btn-outline-secondary { color: #57727d !important; border-color: #D1E7DD !important; background: #fff !important; }
+        .patients-page .btn-outline-secondary:hover { background: #EAF7F0 !important; color: #0E6B5E !important; border-color: #0E6B5E !important; }
+        .patients-page .btn-light { background: #fff !important; border: 1px solid #D1E7DD !important; color: #57727d !important; }
+        .patients-page .table-responsive { min-height: auto; }
+        /* Readable details */
+        .patients-page .small,
+        .patient-panel .small,
+        .patient-panel .text-muted.small { font-size: 13.5px !important; font-family: "Inter", "DM Sans", system-ui, sans-serif; }
+        .patients-page .row.g-3.small { font-size: 13.5px; }
+        .patients-page .row.g-3.small strong { font-size: 11.5px; color: #8aa0a8; font-family: "Inter", system-ui, sans-serif; text-transform: uppercase; letter-spacing: .4px; }
+        .patients-page .form-control { font-size: 13.5px; font-family: "Inter", "DM Sans", system-ui, sans-serif; border-radius: 10px; border: 1px solid #D1E7DD; }
+        .patients-page .form-label { font-size: 12.5px; font-family: "Inter", system-ui, sans-serif; font-weight: 700; color: #4d6873; }
+        .patients-page .alert { font-size: 13.5px; font-family: "Inter", system-ui, sans-serif; border-radius: 12px; }
+        .patients-page .btn { font-size: 13.5px; }
+        .patients-page .btn-sm { font-size: 12.5px; }
+        .patients-page .modal-content { border-radius: 16px !important; border: 1px solid #C9E9DA !important; overflow: visible !important; }
+        .patients-page .modal-header { background: linear-gradient(135deg, #D9F2E6 0%, #EAF7F0 100%) !important; border-bottom: 1px solid #C9E9DA !important; border-top-left-radius: 15px !important; border-top-right-radius: 15px !important; }
+        .patients-page .modal-footer { border-bottom-left-radius: 15px !important; border-bottom-right-radius: 15px !important; }
+        .patients-page .modal-title { font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif; font-size: 18px; font-weight: 800; color: #143f51; }
+        .patient-table .text-muted { font-size: 13px !important; }
+        /* Scroll slide — green scrollbar, 10 ang kita */
+        .admin-patient-scroll {
+            overflow: auto;
+            max-height: 640px;
+            scrollbar-width: thin;
+            scrollbar-color: #149A72 #DFF2E9;
+        }
+        .admin-patient-scroll::-webkit-scrollbar {
+            width: 10px;
+        }
+        .admin-patient-scroll::-webkit-scrollbar-track {
+            background: #DFF2E9;
+            border-radius: 8px;
+        }
+        .admin-patient-scroll::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #149A72, #0A4A41);
+            border-radius: 8px;
+        }
+        .admin-patient-scroll::-webkit-scrollbar-thumb:hover {
+            background: #0E6B5E;
+        }
+        .admin-patient-scroll thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: linear-gradient(135deg, #0E6B5E, #0A4A41) !important;
+        }
+        @media (max-width: 991px) { .patients-page { padding: 25px 16px 40px !important; } .patient-panel { margin-left: 0 !important; margin-right: 0 !important; } }
+    </style>
+</head>
+<body>
+
+<?php include __DIR__ . '/includes.php'; ?>
+
+<div class="patients-page">
+    <div class="mb-3" style="display:block !important;">
+        <a href="dashboard.php" class="btn btn-secondary btn-sm js-close-tab" style="display:inline-block !important;" data-tip="Back to Dashboard">
+            <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+        </a>
+    </div>
+
+    <?php if ($message !== ''): ?>
+        <div class="alert alert-<?= patientPageEscape($messageType) ?>">
+            <?= patientPageEscape($message) ?>
+        </div>
+    <?php endif; ?>
+
+    <?php if ($selectedPatient): ?>
+        <div class="modal fade" id="patientViewModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="bi bi-eye me-1" style="color:#0E6B5E;"></i>Patient Information</h5>
+                        <a href="<?= patientPageEscape(patientPageUrl($page, $search)) ?>" class="btn-close" aria-label="Close"></a>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3 small mb-3">
+                            <div class="col-md-3"><strong>Patient ID</strong><br><?= patientPageEscape($selectedPatient['patient_number'] ?? $selectedPatient['id']) ?></div>
+                            <div class="col-md-3"><strong>Name</strong><br><?= patientPageEscape($selectedPatient['first_name'] . ' ' . $selectedPatient['middle_name'] . ' ' . $selectedPatient['last_name']) ?></div>
+                            <div class="col-md-3"><strong>Contact</strong><br><?= patientPageEscape($selectedPatient['contact_number']) ?></div>
+                            <div class="col-md-3"><strong>Email</strong><br><?= patientPageEscape($selectedPatient['email']) ?></div>
+                        </div>
+                        <h3 class="h6 mt-3">Appointment History</h3>
+                        <?php if (empty($history)): ?>
+                            <p class="text-muted small mb-0">No appointment history found.</p>
+                        <?php else: ?>
+                            <div class="table-responsive">
+                                <table class="table patient-table mb-0">
+                                    <thead><tr><th>Date of Appointment</th><th>Time of Appointment</th><th>Assigned Dentist</th><th>Dental Service</th><th>Status</th></tr></thead>
+                                    <tbody>
+                                    <?php foreach ($history as $appointment): ?>
+                                        <tr>
+                                            <td><?= patientPageEscape($appointment['appointment_date']) ?></td>
+                                            <td><?= patientPageEscape(date('h:i A', strtotime($appointment['start_time']))) ?></td>
+                                            <td><?= patientPageEscape($appointment['dentist_name']) ?></td>
+                                            <td><?= patientPageEscape($appointment['service_type']) ?></td>
+                                            <td><span class="history-status <?= strtolower(patientPageEscape($appointment['status'])) ?>"><?= patientPageEscape($appointment['status']) ?></span></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                    <div class="modal-footer">
+                        <a href="dashboard.php" class="btn btn-secondary btn-sm js-close-tab" data-tip="Back to Dashboard"><i class="bi bi-arrow-left me-1"></i>Back to Dashboard</a>
+                        <a href="<?= patientPageEscape(patientPageUrl($page, $search)) ?>" class="btn btn-light" data-tip="Close">Close</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <div class="patient-panel">
+        <div class="patient-panel-header">
+            <div>
+                <h2><i class="bi bi-people-fill"></i> Patient List</h2>
+                <p>View and manage registered dental patients.</p>
+            </div>
+        </div>
+
+        <form method="GET" class="row g-2 mb-4">
+            <div class="col-md-8"><input type="search" name="search" value="<?= patientPageEscape($search) ?>" class="form-control" placeholder="Search patient name, contact, or email"></div>
+            <div class="col-auto"><button class="btn btn-outline-primary" data-tip="Search"><i class="bi bi-search"></i> Search</button></div>
+            <?php if ($search !== ''): ?><div class="col-auto"><a href="patients.php" class="btn btn-light" data-tip="Clear">Clear</a></div><?php endif; ?>
+        </form>
+
+        <div class="table-responsive admin-patient-scroll" id="adminPatientListWrap">
+            <table class="table patient-table align-middle" id="patientListTable">
+                <thead><tr><th>#</th><th>Patient ID</th><th>Patient</th><th>Email</th><th>Contact</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody>
+                <?php if (empty($patients)): ?>
+                    <tr><td colspan="7" class="text-center text-muted py-4">No patients found.</td></tr>
+                <?php else: ?>
+                    <?php foreach ($patients as $idx => $patient): ?>
+                        <tr>
+                            <td><?= ($idx + 1) ?></td>
+                            <td><?= patientPageEscape($patient['patient_number'] ?? $patient['id']) ?></td>
+                            <td class="patient-name"><?= patientPageEscape($patient['first_name'] . ' ' . $patient['last_name']) ?></td>
+                            <td><?= patientPageEscape($patient['email'] !== '' ? $patient['email'] : '—') ?></td>
+                            <td><?= patientPageEscape($patient['contact_number']) ?></td>
+                            <td><span class="patient-status">Active</span></td>
+                            <td class="text-nowrap">
+                                <div class="d-inline-flex gap-1 flex-wrap">
+                                    <a href="<?= patientPageEscape('patients.php?' . http_build_query(array_filter(['view' => (int) $patient['id'], 'page' => $page, 'search' => $search !== '' ? $search : null]))) ?>" class="btn btn-sm btn-outline-primary" data-tip="View Patient Details"><i class="bi bi-eye"></i> View</a>
+                                    <a href="<?= patientPageEscape('patients.php?' . http_build_query(array_filter(['edit' => (int) $patient['id'], 'page' => $page, 'search' => $search !== '' ? $search : null]))) ?>" class="btn btn-sm btn-outline-secondary" data-tip="Edit Patient"><i class="bi bi-pencil"></i> Edit</a>
+                                    <form method="POST" class="d-inline js-delete-patient-form" data-patient-name="<?= patientPageEscape($patient['first_name'] . ' ' . $patient['last_name']) ?>">
+                                        <?= csrfField() ?>
+                                        <input type="hidden" name="action" value="delete">
+                                        <input type="hidden" name="patient_id" value="<?= (int) $patient['id'] ?>">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" data-tip="Delete Patient"><i class="bi bi-trash"></i> Delete</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="patientModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST">
+<?= csrfField() ?>
+                <input type="hidden" name="action" value="<?= $editPatient ? 'edit' : 'add' ?>">
+                <?php if ($editPatient): ?><input type="hidden" name="patient_id" value="<?= (int) $editPatient['id'] ?>"><?php endif; ?>
+                <div class="modal-header" style="background:linear-gradient(135deg,#0E6B5E,#0A4A41);border-bottom:none;border-radius:14px 14px 0 0;padding:18px 22px;"><h5 class="modal-title" style="color:#fff;font-weight:800;"><i class="bi bi-pencil-square me-2"></i><?= $editPatient ? 'Edit Patient' : 'Add Patient' ?></h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button></div>
+                <div class="modal-body" style="padding:22px;background:#F7FDFB;"><div class="row g-3">
+                    <?php if ($editPatient): ?><div class="col-12"><label class="form-label">Patient ID</label><input class="form-control" value="<?= patientPageEscape($editPatient['patient_number'] ?? $editPatient['id']) ?>" disabled readonly></div><?php endif; ?>
+                    <div class="col-md-4"><label class="form-label">First Name *</label><input name="first_name" class="form-control" required value="<?= patientPageEscape($editPatient['first_name'] ?? '') ?>"></div>
+                    <div class="col-md-4"><label class="form-label">Middle Name</label><input name="middle_name" class="form-control" value="<?= patientPageEscape($editPatient['middle_name'] ?? '') ?>"></div>
+                    <div class="col-md-4"><label class="form-label">Last Name *</label><input name="last_name" class="form-control" required value="<?= patientPageEscape($editPatient['last_name'] ?? '') ?>"></div>
+                    <div class="col-md-6"><label class="form-label">Contact Number</label><input name="contact_number" class="form-control" value="<?= patientPageEscape($editPatient['contact_number'] ?? '') ?>"></div>
+                    <div class="col-md-6"><label class="form-label">Email</label><input type="email" name="email" class="form-control" value="<?= patientPageEscape($editPatient['email'] ?? '') ?>"></div>
+                </div></div>
+                <div class="modal-footer" style="background:#F1FAF6;border-top:1px solid #CBECE0;border-radius:0 0 14px 14px;padding:14px 22px;"><button type="button" class="btn btn-light" data-bs-dismiss="modal" style="border:1px solid #D1E7DD;border-radius:10px;font-weight:700;" data-tip="Cancel">Cancel</button><button class="btn btn-primary" style="background:linear-gradient(135deg,#149A72,#0A4A41);border:none;border-radius:10px;font-weight:800;padding:9px 22px;box-shadow:0 6px 14px rgba(14,107,94,.30);" data-tip="<?= $editPatient ? 'Save Changes' : 'Add Patient' ?>"><?= $editPatient ? 'Save Changes' : 'Add Patient' ?></button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================
+     DELETE PATIENT CONFIRM — same look as the logout modal
+     ========================================================= -->
+<div id="patientDeleteConfirm" class="admin-logout-overlay" style="display:none;">
+    <div class="admin-logout-box">
+        <div class="admin-logout-head">
+            <span class="admin-logout-head-icon"><i class="bi bi-trash"></i></span>
+            <h5>Delete Patient</h5>
+            <button type="button" class="admin-logout-x" id="patientDeleteClose" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="admin-logout-body">
+            <div class="admin-logout-icon"><i class="bi bi-exclamation-circle-fill"></i></div>
+            <h5>Delete this patient?</h5>
+            <p>You are about to delete <strong id="patientDeleteName">this patient</strong> together with all of their appointments and medical records. This action cannot be undone.</p>
+        </div>
+        <div class="admin-logout-foot">
+            <button type="button" class="btn btn-light admin-delete-btn-cancel" id="patientDeleteCancel">Cancel</button>
+            <button type="button" class="btn admin-delete-btn-danger" id="patientDeleteYes"><i class="bi bi-trash me-1"></i>Yes, Delete</button>
+        </div>
+    </div>
+</div>
+<style>
+.admin-logout-overlay { position: fixed; inset: 0; background: rgba(10,59,52,.55); z-index: 2000; padding: 20px; align-items: center; justify-content: center; }
+.admin-logout-box { background: #ffffff; border-radius: 18px; border: 1px solid #C9E9DA; box-shadow: 0 18px 45px rgba(0,0,0,.25); max-width: 520px; width: 100%; overflow: hidden; font-family: "Inter", "DM Sans", system-ui, sans-serif; animation: adminLogoutPop .18s ease; }
+@keyframes adminLogoutPop { from { transform: scale(.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.admin-logout-head { display: flex; align-items: center; gap: 12px; padding: 18px 22px; background: linear-gradient(135deg, #D9F2E6 0%, #EAF7F0 100%); border-bottom: 1px solid #C9E9DA; }
+.admin-logout-head-icon { width: 38px; height: 38px; border-radius: 11px; background: linear-gradient(135deg, #0E6B5E, #0A4A41); color: #ffffff; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 4px 10px rgba(14,107,94,.25); flex-shrink: 0; }
+.admin-logout-head h5 { color: #143f51; font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif; font-weight: 800; font-size: 17px; margin: 0; flex: 1; }
+.admin-logout-x { background: #ffffff; border: 1px solid #D1E7DD; color: #57727d; width: 30px; height: 30px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; flex-shrink: 0; }
+.admin-logout-x:hover { background: #EAF7F0; color: #0E6B5E; }
+.admin-logout-body { padding: 34px 36px 8px; text-align: center; }
+.admin-logout-icon { width: 72px; height: 72px; border-radius: 20px; background: #FDECEC; color: #C0392B; border: 1px solid #F5C6C6; display: inline-flex; align-items: center; justify-content: center; font-size: 34px; margin-bottom: 16px; }
+.admin-logout-body h5 { color: #143f51; font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif; font-weight: 800; font-size: 18px; margin: 0 0 8px; }
+.admin-logout-body p { color: #44585F; font-size: 14px; line-height: 1.65; font-weight: 500; margin: 0; }
+.admin-logout-body p strong { color: #8E2018; font-weight: 800; }
+.admin-logout-foot { display: flex; gap: 12px; justify-content: center; padding: 18px 22px 22px; background: #F6FBF8; border-top: 1px solid #E6F2EC; margin-top: 20px; }
+.admin-logout-foot .btn { border-radius: 12px; font-weight: 800; font-size: 14.5px; padding: 12px 30px; letter-spacing: -.01em; transition: transform .15s ease, box-shadow .15s ease, filter .15s ease; }
+.admin-logout-foot .btn:active { transform: translateY(1px); }
+
+.admin-delete-btn-cancel { background: #ffffff !important; border: 1.5px solid #CFE3DA !important; color: #4A5F68 !important; box-shadow: 0 3px 8px rgba(10,74,65,.06); }
+.admin-delete-btn-cancel:hover { background: linear-gradient(135deg, #EAF7F0 0%, #D9F2E6 100%) !important; border-color: #A8D5C4 !important; color: #0A4A41 !important; transform: translateY(-1px); box-shadow: 0 8px 18px rgba(10,74,65,.14) !important; }
+
+.admin-delete-btn-danger { background: linear-gradient(135deg, #E74C3C 0%, #922B21 100%) !important; border: none !important; color: #ffffff !important; box-shadow: 0 6px 16px rgba(192,57,43,.32) !important; }
+.admin-delete-btn-danger:hover { filter: brightness(.94); color: #ffffff !important; transform: translateY(-1px); box-shadow: 0 10px 22px rgba(192,57,43,.38) !important; }
+.admin-delete-btn-danger:hover i.bi-trash { transform: rotate(-8deg) scale(1.12); }
+.admin-delete-btn-danger i.bi-trash { display: inline-block; transition: transform .15s ease; }
+
+.admin-delete-btn-danger.is-busy { pointer-events: none; opacity: .75; filter: saturate(.7); }
+.admin-delete-btn-danger .spinner-border { width: 14px; height: 14px; border-width: 2px; border-top-color: #ffffff; }
+</style>
+<script>
+(function()
+{
+    var pendingForm = null;
+
+    function closePatientDelete()
+    {
+        var overlay = document.getElementById("patientDeleteConfirm");
+        if (!overlay) return;
+        overlay.style.display = "none";
+        document.body.style.overflow = "";
+        pendingForm = null;
+    }
+
+    function initPatientDeleteConfirm()
+    {
+        var overlay = document.getElementById("patientDeleteConfirm");
+        if (!overlay || overlay.dataset.bound === "1") return;
+        overlay.dataset.bound = "1";
+
+        var nameEl = document.getElementById("patientDeleteName");
+
+        document.querySelectorAll("form.js-delete-patient-form").forEach(function(form)
+        {
+            form.addEventListener("submit", function(e)
+            {
+                e.preventDefault();
+                pendingForm = form;
+                if (nameEl) {
+                    nameEl.textContent = form.dataset.patientName || "this patient";
+                }
+                overlay.style.display = "flex";
+                document.body.style.overflow = "hidden";
+                var yes = document.getElementById("patientDeleteYes");
+                if (yes) {
+                    yes.classList.remove("is-busy");
+                    yes.innerHTML = '<i class="bi bi-trash me-1"></i>Yes, Delete';
+                    yes.focus();
+                }
+            });
+        });
+
+        document.getElementById("patientDeleteCancel").addEventListener("click", closePatientDelete);
+        document.getElementById("patientDeleteClose").addEventListener("click", closePatientDelete);
+        overlay.addEventListener("click", function(e)
+        {
+            if (e.target === overlay) closePatientDelete();
+        });
+        document.addEventListener("keydown", function(e)
+        {
+            if (overlay.style.display === "none") return;
+            if (e.key === "Escape") closePatientDelete();
+        });
+        document.getElementById("patientDeleteYes").addEventListener("click", function()
+        {
+            if (!pendingForm) { closePatientDelete(); return; }
+            var form = pendingForm;
+            var yesBtn = this;
+            pendingForm = null;
+
+            yesBtn.classList.add("is-busy");
+            yesBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Deleting…';
+
+            form.submit();
+        });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initPatientDeleteConfirm);
+    } else {
+        initPatientDeleteConfirm();
+    }
+})();
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+/* Back to Dashboard: isara ang browser tab, fallback sa Dashboard kung blocked */
+document.querySelectorAll('a.js-close-tab').forEach(function(a){
+    a.addEventListener('click', function(e){
+        e.preventDefault();
+        window.__goingToDashboard = true;
+        var modalEl = document.getElementById('patientViewModal');
+        if(modalEl) { try { bootstrap.Modal.getInstance(modalEl)?.hide(); } catch(err) {} }
+        try { window.open('', '_self'); } catch(err) {}
+        window.close();
+        setTimeout(function(){ window.location.href = 'dashboard.php'; }, 300);
+    });
+});
+</script>
+<?php if ($editPatient): ?><script>new bootstrap.Modal(document.getElementById('patientModal')).show();document.getElementById('patientModal').addEventListener('hidden.bs.modal', function(){ var p = new URLSearchParams(window.location.search); p.delete('edit'); var s = p.toString(); history.replaceState(null,'', window.location.pathname + (s ? '?' + s : '')); });</script><?php endif; ?>
+<?php if ($selectedPatient): ?><script>new bootstrap.Modal(document.getElementById('patientViewModal')).show();document.getElementById('patientViewModal').addEventListener('hidden.bs.modal', function(){ if(!window.__goingToDashboard){ var p = new URLSearchParams(window.location.search); p.delete('view'); var s = p.toString(); history.replaceState(null,'', window.location.pathname + (s ? '?' + s : '')); } });document.querySelectorAll('#patientViewModal a[href="dashboard.php"]').forEach(function(a){ a.addEventListener('click', function(){ window.__goingToDashboard = true; }); });</script><?php endif; ?>
+<script>
+/* Admin patient topbar tulad sa dentist appointment - date at clinic time */
+(function(){
+    function addTopbarDateTime(){
+        var adminArea = document.querySelector('.shared-topbar .admin-area');
+        if(!adminArea || document.getElementById('adminClinicTime')) return;
+        var now = new Date();
+        var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        var dayName = days[now.getDay()];
+        var dateStr = months[now.getMonth()] + ' ' + String(now.getDate()).padStart(2,'0') + ', ' + now.getFullYear();
+        var wrap = document.createElement('div');
+        wrap.style.display = 'flex';
+        wrap.style.alignItems = 'center';
+        wrap.style.gap = '16px';
+        wrap.innerHTML = '<div class="admin-topbar-today"><i class="bi bi-calendar-event-fill"></i><div><strong>' + dayName + '</strong><small>' + dateStr + '</small></div></div>' +
+            '<div class="admin-topbar-time"><i class="bi bi-clock-fill"></i><div><strong>Clinic Time</strong><small id="adminClinicTime">--:--:--</small></div></div>';
+        adminArea.insertBefore(wrap, adminArea.firstChild);
+        function tick(){
+            try{
+                var el = document.getElementById('adminClinicTime');
+                if(!el) return;
+                el.textContent = new Date().toLocaleTimeString('en-PH',{timeZone:'Asia/Manila',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
+            }catch(e){}
+        }
+        tick(); setInterval(tick,1000);
+    }
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',addTopbarDateTime);}else{addTopbarDateTime();}
+})();
+</script>
+<script>
+/* Scroll slide: eksaktong 10 rows ang kita sa patient table */
+(function () {
+    var wrap = document.getElementById('adminPatientListWrap');
+    if (!wrap) return;
+    function fit() {
+        var table = document.getElementById('patientListTable');
+        if (!table) return;
+        var head = table.querySelector('thead');
+        var rows = table.querySelectorAll('tbody tr');
+        if (!rows.length) return;
+        var n = Math.min(10, rows.length);
+        var total = head ? head.getBoundingClientRect().height : 0;
+        for (var i = 0; i < n; i++) {
+            total += rows[i].getBoundingClientRect().height;
+        }
+        if (total > 0) {
+            wrap.style.maxHeight = Math.ceil(total + 2) + 'px';
+        }
+    }
+    fit();
+    window.addEventListener('load', fit);
+    window.addEventListener('resize', fit);
+})();
+</script>
+</body>
+</html>

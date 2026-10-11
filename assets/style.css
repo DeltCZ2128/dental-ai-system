@@ -1,0 +1,1159 @@
+
+
+/* =========================================================
+   GENERAL
+========================================================= */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+body {
+    font-family: "Inter", "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #0A3B34;
+    color: #173b4d;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    line-height: 1.5;
+}
+
+a {
+    text-decoration: none;
+}
+
+button {
+    font-family: inherit;
+}
+
+/* Dental clinic system - clean label typography */
+.nav-title,
+.forecast-label,
+.welcome-label,
+.brand-sub {
+    font-family: "Inter", "DM Sans", system-ui, sans-serif;
+}
+
+
+/* =========================================================
+   LAYOUT
+========================================================= */
+
+.dashboard-wrapper {
+    min-height: 100vh;
+    display: flex;
+}
+
+
+/* =========================================================
+   SIDEBAR
+========================================================= */
+
+.sidebar {
+    width: 255px;
+    min-height: 100vh;
+    background: linear-gradient(180deg, #0A3B34, #0E6B5E);
+    border-right: 1px solid #808080;
+    padding: 25px 17px;
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 10;
+}
+
+
+/* Brand */
+
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 5px 10px 28px;
+    border-bottom: 1px solid #808080;
+}
+
+.brand-logo {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 21px;
+    box-shadow: 0 7px 18px rgba(14,107,94,.18);
+}
+
+.brand-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    max-width: 44px;
+    max-height: 44px;
+}
+
+.brand-name {
+    color: #fff;
+    font-family: "Fraunces", "Plus Jakarta Sans", sans-serif;
+    font-size: 17px;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.brand-sub {
+    color: #9CC4B6;
+    font-size: 11px;
+    letter-spacing: .8px;
+    margin-top: 4px;
+}
+
+
+/* Navigation */
+
+.sidebar-nav {
+    margin-top: 27px;
+}
+
+.nav-title {
+    color: #8FAE9F;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    padding: 0 12px;
+    margin-bottom: 10px;
+}
+
+.sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #C9D9D1;
+    font-family: "Inter", "DM Sans", system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px 13px;
+    border-radius: 10px;
+    margin-bottom: 4px;
+    letter-spacing: -0.01em;
+    transition: .2s;
+}
+
+.sidebar-link i {
+    width: 19px;
+    text-align: center;
+    font-size: 17px;
+}
+
+.sidebar-link:hover {
+    background: rgba(255,255,255,.12);
+    color: #ffffff;
+}
+
+.sidebar-link.active {
+    background: linear-gradient(135deg, #C9A227, #A8861B);
+    color: #0A3B34;
+    box-shadow: 0 8px 20px rgba(201,162,39,.35);
+}
+
+.sidebar-link.active i {
+    color: #0A3B34;
+}
+
+
+/* Bottom */
+
+.sidebar-bottom {
+    position: absolute;
+    bottom: 25px;
+    left: 17px;
+    right: 17px;
+}
+
+
+/* =========================================================
+   MAIN CONTENT
+========================================================= */
+
+.main-content {
+    margin-left: 255px;
+    width: calc(100% - 255px);
+    min-height: 100vh;
+}
+
+
+/* =========================================================
+   TOPBAR
+========================================================= */
+
+.topbar {
+    height: 78px;
+    background: #ffffff;
+    border-bottom: 1px solid #e2edf0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 38px;
+}
+
+.page-title h1 {
+    color: #153f50;
+    font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+    font-size: 24px;
+    letter-spacing: -0.025em;
+    font-weight: 800;
+    margin: 0;
+}
+
+.page-title p {
+    color: #8499a1;
+    font-size: 13px;
+    margin: 5px 0 0;
+}
+
+.admin-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.admin-info {
+    text-align: right;
+}
+
+.admin-info strong {
+    display: block;
+    color: #244f60;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.admin-info span {
+    color: #8ca0a8;
+    font-size: 11px;
+}
+
+.admin-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    background: #e4f7fa;
+    color: #0E6B5E;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+}
+
+
+/* =========================================================
+   CONTENT
+========================================================= */
+
+.content {
+    padding: 32px 38px 45px;
+}
+
+
+/* =========================================================
+   WELCOME
+========================================================= */
+
+.welcome-box {
+    background: linear-gradient(
+        135deg,
+        #0E6B5E,
+        #0A4A41
+    );
+    border-radius: 18px;
+    padding: 27px 30px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 25px;
+    box-shadow: 0 15px 35px rgba(14,107,94,.14);
+}
+
+.welcome-box::after {
+    content: "";
+    position: absolute;
+    width: 210px;
+    height: 210px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.08);
+    right: -65px;
+    top: -95px;
+}
+
+.welcome-box::before {
+    content: "";
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.06);
+    right: 120px;
+    bottom: -80px;
+}
+
+.welcome-content {
+    position: relative;
+    z-index: 2;
+}
+
+.welcome-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    opacity: .8;
+    margin-bottom: 8px;
+}
+
+.welcome-box h2 {
+    font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+    font-size: 25px;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+    margin-bottom: 7px;
+}
+
+.welcome-box p {
+    color: #d7f5fa;
+    font-size: 13.5px;
+    margin: 0;
+}
+
+
+/* =========================================================
+   STAT CARDS
+========================================================= */
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 25px;
+}
+
+.stat-card {
+    background: #ffffff;
+    border: 1px solid #e0ecef;
+    border-radius: 15px;
+    padding: 21px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: .2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px rgba(22,83,101,.07);
+}
+
+.stat-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.icon-blue {
+    background: #e5f7fa;
+    color: #0E6B5E;
+}
+
+.icon-green {
+    background: #e7f8ef;
+    color: #15945a;
+}
+
+.icon-orange {
+    background: #fff3dc;
+    color: #e99a13;
+}
+
+.icon-purple {
+    background: #f0ebff;
+    color: #7657d8;
+}
+
+.stat-info span {
+    display: block;
+    color: #8ca0a7;
+    font-size: 12px;
+    margin-bottom: 4px;
+}
+
+.stat-info strong {
+    color: #173f50;
+    font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+    font-size: 24px;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+}
+
+
+/* =========================================================
+   CARDS
+========================================================= */
+
+.dashboard-card {
+    background: #ffffff;
+    border: 1px solid #e0ecef;
+    border-radius: 15px;
+    overflow: hidden;
+    height: 100%;
+}
+
+.card-top {
+    padding: 19px 21px;
+    border-bottom: 1px solid #edf2f3;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.card-top h3 {
+    color: #244e5e;
+    font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+    font-size: 15.5px;
+    letter-spacing: -0.015em;
+    font-weight: 800;
+    margin: 0;
+}
+
+.card-top a {
+    color: #0E6B5E;
+    font-family: "Inter", "DM Sans", system-ui, sans-serif;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    background: #eaf9fc;
+    border: 1px solid #d6eef3;
+    font-weight: 700;
+}
+
+.card-body-custom {
+    padding: 21px;
+}
+
+.card-top a:hover {
+    background: #0E6B5E;
+    color: #ffffff;
+    border-color: #0E6B5E;
+}
+
+
+/* =========================================================
+   APPOINTMENT STATUS
+========================================================= */
+
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.status-box {
+    text-align: center;
+    background: #f8fcfd;
+    border-radius: 11px;
+    padding: 17px 10px;
+}
+
+.status-box strong {
+    display: block;
+    color: #173f50;
+    font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+    font-size: 22px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+}
+
+.status-box span {
+    display: block;
+    color: #879aa2;
+    font-size: 11.5px;
+    margin-top: 4px;
+}
+
+.status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 4px;
+}
+
+.dot-orange {
+    background: #f1a20b;
+}
+
+.dot-green {
+    background: #19a55d;
+}
+
+.dot-red {
+    background: #e15b5b;
+}
+
+
+/* =========================================================
+   QUICK ACTIONS
+========================================================= */
+
+.quick-actions {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.action-btn {
+    border: 1px solid #e1edef;
+    background: #f9fcfd;
+    border-radius: 11px;
+    padding: 16px 10px;
+    text-align: center;
+    color: #4f6c77;
+    transition: .2s;
+}
+
+.action-btn i {
+    display: block;
+    color: #0E6B5E;
+    font-size: 20px;
+    margin-bottom: 7px;
+}
+
+.action-btn span {
+    font-size: 12px;
+    font-family: "Inter", system-ui, sans-serif;
+    font-weight: 700;
+}
+
+.action-btn:hover {
+    background: #eaf9fc;
+    border-color: #bce5eb;
+    color: #0E6B5E;
+    transform: translateY(-2px);
+}
+
+
+/* =========================================================
+   RECENT APPOINTMENTS
+========================================================= */
+
+.recent-card {
+    margin-top: 20px;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+.appointment-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.appointment-table th {
+    color: #8b9ea5;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    padding: 13px 15px;
+    border-bottom: 1px solid #e5eef0;
+    white-space: nowrap;
+}
+
+.appointment-table td {
+    color: #4d6873;
+    font-size: 13px;
+    padding: 14px 15px;
+    border-bottom: 1px solid #eef3f4;
+}
+
+.appointment-table tr:last-child td {
+    border-bottom: none;
+}
+
+.patient-cell {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.patient-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: #e4f7fa;
+    color: #0E6B5E;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.patient-cell strong {
+    display: block;
+    color: #315868;
+    font-size: 13px;
+}
+
+.patient-cell span {
+    color: #9aabb1;
+    font-size: 11px;
+}
+
+.status-badge {
+    display: inline-block;
+    border-radius: 20px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-family: "Inter", system-ui, sans-serif;
+    font-weight: 700;
+}
+
+.badge-pending {
+    background: #fff3d9;
+    color: #c98609;
+}
+
+.badge-confirmed {
+    background: #e3f8ec;
+    color: #17844d;
+}
+
+.badge-completed {
+    background: #e6f4fb;
+    color: #157ca0;
+}
+
+
+/* =========================================================
+   EMPTY STATE
+========================================================= */
+
+.empty-state {
+    text-align: center;
+    padding: 35px 20px;
+}
+
+.empty-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 14px;
+    background: #eaf8fb;
+    color: #0E6B5E;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 12px;
+    font-size: 21px;
+}
+
+.empty-state strong {
+    display: block;
+    color: #426471;
+    font-size: 13.5px;
+    margin-bottom: 4px;
+}
+
+.empty-state span {
+    color: #94a7ae;
+    font-size: 11.5px;
+}
+
+
+/* =========================================================
+   FOOTER
+========================================================= */
+
+.dashboard-footer {
+    color: #91a5ac;
+    text-align: center;
+    font-size: 11px;
+    padding: 25px 0 5px;
+}
+
+
+/* =========================================================
+   MOBILE SIDEBAR BUTTON
+========================================================= */
+
+.mobile-menu {
+    display: none;
+    border: none;
+    background: #eaf8fb;
+    color: #0E6B5E;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    font-size: 20px;
+    font-family: "Inter", system-ui, sans-serif;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 1100px) {
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+}
+
+@media (max-width: 991px) {
+
+    .sidebar {
+        transform: translateX(-100%);
+        transition: .25s;
+    }
+
+    .sidebar.show {
+        transform: translateX(0);
+    }
+
+    .main-content {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .mobile-menu {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .topbar {
+        padding: 0 20px;
+    }
+
+    .content {
+        padding: 25px 20px 40px;
+    }
+
+}
+
+@media (max-width: 767px) {
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .topbar {
+        height: 70px;
+    }
+
+    .page-title h1 {
+        font-size: 18px;
+    }
+
+    .page-title p {
+        display: none;
+    }
+
+    .admin-info {
+        display: none;
+    }
+
+    .welcome-box {
+        padding: 24px;
+    }
+
+    .welcome-box h2 {
+        font-size: 19px;
+    }
+
+    .status-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .quick-actions {
+        grid-template-columns: 1fr;
+    }
+
+}
+
+
+
+/* =========================================================
+   DENTAL CLINIC BUTTONS - enlarged, clinic typography
+========================================================= */
+
+.content .btn,
+.dashboard-card .btn,
+.main .btn {
+    font-family: "Inter", "DM Sans", system-ui, sans-serif;
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    padding: 9px 18px;
+    border-radius: 10px;
+    line-height: 1.4;
+}
+
+.content .btn-sm,
+.dashboard-card .btn-sm,
+.main .btn-sm {
+    font-size: 12.5px;
+    padding: 7px 14px;
+    border-radius: 9px;
+}
+
+/* =========================================================
+   SHARED PAGE COMPATIBILITY
+   Keeps all non-dashboard pages visually consistent with
+   the dashboard without changing their PHP/database logic.
+========================================================= */
+
+.shared-sidebar {
+    width: 255px;
+    min-height: 100vh;
+    background: linear-gradient(180deg, #0A3B34 0%, #0E6B5E 100%);
+    border-right: 1px solid #808080;
+    padding: 25px 17px;
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 1000;
+}
+
+.shared-sidebar .sidebar-nav {
+    margin-top: 27px;
+}
+
+.shared-sidebar .sidebar-link span {
+    display: inline;
+}
+
+.shared-topbar {
+    position: fixed;
+    left: 255px;
+    right: 0;
+    top: 0;
+    z-index: 900;
+}
+
+.main {
+    margin-left: 255px;
+    width: calc(100% - 255px);
+    min-height: 100vh;
+    padding: 110px 38px 45px;
+    background: #0A3B34;
+}
+
+.main > h1,
+.main > h2 {
+    color: #ffffff;
+    font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+    font-size: 24px;
+    letter-spacing: -0.025em;
+    font-weight: 800;
+    margin: 0 0 5px;
+}
+
+.main > .page-subtitle {
+    color: #9CC4B6;
+    font-size: 13px;
+    margin: 5px 0 25px;
+}
+
+.main .card,
+.main .content-card {
+    background: #ffffff;
+    border: 1px solid #e0ecef;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: none;
+}
+
+.main .card-body {
+    padding: 21px;
+}
+
+.main .btn-primary {
+    background: #0E6B5E !important;
+    border-color: #0E6B5E !important;
+    border-radius: 9px;
+    font-weight: 600;
+}
+
+.main .btn-primary:hover {
+    background: #0A4A41 !important;
+    border-color: #0A4A41 !important;
+}
+
+.main .table {
+    color: #4d6873;
+    margin-bottom: 0;
+}
+
+.main .table thead th {
+    color: #8b9ea5;
+    background: #ffffff;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    padding: 13px 15px;
+    border-bottom: 1px solid #e5eef0;
+}
+
+.main .table tbody td {
+    color: #4d6873;
+    font-size: 13px;
+    padding: 14px 15px;
+    border-bottom: 1px solid #eef3f4;
+    vertical-align: middle;
+}
+
+.main .table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.main .table tbody tr:hover {
+    background: #f9fcfd;
+}
+
+.main .form-label,
+.main label {
+    color: #426471;
+    font-size: 12.5px;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.main .form-control,
+.main .form-select {
+    border: 1px solid #e0ecef;
+    border-radius: 9px;
+    color: #315868;
+    font-size: 13px;
+    font-family: "Inter", "DM Sans", system-ui, sans-serif;
+}
+
+.main .form-control:focus,
+.main .form-select:focus {
+    border-color: #0E6B5E;
+    box-shadow: 0 0 0 .15rem rgba(14,107,94,.12);
+}
+
+.main .badge {
+    border-radius: 20px;
+    font-size: 11px;
+    font-family: "Inter", system-ui, sans-serif;
+    font-weight: 700;
+    padding: 5px 9px;
+}
+
+.main .badge.bg-primary {
+    background: #e6f4fb !important;
+    color: #157ca0 !important;
+}
+
+.main .badge.bg-success {
+    background: #e7f8ef !important;
+    color: #15945a !important;
+}
+
+.main .badge.bg-danger {
+    background: #fff0f0 !important;
+    color: #d95353 !important;
+}
+
+.main .badge.bg-secondary {
+    background: #eef3f4 !important;
+    color: #607780 !important;
+}
+
+.main .modal-content {
+    border: 1px solid #e0ecef;
+    border-radius: 15px;
+    box-shadow: 0 15px 35px rgba(22,83,101,.10);
+}
+
+.main .modal-header {
+    background: #ffffff;
+    border-bottom: 1px solid #edf2f3;
+}
+
+.main .modal-footer {
+    background: #ffffff;
+    border-top: 1px solid #edf2f3;
+}
+
+.main h2 {
+    color: #153f50;
+    font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+    font-size: 24px;
+    letter-spacing: -0.025em;
+    font-weight: 800;
+}
+
+.main h4,
+.main h5 {
+    color: #244e5e;
+    font-family: "Plus Jakarta Sans", sans-serif;
+    font-weight: 800;
+}
+
+.stat-card {
+    background: #ffffff;
+    border: 1px solid #e0ecef;
+    border-radius: 15px;
+    padding: 21px;
+    box-shadow: none;
+}
+
+.stat-card h2 {
+    color: #173f50;
+    font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+    font-size: 24px;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+}
+
+.stat-card small {
+    color: #8ca0a7;
+    font-size: 12px;
+}
+
+@media (max-width: 991px) {
+    .shared-sidebar {
+        transform: translateX(-100%);
+        transition: .25s;
+    }
+
+    .shared-sidebar.show {
+        transform: translateX(0);
+    }
+
+    .shared-topbar {
+        left: 0;
+    }
+
+    .main {
+        margin-left: 0;
+        width: 100%;
+        padding: 100px 20px 40px;
+    }
+}
+
+@media (max-width: 767px) {
+    .admin-info {
+        display: none;
+    }
+
+    .main {
+        padding: 95px 20px 40px;
+    }
+}
+
+/* Hover tooltip sa action buttons (CSS-only, data-tip attribute) */
+[data-tip] {
+    position: relative;
+}
+
+[data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #0A3B34;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: "Inter", system-ui, sans-serif;
+    padding: 6px 12px;
+    border-radius: 8px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 99999;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, .35);
+}
+
+/* Modals across the system: Ensure tooltips are fully visible and never clipped */
+.modal,
+.modal-dialog,
+.modal-content,
+.status-action-box,
+.appt-modal-box,
+.d-modal-box {
+    overflow: visible !important;
+}
+
+.modal-header,
+.status-action-head,
+.appt-modal-head {
+    border-top-left-radius: 16px !important;
+    border-top-right-radius: 16px !important;
+}
+
+.modal-footer,
+.status-action-foot,
+.appt-modal-foot {
+    border-bottom-left-radius: 16px !important;
+    border-bottom-right-radius: 16px !important;
+}
+
+/* Tooltip inside modal body, modal footer, and status action cards: display ABOVE the button */
+.modal-body [data-tip]:hover::after,
+.modal-footer [data-tip]:hover::after,
+.status-action-body [data-tip]:hover::after,
+.status-action-grid [data-tip]:hover::after,
+.appt-modal-body [data-tip]:hover::after,
+.appt-modal-foot [data-tip]:hover::after,
+.d-modal-body [data-tip]:hover::after,
+.d-modal-foot [data-tip]:hover::after,
+.status-action-resched-form [data-tip]:hover::after,
+.modal-content [data-tip]:not(.btn-close):not(.appt-modal-x):hover::after,
+.status-action-box [data-tip]:not(.appt-modal-x):not(.btn-close):hover::after,
+.appt-modal-box [data-tip]:not(.appt-modal-x):not(.btn-close):hover::after {
+    top: auto !important;
+    bottom: calc(100% + 8px) !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    z-index: 99999 !important;
+}
+
+/* Tooltip on modal close buttons (top-right of header): display BELOW and aligned to the right */
+.modal-header [data-tip]:hover::after,
+.status-action-head [data-tip]:hover::after,
+.appt-modal-head [data-tip]:hover::after,
+.modal-header .btn-close[data-tip]:hover::after,
+.status-action-head .appt-modal-x[data-tip]:hover::after,
+.appt-modal-head .appt-modal-x[data-tip]:hover::after {
+    top: calc(100% + 8px) !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: 0 !important;
+    transform: none !important;
+    z-index: 99999 !important;
+}
+

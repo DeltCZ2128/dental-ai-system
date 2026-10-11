@@ -1,0 +1,326 @@
+==============================================================================================================
+ACTIVITY DIAGRAM NARRATIVE
+AI-Based Intelligent Dental Appointment Scheduling System Using
+Machine Learning for Optimized Clinic Management
+
+Companion document for : activity_diagrams.drawio (Figures 8, 9, 10 and 11)
+Notation               : UML activity diagram with two swimlanes per figure
+Related diagram        : Figure 12, Entity Relationship Diagram (erd_dental_ai.drawio)
+==============================================================================================================
+
+NOTATION LEGEND
+
+  Filled circle            Initial node - the activity begins.
+  Circle inside a circle   Final node - the activity ends.
+  Rounded rectangle        An action. Actions drawn in the left lane are
+                           performed by the actor; actions drawn in the
+                           right lane are performed by the proposed system.
+  Diamond                  A decision point. Every outgoing branch of a
+                           decision is labelled Yes or No.
+  Red rounded rectangle    An alternative outcome placed beside its
+                           decision. The flow re-enters the main path
+                           after the outcome has been carried out.
+  Arrowed line             The direction of the flow. A line that crosses
+                           the vertical lane divider shows the hand-over
+                           between the actor and the proposed system.
+  Start / End              Text tags marking the initial and final nodes.
+
+  The left lane of every figure is the lane of the actor of that role
+  (Patient, Dentist or Administrator) and the right lane is always the
+  Proposed System. The right lane additionally holds the spine of the
+  diagram (the main sequence of system actions) while the outcome boxes
+  hang to the right of their decisions.
+
+FIGURE 8. ACTIVITY DIAGRAM - PATIENT ROLE
+
+The patient figure contains nineteen actions, eleven decisions and six
+alternative outcomes.
+
+  1.  The activity begins at the initial node. The first decision asks
+      whether the person is a first-time patient. A first-time patient
+      fills in the registration form and submits it; the root register
+      page forwards the request to the administrator registration module
+      (register.php:3) and the new account record is inserted into the
+      users table (admin/register.php:152). An existing patient skips
+      this step and both paths meet at the login form.
+
+  2.  The patient enters the username and password and clicks Log in.
+      The system verifies the submitted credentials with
+      password_hash verification (login.php:64). If the credentials are
+      wrong the system displays the message Invalid email or password
+      (login.php:97) and the flow returns to the login form, so the
+      error outcome loops back rather than ending the activity.
+
+  3.  When the credentials are valid the system opens the session
+      (login.php:76) and redirects the browser to the patient dashboard
+      according to the role of the account (login.php:83 to login.php:87).
+
+  4.  From the dashboard the patient may click the Book Appointment
+      button. The decision Book an appointment separates the patients
+      who want to book from those who only want to manage an existing
+      appointment; the No branch goes directly to My Appointments.
+
+  5.  The Yes branch opens the booking form and the list of dental
+      services (patient/book_appointment.php). The patient chooses a
+      dental service, a dentist and an appointment date, and the system
+      lists the available time slots for that date.
+
+  6.  The decision Slots available handles an empty list. When no slot
+      is free the system tells the patient that the dentist is not
+      available on the chosen date and time
+      (patient/book_appointment.php:1065, patient/book_appointment.php:898)
+      and the flow returns to the service and date selection.
+
+
+  7.  When slots exist the patient selects one and the decision Slot
+      still free protects against a slot that was taken in the
+      meantime. If the slot is already booked the system shows the
+      message that asks the patient to choose another time
+      (patient/book_appointment.php:985) and again returns to the
+      service and date selection.
+
+  8.  The patient reviews the appointment summary and the system saves
+      the appointment: the record is inserted (INSERT at
+      patient/book_appointment.php:1130) with the status Pending
+      (patient/book_appointment.php:1149). The confirmation message is
+      shown and the My Appointments page lists the bookings.
+
+  9.  In My Appointments the patient selects a record and the decision
+      Manage this appointment starts the management cascade. Choosing
+      No ends the session at the logout action.
+
+ 10.  Choosing Yes opens the action menu of the appointment. The
+      decision Confirm attendance lets the patient confirm a visit; the
+      confirmation action and its notification are written by
+      patient/my_appointments.php:41 and patient/my_appointments.php:61.
+      The decision Request reschedule lets the patient ask the clinic to
+      move the visit (patient/my_appointments.php:69,
+      patient/my_appointments.php:99) and the decision Cancel
+      appointment sets the status to Cancelled
+      (patient/my_appointments.php:130, patient/my_appointments.php:166)
+      with a notification to the clinic
+      (patient/my_appointments.php:176). These three outcomes are drawn
+      beside their decisions and all three merge into the action that
+      displays the updated appointment status on the dashboard.
+
+ 11.  The remaining decisions continue down the cascade. Raise a
+      concern? sends the typed message to the clinic, which inserts the
+      record (patient/appointment_concern.php:422). Update profile?
+      saves the edited personal information (patient/profile.php:267);
+      the same page also stores a changed password
+      (patient/profile.php:371, patient/profile.php:379). A No answer on
+      either decision moves the flow forward without an outcome box.
+
+ 12.  Every path converges on Log out of the system and the activity
+      ends at the final node.
+
+
+FIGURE 9. ACTIVITY DIAGRAM - DENTIST ROLE
+
+The dentist figure contains fifteen actions, five decisions and two
+alternative outcomes.
+
+  1.  The activity begins with the same login behaviour as Figure 8:
+      credential verification (login.php:64), the invalid credentials
+      message on failure (login.php:97), the session on success
+      (login.php:76) and the redirect that depends on the role
+      (login.php:83 to login.php:87). The failed login is drawn as the
+      first outcome box and loops back to the login form.
+
+  2.  The system opens the dentist dashboard with the schedule of the
+      day (dentist/dentist_dashboard.php:14). From there the dentist
+      checks the list of patients assigned for today
+      (dentist/dentist_dashboard.php:14) and opens the patient queue
+      page (dentist/queue.php), where the system shows the patients who
+      are still waiting, counted by status
+      (dentist/queue.php:311, dentist/queue.php:335).
+
+  3.  The decision Treat the next patient keeps the dentist in the
+      queue view (No) until a patient is taken; the second outcome box
+      therefore reports that the queue is empty. The Yes branch starts
+      the treatment of the selected patient
+      (dentist/queue.php:1485), which moves the queue entry to the
+      serving state. The allowed values Waiting, Serving and Completed
+      are enforced before that update
+      (dentist/dentist_dashboard.php:65).
+
+  4.  With the entry serving, the dentist reviews the patient record
+      and the appointment history of that patient
+      (dentist/patients.php:467, dentist/patients.php:740) and performs
+      the dental consultation and treatment.
+
+  5.  The decision Change the appointment status asks whether the visit
+      should be closed. The Yes branch sets the appointment of the
+      patient to Completed (dentist/dentist_dashboard.php:96); the same
+      whitelist also permits Pending, Confirmed and Cancelled
+      (dentist/dentist_dashboard.php:90). The No branch skips the
+      change. Both branches then set the queue entry to Completed, so
+      an entry never remains in the serving state, and the flow
+      continues to the notification inbox.
+
+  6.  The decision Check the notification inbox? opens the list of
+      notifications of the dentist (dentist/notifications.php:164) and
+      reads the messages; a No answer steps over the inbox. The two
+      branches meet at the decision Update your profile?
+
+  7.  The decision Update your profile? opens the profile page, where
+      the dentist edits the personal information and saves the changes
+      (dentist/profile.php:463, dentist/profile.php:534). A No answer
+      leaves the profile step out.
+
+  8.  Every path converges on Log out of the system and the activity
+      ends at the final node.
+
+
+
+FIGURE 10. ACTIVITY DIAGRAM - ADMINISTRATOR ROLE (PART 1)
+
+Figure 10 and Figure 11 together describe one role. To keep every flow
+readable the administrator diagram is printed on two parts, with the
+part numbers continuous across the two parts: Figure 10 carries login,
+registration, scheduling and the daily queue, and Figure 11 carries the
+dentist, settings and reporting modules. Figure 10 contains seventeen
+actions, eleven decisions and three alternative outcomes.
+
+  1.  The activity begins with the same login behaviour as Figures 8
+      and 9 (login.php:64, login.php:97, login.php:76,
+      login.php:83 to login.php:87). The system then opens the
+      administrator dashboard and the appointment management page
+      (admin/appointments.php).
+
+  2.  The decision Register a new patient? opens the registration
+      form. When the administrator submits the record the new account
+      is inserted into the users table (admin/register.php:152); a No
+      answer skips the form. Both branches meet at the decision
+      Schedule an appointment?
+
+  3.  The decision Schedule an appointment? lets the administrator
+      choose the patient, the service, the dentist, the date and the
+      time. The system then checks the availability of the dentist for
+      that slot: the conflict test (admin/appointments.php:26) produces
+      the message that a scheduling conflict was detected
+      (admin/appointments.php:36).
+
+  4.  The decision Is a slot free? separates the two outcomes of that
+      check. When the slot is free the system saves the appointment
+      with the status Pending (admin/appointments.php:61 and
+      admin/appointments.php:72). When it is not, the outcome box tells
+      the administrator that the slot is not free and the flow returns
+      to the appointment form.
+
+  5.  The decision Change the appointment status? moves a stored
+      appointment to Confirmed, Completed or Cancelled; the permitted
+      values are checked against the whitelist before the update
+      (admin/appointments.php:101). A No answer steps over the step.
+
+  6.  The decision Send an appointment reminder? sends the reminder to
+      the patient (admin/appointments.php:161) and the decision
+      Reschedule an appointment? accepts the new date and time
+      (admin/appointments.php:238). The reschedule runs the same
+      conflict test again (admin/appointments.php:259), and the
+      decision Is the new slot available? separates a free slot from
+      the outcome box that reports the slot is not available, which
+      returns the flow to the appointment form.
+
+  7.  The decision Manage the walk-in queue? opens the QR walk-in
+      form (admin/queue.php:24). The system creates the walk-in
+      patient number WALK-... (admin/queue.php:38) and assigns the
+      queue number of the day (admin/queue.php:43). A direct entry
+      takes the same path through the add action (admin/queue.php:78).
+
+  8.  The decision Change the status of a queue entry? moves an entry
+      through Waiting, Serving and Completed; the values are validated
+      before the update (admin/queue.php:141). A No answer skips the
+      change.
+
+  9.  The decision Mark an appointment as No-Show? sets the status of
+      a missed appointment to No-Show (admin/no_show.php:13) and
+      notifies the patient. A No answer leaves the block.
+
+ 10.  Every path converges on the End tag. The activity continues in
+      Figure 11, which resumes from the administrator dashboard.
+
+
+
+FIGURE 11. ACTIVITY DIAGRAM - ADMINISTRATOR ROLE (PART 2)
+
+Figure 11 is the second part of the administrator role. It contains
+twenty-five actions, ten decisions and three alternative outcomes.
+
+  1.  The activity resumes at the administrator dashboard. The decision
+      Manage the dentists? opens the dentist management page, where the
+      seven operations of that module are carried out in turn: add a
+      dentist (admin/dentists.php:24), edit a dentist
+      (admin/dentists.php:49), activate or deactivate the account
+      (admin/dentists.php:69), set the weekly schedule
+      (admin/dentists.php:83), delete a schedule slot
+      (admin/dentists.php:117), register a day-off
+      (admin/dentists.php:127) and remove a day-off
+      (admin/dentists.php:158). A No answer skips the whole block.
+
+  2.  The decision Edit a patient record? opens the patient form and
+      saves the corrected details (admin/patients.php); a No answer
+      steps over it.
+
+  3.  The decision Open the patient concern inbox? lists the concerns
+      that have not been answered (admin/appointment_concern.php).
+      Inside that block the decision Mark all the remaining concerns as
+      read? either clears the rest of the inbox in one action
+      (admin/appointment_concern.php:94) or goes straight on. The
+      system selects a concern and marks it as read
+      (admin/appointment_concern.php:43), the administrator types the
+      reply and sends it to the patient, and the system shows the
+      confirmation that the reply was sent. A No answer on the inbox
+      decision bypasses the whole block through the right-hand channel.
+
+  4.  The decision Change the clinic settings? opens the settings form.
+      The decision Settings valid? then separates a valid submission,
+      which is written to the settings table (admin/settings.php:22),
+      from an invalid one, which shows the invalid settings message
+      (admin/settings.php:28) and returns to the form. A No answer on
+      Change the clinic settings? skips the block through the
+      right-hand channel.
+
+  5.  The decision Manage the dental services or the user accounts?
+      covers the remaining settings operations: a dental service is
+      added, edited or disabled (admin/settings.php:44,
+      admin/settings.php:64) and a user account of the clinic is added
+      or edited (admin/settings.php:70). A No answer skips the block.
+
+  6.  The decision View the reports and the demand forecast? opens the
+      reports page, where the headline figures of the clinic are
+      counted (admin/reports.php:34, admin/reports.php:35) together
+      with the appointments of each dentist (admin/reports.php:76).
+      The system then trains a Linear Regression model on the
+      historical demand (admin/demand_forecast.php:51) and predicts the
+      appointment demand for the next seven days
+      (admin/demand_forecast.php:393).
+
+  7.  Two decisions classify the prediction against the historical
+      average. A value at or above 125 per cent of the average marks
+      the day as a high-demand day; a value at or above 75 per cent
+      marks it as a medium-demand day; below 75 per cent marks it as a
+      low-demand day (admin/demand_forecast.php:315,
+      admin/demand_forecast.php:317). All three outcomes meet at the
+      action that shows the day with the highest expected demand
+      (admin/demand_forecast.php:394).
+
+  8.  Every path converges on Log out of the system and the activity
+      ends at the final node.
+
+RELATIONSHIP TO THE OTHER DIAGRAMS
+
+  Figures 8 to 11 describe the behaviour of the three roles of the
+  proposed system, while Figure 12 describes the data that these
+  activities read and write. The registration actions of Figures 8 and
+  10 insert into the users and patients entities of the ERD, the
+  booking actions of Figures 8 and 10 insert into the appointments
+  entity, the queue actions of Figures 9, 10 and 11 write the queue
+  entity, and the concern, notification and settings actions write the
+  corresponding entities of the same diagram. The valid values shown as
+  branch outcomes (Pending, Confirmed, Completed, Cancelled, No-Show,
+  Waiting, Serving and Completed) are the values documented for the
+  status columns in the Data Dictionary in Section 3.9.
+
+==============================================================================
+
