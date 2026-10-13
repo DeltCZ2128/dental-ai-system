@@ -1593,14 +1593,29 @@ if ($upcomingDateFilter !== '') {
 $futureTotal = 0;
 foreach ($futureGroups as $fgRows) { $futureTotal += count($fgRows); }
 
-/* Walang pagination na — scroll na lang ang tikop, lahat ng araw ay ipapakita. */
-$upcomingPaginatedGroups = [];
+/* Pagination para sa Upcoming Appointments — 10 lists kada page */
+$allUpcomingAppts = [];
 foreach ($futureGroups as $ugDay => $ugRows) {
     foreach ($ugRows as $ugR) {
-        $pDay = substr((string) ($ugR['appointment_date'] ?? ''), 0, 10);
-        if ($pDay === '') { continue; }
-        $upcomingPaginatedGroups[$pDay][] = $ugR;
+        $allUpcomingAppts[] = $ugR;
     }
+}
+$upcomingTotal = count($allUpcomingAppts);
+$upcomingPerPage = 10;
+$upcomingPage = max(1, (int) ($_GET['upage'] ?? 1));
+$upcomingTotalPages = max(1, (int) ceil($upcomingTotal / $upcomingPerPage));
+if ($upcomingPage > $upcomingTotalPages) {
+    $upcomingPage = $upcomingTotalPages;
+}
+$upcomingOffset = ($upcomingPage - 1) * $upcomingPerPage;
+$upcomingPaginatedAppts = array_slice($allUpcomingAppts, $upcomingOffset, $upcomingPerPage);
+
+/* I-group ang 10 appointments sa kasalukuyang page ayon sa araw */
+$upcomingPaginatedGroups = [];
+foreach ($upcomingPaginatedAppts as $ugR) {
+    $pDay = substr((string) ($ugR['appointment_date'] ?? ''), 0, 10);
+    if ($pDay === '') { continue; }
+    $upcomingPaginatedGroups[$pDay][] = $ugR;
 }
 ?>
 <h2 class="appt-card-header" id="heading-upcoming">
@@ -1657,7 +1672,7 @@ foreach ($futureGroups as $ugDay => $ugRows) {
 </div>
 <?php else: ?>
 
-<?php $upcomingRowNo = 0; ?>
+<?php $upcomingRowNo = $upcomingOffset; ?>
 
 <div class="upcoming-scroll">
 
@@ -1780,6 +1795,34 @@ Change Status <i class="bi bi-chevron-down"></i>
 <?php endforeach; ?>
 
 </div>
+
+<?php if ($upcomingTotalPages > 1): ?>
+<?php
+$upFrom = $upcomingTotal > 0 ? $upcomingOffset + 1 : 0;
+$upTo = min($upcomingOffset + $upcomingPerPage, $upcomingTotal);
+$upStart = max(1, min($upcomingPage - 3, $upcomingTotalPages - 6));
+$upEnd = min($upcomingTotalPages, $upStart + 6);
+$upStart = max(1, $upEnd - 6);
+?>
+<div class="history-pagination">
+<span class="pagination-info">Showing <?= (int) $upFrom ?>—<?= (int) $upTo ?> of <?= (int) $upcomingTotal ?> upcoming appointment<?= $upcomingTotal === 1 ? '' : 's' ?></span>
+<nav class="page-notation" aria-label="Upcoming appointment pages">
+<?php if ($upcomingPage > 1): ?>
+<a href="appointments.php?<?= $keptQs ?>upage=<?= (int) ($upcomingPage - 1) ?>#upcoming" class="page-link-btn" aria-label="Previous page"><i class="bi bi-chevron-left"></i></a>
+<?php endif; ?>
+<?php for ($up = $upStart; $up <= $upEnd; $up++): ?>
+<a href="appointments.php?<?= $keptQs ?>upage=<?= (int) $up ?>#upcoming" class="page-link-btn <?= $up === $upcomingPage ? 'active' : '' ?>"><?= (int) $up ?></a>
+<?php endfor; ?>
+<?php if ($upcomingPage < $upcomingTotalPages): ?>
+<a href="appointments.php?<?= $keptQs ?>upage=<?= (int) ($upcomingPage + 1) ?>#upcoming" class="page-link-btn" aria-label="Next page"><i class="bi bi-chevron-right"></i></a>
+<?php endif; ?>
+</nav>
+</div>
+<?php elseif ($upcomingTotal > 0): ?>
+<div class="history-pagination">
+<span class="pagination-info">Showing 1—<?= (int) $upcomingTotal ?> of <?= (int) $upcomingTotal ?> upcoming appointment<?= $upcomingTotal === 1 ? '' : 's' ?></span>
+</div>
+<?php endif; ?>
 
 <?php endif; ?>
 
