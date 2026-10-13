@@ -233,6 +233,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($patientId > 0)) {
 }
 
 $appointments = [];
+$todayAppointments = [];
+$upcomingAppointments = [];
+$historyAppointments = [];
+$todayDate = date('Y-m-d');
 
 if ($patientId > 0) {
 
@@ -254,8 +258,34 @@ if ($patientId > 0) {
 
     $appointments =
         $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($appointments as $appt) {
+        $aDate = substr((string)($appt['appointment_date'] ?? ''), 0, 10);
+        $st = trim($appt['status'] ?? '');
+        $isDone = in_array($st, ['Completed', 'Cancelled', 'Canceled', 'No-Show'], true) || ($aDate < $todayDate);
+
+        if ($isDone) {
+            $historyAppointments[] = $appt;
+        } elseif ($aDate === $todayDate) {
+            $todayAppointments[] = $appt;
+        } else {
+            $upcomingAppointments[] = $appt;
+        }
+    }
 }
 
+$initialTab = trim($_GET['tab'] ?? '');
+if (!in_array($initialTab, ['today', 'upcoming', 'history', 'all'], true)) {
+    if (!empty($todayAppointments)) {
+        $initialTab = 'today';
+    } elseif (!empty($upcomingAppointments)) {
+        $initialTab = 'upcoming';
+    } elseif (!empty($historyAppointments)) {
+        $initialTab = 'history';
+    } else {
+        $initialTab = 'all';
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -428,6 +458,71 @@ href="patient.css?v=8"
 .ma-email{background:linear-gradient(135deg,#3B82F6,#1D4ED8)}
 .ma-concern{background:linear-gradient(135deg,#A78BFA,#7C3AED)}
 .ma-cancel{background:linear-gradient(135deg,#EF4444,#B91C1C)}
+
+/* Category Tabs Bar */
+.appt-category-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    background: #ffffff;
+    padding: 10px 14px;
+    border-radius: 14px;
+    border: 1px solid #C9E9DA;
+    box-shadow: 0 4px 16px rgba(14,107,94,.08);
+    margin-bottom: 16px;
+    align-items: center;
+}
+.appt-cat-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #F4FAF7;
+    border: 1.5px solid #C9E9DA;
+    color: #143f51;
+    font-weight: 700;
+    font-size: 13.5px;
+    padding: 9px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all .2s ease;
+    text-decoration: none;
+}
+.appt-cat-btn:hover {
+    background: #EAF7F0;
+    border-color: #0E6B5E;
+    color: #0E6B5E;
+    transform: translateY(-1px);
+}
+.appt-cat-btn.active {
+    background: linear-gradient(135deg, #0E6B5E, #0A4A41) !important;
+    border-color: #0A4A41 !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(14,107,94,.28);
+}
+.appt-cat-btn .cat-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 800;
+    border-radius: 20px;
+    background: rgba(14,107,94,.12);
+    color: #0E6B5E;
+}
+.appt-cat-btn.active .cat-badge {
+    background: rgba(255,255,255,.24);
+    color: #ffffff;
+}
+.category-badge-pill {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+.cat-pill-today { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+.cat-pill-upcoming { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+.cat-pill-history { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
 </style>
 
 </head>
@@ -481,26 +576,49 @@ View all your dental appointments
 <div class="patient-content">
 
 <?php if (!empty($appointments)): ?>
+<div class="appt-category-bar mb-3" id="apptCategoryBar">
+    <button type="button" class="appt-cat-btn <?= $initialTab === 'today' ? 'active' : '' ?>" data-tab="today" onclick="selectApptCategory('today')">
+        <i class="bi bi-calendar2-day-fill" style="color:#059669;"></i>
+        <span>Today's Appointments</span>
+        <span class="cat-badge"><?= count($todayAppointments) ?></span>
+    </button>
+    <button type="button" class="appt-cat-btn <?= $initialTab === 'upcoming' ? 'active' : '' ?>" data-tab="upcoming" onclick="selectApptCategory('upcoming')">
+        <i class="bi bi-calendar2-plus-fill" style="color:#0284c7;"></i>
+        <span>Upcoming Appointments</span>
+        <span class="cat-badge"><?= count($upcomingAppointments) ?></span>
+    </button>
+    <button type="button" class="appt-cat-btn <?= $initialTab === 'history' ? 'active' : '' ?>" data-tab="history" onclick="selectApptCategory('history')">
+        <i class="bi bi-clock-history" style="color:#64748b;"></i>
+        <span>Appointment History</span>
+        <span class="cat-badge"><?= count($historyAppointments) ?></span>
+    </button>
+    <button type="button" class="appt-cat-btn <?= $initialTab === 'all' ? 'active' : '' ?>" data-tab="all" onclick="selectApptCategory('all')">
+        <i class="bi bi-collection-fill" style="color:#0E6B5E;"></i>
+        <span>All</span>
+        <span class="cat-badge"><?= count($appointments) ?></span>
+    </button>
+</div>
+
 <div class="appt-filter-bar" id="apptFilterBar">
-<button type="button" data-filter="all" class="active">All</button>
-<button type="button" data-filter="pending">Pending</button>
-<button type="button" data-filter="confirmed">Confirmed</button>
-<button type="button" data-filter="completed">Completed</button>
-<button type="button" data-filter="cancelled">Cancelled</button>
-<div class="appt-search"><i class="bi bi-search"></i><input type="text" id="apptSearch" placeholder="Search dentist, service..."></div>
+    <button type="button" data-filter="all" class="active">All Status</button>
+    <button type="button" data-filter="pending">Pending</button>
+    <button type="button" data-filter="confirmed">Confirmed</button>
+    <button type="button" data-filter="completed">Completed</button>
+    <button type="button" data-filter="cancelled">Cancelled</button>
+    <div class="appt-search"><i class="bi bi-search"></i><input type="text" id="apptSearch" placeholder="Search dentist, service..."></div>
 </div>
 <?php endif; ?>
 
 <div class="patient-card">
 
 <?php if ($cancelSuccess !== ''): ?>
-<div class="alert alert-success alert-dismissible fade show" role="alert">
+<div class="alert alert-success alert-dismissible fade show m-3 mb-0" role="alert">
 <i class="bi bi-check-circle-fill me-1"></i> <?= myAppointmentsEscape($cancelSuccess) ?>
 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
 </div>
 <?php endif; ?>
 <?php if ($cancelError !== ''): ?>
-<div class="alert alert-danger alert-dismissible fade show" role="alert">
+<div class="alert alert-danger alert-dismissible fade show m-3 mb-0" role="alert">
 <i class="bi bi-exclamation-triangle-fill me-1"></i> <?= myAppointmentsEscape($cancelError) ?>
 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
 </div>
@@ -508,9 +626,36 @@ View all your dental appointments
 
 <div class="patient-card-header">
 
-<h3>
-<i class="bi bi-table"></i> Appointment History
-</h3>
+<div>
+    <h3 id="cardHeaderTitle">
+        <?php if ($initialTab === 'today'): ?>
+            <i class="bi bi-calendar2-day-fill"></i> Today's Appointments
+        <?php elseif ($initialTab === 'upcoming'): ?>
+            <i class="bi bi-calendar2-plus-fill"></i> Upcoming Appointments
+        <?php elseif ($initialTab === 'history'): ?>
+            <i class="bi bi-clock-history"></i> Appointment History
+        <?php else: ?>
+            <i class="bi bi-table"></i> All Appointments
+        <?php endif; ?>
+    </h3>
+    <small id="cardHeaderSubtitle" class="text-muted d-block mt-1" style="font-size:12px; font-weight:600;">
+        <?php if ($initialTab === 'today'): ?>
+            Appointments scheduled for today (<?= date('F d, Y') ?>)
+        <?php elseif ($initialTab === 'upcoming'): ?>
+            Your upcoming scheduled dental appointments
+        <?php elseif ($initialTab === 'history'): ?>
+            Past and completed appointments (Maaari mong tignan ulit ang mga dating appointment mo)
+        <?php else: ?>
+            View all scheduled and recorded dental appointments
+        <?php endif; ?>
+    </small>
+</div>
+
+<div class="d-flex align-items-center gap-2">
+    <a href="book_appointment.php" class="btn btn-sm" style="background:linear-gradient(135deg,#0E6B5E,#0A4A41); color:#ffffff; font-weight:700; border-radius:8px; padding:7px 15px; border:none; text-decoration:none;">
+        <i class="bi bi-calendar-plus me-1"></i> Book Appointment
+    </a>
+</div>
 
 </div>
 
@@ -535,7 +680,39 @@ Book Appointment
 
 <?php else: ?>
 
-<div class="table-responsive">
+<!-- TAB-SPECIFIC EMPTY STATES -->
+<div class="appt-empty-category" id="emptyToday" style="display:none; padding:48px 24px; text-align:center;">
+    <div style="width:58px; height:58px; border-radius:50%; background:#ecfdf5; color:#059669; display:inline-flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:12px;">
+        <i class="bi bi-calendar2-day-fill"></i>
+    </div>
+    <h5 style="font-weight:800; color:#143f51; margin-bottom:6px;">No appointments for today</h5>
+    <p class="text-muted small mb-3">You don't have any appointments scheduled for today (<?= date('F d, Y') ?>).</p>
+    <div class="d-flex justify-content-center gap-2 flex-wrap">
+        <?php if (!empty($upcomingAppointments)): ?>
+        <button type="button" class="btn btn-sm btn-outline-success" onclick="selectApptCategory('upcoming')"><i class="bi bi-calendar2-plus-fill me-1"></i> View Upcoming Appointments (<?= count($upcomingAppointments) ?>)</button>
+        <?php endif; ?>
+        <a href="book_appointment.php" class="btn btn-sm btn-success" style="background:#0E6B5E; border-color:#0E6B5E;"><i class="bi bi-calendar-plus me-1"></i> Book Appointment</a>
+    </div>
+</div>
+
+<div class="appt-empty-category" id="emptyUpcoming" style="display:none; padding:48px 24px; text-align:center;">
+    <div style="width:58px; height:58px; border-radius:50%; background:#f0f9ff; color:#0284c7; display:inline-flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:12px;">
+        <i class="bi bi-calendar2-plus-fill"></i>
+    </div>
+    <h5 style="font-weight:800; color:#143f51; margin-bottom:6px;">No upcoming appointments</h5>
+    <p class="text-muted small mb-3">You have no upcoming appointments scheduled yet.</p>
+    <a href="book_appointment.php" class="btn btn-sm btn-primary" style="background:#0E6B5E; border-color:#0E6B5E;"><i class="bi bi-calendar-plus me-1"></i> Book New Appointment</a>
+</div>
+
+<div class="appt-empty-category" id="emptyHistory" style="display:none; padding:48px 24px; text-align:center;">
+    <div style="width:58px; height:58px; border-radius:50%; background:#f8fafc; color:#64748b; display:inline-flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:12px;">
+        <i class="bi bi-clock-history"></i>
+    </div>
+    <h5 style="font-weight:800; color:#143f51; margin-bottom:6px;">No appointment history</h5>
+    <p class="text-muted small mb-0">You don't have any past or completed appointments on record yet.</p>
+</div>
+
+<div class="table-responsive" id="apptTableWrap">
 
 <table class="patient-table">
 
@@ -570,6 +747,18 @@ Book Appointment
 
 $apptRowNum++;
 
+$aDate = substr((string)($appointment['appointment_date'] ?? ''), 0, 10);
+$st = trim($appointment['status'] ?? '');
+$isDone = in_array($st, ['Completed', 'Cancelled', 'Canceled', 'No-Show'], true) || ($aDate < $todayDate);
+
+if ($isDone) {
+    $category = 'history';
+} elseif ($aDate === $todayDate) {
+    $category = 'today';
+} else {
+    $category = 'upcoming';
+}
+
 $statusClass = strtolower(
 str_replace(
 ' ',
@@ -580,7 +769,11 @@ $appointment['status'] ?? ''
 
 ?>
 
-<tr class="appt-row" data-status="<?= $statusClass ?>" data-search="<?= myAppointmentsEscape(strtolower(($appointment['appointment_date'] ?? '') . ' ' . ($appointment['dentist_name'] ?? '') . ' ' . ($appointment['service_type'] ?? '') . ' ' . ($appointment['status'] ?? ''))) ?>">
+<tr class="appt-row"
+    data-category="<?= $category ?>"
+    data-status="<?= $statusClass ?>"
+    data-search="<?= myAppointmentsEscape(strtolower(($appointment['appointment_date'] ?? '') . ' ' . ($appointment['dentist_name'] ?? '') . ' ' . ($appointment['service_type'] ?? '') . ' ' . ($appointment['status'] ?? '') . ' ' . $category)) ?>"
+>
 
 <td>
 
@@ -595,6 +788,16 @@ $appointment['status'] ?? ''
 <?= myAppointmentsEscape($patientFullName) ?>
 
 </strong>
+
+<div class="mt-1">
+    <?php if ($category === 'today'): ?>
+        <span class="category-badge-pill cat-pill-today"><i class="bi bi-calendar2-day-fill me-1"></i>Today</span>
+    <?php elseif ($category === 'upcoming'): ?>
+        <span class="category-badge-pill cat-pill-upcoming"><i class="bi bi-calendar2-plus-fill me-1"></i>Upcoming</span>
+    <?php else: ?>
+        <span class="category-badge-pill cat-pill-history"><i class="bi bi-clock-history me-1"></i>History</span>
+    <?php endif; ?>
+</div>
 
 </td>
 
@@ -687,12 +890,13 @@ data-specialization="<?= myAppointmentsEscape($appointment['specialization'] ?? 
 data-service="<?= myAppointmentsEscape($appointment['service_type']) ?>"
 data-status="<?= myAppointmentsEscape($appointment['status']) ?>"
 data-status-class="<?= $statusClass ?>"
+data-category="<?= $category ?>"
 data-booked="<?= myAppointmentsEscape(!empty($appointment['created_at']) ? date('M d, Y · h:i A', strtotime($appointment['created_at'])) : '') ?>"
 data-notes="<?= myAppointmentsEscape($appointment['notes'] ?? '') ?>"
 >
 <i class="bi bi-eye"></i> View
 </button>
-<?php if (in_array($appointment['status'], ['Pending', 'Confirmed'], true) && $appointment['appointment_date'] >= date('Y-m-d')): ?>
+<?php if ($category !== 'history' && in_array($appointment['status'], ['Pending', 'Confirmed'], true) && $appointment['appointment_date'] >= date('Y-m-d')): ?>
 <button
 type="button"
 class="btn btn-sm manage-btn"
@@ -706,7 +910,15 @@ data-mailto="mailto:abalosdentalclinic123@gmail.com?subject=<?= rawurlencode('Re
 >
 Manage <i class="bi bi-chevron-down"></i>
 </button>
-<?php else: ?>
+<?php elseif ($category === 'history'): ?>
+<a
+href="appointment_concern.php?appointment_id=<?= (int)$appointment['id'] ?>"
+class="btn btn-sm"
+style="background:#f1f5f9; border:1.5px solid #cbd5e1; color:#475569; font-weight:700; border-radius:999px; padding:6px 12px; font-size:12px; text-decoration:none;"
+title="Have a concern about this past appointment? Send a message"
+>
+<i class="bi bi-chat-dots"></i> Concern
+</a>
 <?php endif; ?>
 </div>
 </td>
@@ -877,8 +1089,9 @@ Manage <i class="bi bi-chevron-down"></i>
 </tr>
 </table>
 </div>
-<div class="modal-footer">
-<button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+<div class="modal-footer d-flex justify-content-between align-items-center">
+<a id="viewApptConcernLink" href="appointment_concern.php" class="btn btn-outline-success btn-sm" style="font-weight:700;"><i class="bi bi-chat-dots-fill me-1"></i> Send Concern</a>
+<button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Close</button>
 </div>
 </div>
 </div>
@@ -889,6 +1102,7 @@ Manage <i class="bi bi-chevron-down"></i>
 /* View button — ipakita ang appointment details sa modal */
 document.querySelectorAll('.view-btn').forEach(function(btn){
   btn.addEventListener('click', function(){
+    var apptId = btn.getAttribute('data-appointment-id') || '0';
     document.getElementById('viewApptPatientName').textContent = btn.getAttribute('data-patient') || '—';
     document.getElementById('viewApptPatientId').textContent = btn.getAttribute('data-patient-id') || '—';
     var statusEl = document.getElementById('viewApptStatus');
@@ -905,6 +1119,10 @@ document.querySelectorAll('.view-btn').forEach(function(btn){
     var notesRow = document.getElementById('viewApptNotesRow');
     document.getElementById('viewApptNotes').textContent = notes !== '' ? notes : '—';
     notesRow.style.display = notes !== '' ? '' : 'none';
+    var concernLink = document.getElementById('viewApptConcernLink');
+    if (concernLink) {
+      concernLink.href = 'appointment_concern.php?appointment_id=' + encodeURIComponent(apptId);
+    }
     new bootstrap.Modal(document.getElementById('viewModal')).show();
   });
 });
@@ -977,36 +1195,100 @@ document.getElementById('maCancelBtn').addEventListener('click', function(){
   new bootstrap.Modal(document.getElementById('cancelModal')).show();
 });
 
-/* Filters — status + search, client-side lang */
+/* Filters & Categories — Today, Upcoming, History, Status & Search */
+var currentApptCategory = '<?= $initialTab ?>';
+var activeApptStatus = 'all';
+
+function selectApptCategory(cat) {
+  currentApptCategory = cat;
+  document.querySelectorAll('.appt-cat-btn').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-tab') === cat);
+  });
+
+  var titleEl = document.getElementById('cardHeaderTitle');
+  var subEl = document.getElementById('cardHeaderSubtitle');
+  if (cat === 'today') {
+    if (titleEl) titleEl.innerHTML = '<i class="bi bi-calendar2-day-fill"></i> Today\'s Appointments';
+    if (subEl) subEl.textContent = 'Appointments scheduled for today (<?= date('F d, Y') ?>)';
+  } else if (cat === 'upcoming') {
+    if (titleEl) titleEl.innerHTML = '<i class="bi bi-calendar2-plus-fill"></i> Upcoming Appointments';
+    if (subEl) subEl.textContent = 'Your upcoming scheduled dental appointments';
+  } else if (cat === 'history') {
+    if (titleEl) titleEl.innerHTML = '<i class="bi bi-clock-history"></i> Appointment History';
+    if (subEl) subEl.textContent = 'Past and completed appointments (Maaari mong tignan ulit ang mga dating appointment mo)';
+  } else {
+    if (titleEl) titleEl.innerHTML = '<i class="bi bi-table"></i> All Appointments';
+    if (subEl) subEl.textContent = 'View all scheduled and recorded dental appointments';
+  }
+  applyAppointmentsFilter();
+}
+
+function applyAppointmentsFilter() {
+  var search = document.getElementById('apptSearch');
+  var q = (search && search.value ? search.value : '').toLowerCase().trim();
+  var visibleInTab = 0;
+  var totalInCat = 0;
+
+  document.querySelectorAll('.appt-row').forEach(function(row){
+    var rowCat = row.getAttribute('data-category') || '';
+    var rowStatus = row.getAttribute('data-status') || '';
+    var hay = row.getAttribute('data-search') || '';
+
+    var matchCat = (currentApptCategory === 'all' || rowCat === currentApptCategory);
+    if (matchCat) {
+      totalInCat++;
+    }
+
+    var okStatus = (activeApptStatus === 'all' || rowStatus === activeApptStatus);
+    var okSearch = (q === '' || hay.indexOf(q) !== -1);
+    var show = matchCat && okStatus && okSearch;
+    row.style.display = show ? '' : 'none';
+    if (show) visibleInTab++;
+  });
+
+  var tableWrap = document.getElementById('apptTableWrap');
+  var emptyToday = document.getElementById('emptyToday');
+  var emptyUpcoming = document.getElementById('emptyUpcoming');
+  var emptyHistory = document.getElementById('emptyHistory');
+  var noMatch = document.getElementById('apptNoMatch');
+
+  if (emptyToday) emptyToday.style.display = 'none';
+  if (emptyUpcoming) emptyUpcoming.style.display = 'none';
+  if (emptyHistory) emptyHistory.style.display = 'none';
+  if (noMatch) noMatch.style.display = 'none';
+
+  if (totalInCat === 0 && currentApptCategory !== 'all') {
+    if (tableWrap) tableWrap.style.display = 'none';
+    if (currentApptCategory === 'today' && emptyToday) emptyToday.style.display = 'block';
+    if (currentApptCategory === 'upcoming' && emptyUpcoming) emptyUpcoming.style.display = 'block';
+    if (currentApptCategory === 'history' && emptyHistory) emptyHistory.style.display = 'block';
+  } else {
+    if (tableWrap) tableWrap.style.display = 'block';
+    if (visibleInTab === 0 && (q !== '' || activeApptStatus !== 'all')) {
+      if (noMatch) noMatch.style.display = 'block';
+    }
+  }
+}
+
 (function(){
   var bar = document.getElementById('apptFilterBar');
-  if (!bar) return;
-  var btns = bar.querySelectorAll('button[data-filter]');
-  var search = document.getElementById('apptSearch');
-  var noMatch = document.getElementById('apptNoMatch');
-  var active = 'all';
-  function apply(){
-    var q = (search && search.value ? search.value : '').toLowerCase().trim();
-    var visible = 0;
-    document.querySelectorAll('.appt-row').forEach(function(row){
-      var okStatus = (active === 'all' || row.getAttribute('data-status') === active);
-      var hay = row.getAttribute('data-search') || '';
-      var okSearch = (q === '' || hay.indexOf(q) !== -1);
-      var show = okStatus && okSearch;
-      row.style.display = show ? '' : 'none';
-      if (show) visible++;
+  if (bar) {
+    var btns = bar.querySelectorAll('button[data-filter]');
+    btns.forEach(function(b){
+      b.addEventListener('click', function(){
+        btns.forEach(function(x){ x.classList.remove('active'); });
+        b.classList.add('active');
+        activeApptStatus = b.getAttribute('data-filter') || 'all';
+        applyAppointmentsFilter();
+      });
     });
-    if (noMatch) noMatch.style.display = visible === 0 ? '' : 'none';
   }
-  btns.forEach(function(b){
-    b.addEventListener('click', function(){
-      btns.forEach(function(x){ x.classList.remove('active'); });
-      b.classList.add('active');
-      active = b.getAttribute('data-filter') || 'all';
-      apply();
-    });
-  });
-  if (search) search.addEventListener('input', apply);
+
+  var search = document.getElementById('apptSearch');
+  if (search) search.addEventListener('input', applyAppointmentsFilter);
+
+  // Initialize view
+  applyAppointmentsFilter();
 })();
 </script>
 

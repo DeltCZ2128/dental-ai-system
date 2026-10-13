@@ -198,39 +198,46 @@ $stmt = $pdo->prepare("
 $stmt->execute([$patientId]);
 $myAppointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-/* Hanapin ang pinaka-malapit na active appointment (default selection) */
-$defaultAppointmentId = 0;
+$todayDate = date('Y-m-d');
+$todayAppointments = [];
+$upcomingAppointments = [];
+$historyAppointments = [];
+
 foreach ($myAppointments as $row) {
-    if (
-        in_array($row['status'] ?? '', ['Pending', 'Confirmed'], true) &&
-        ($row['appointment_date'] ?? '') >= date('Y-m-d')
-    ) {
-        // kunin ang pinaka-una sa chronological order
-        $defaultAppointmentId = (int)$row['id'];
+    $aDate = substr((string)($row['appointment_date'] ?? ''), 0, 10);
+    $st = trim($row['status'] ?? '');
+    $isDone = in_array($st, ['Completed', 'Cancelled', 'Canceled', 'No-Show'], true) || ($aDate < $todayDate);
+
+    if ($isDone) {
+        $historyAppointments[] = $row;
+    } elseif ($aDate === $todayDate) {
+        $todayAppointments[] = $row;
+    } else {
+        $upcomingAppointments[] = $row;
     }
 }
-// Dahil DESC ang order, baliktarin: kunin ang pinakahuling match = pinakamalapit na future
-if ($defaultAppointmentId === 0) {
-    $stmt = $pdo->prepare("
-        SELECT id FROM appointments
-        WHERE patient_id = ?
-        AND status IN ('Pending','Confirmed')
-        AND appointment_date >= CURDATE()
-        ORDER BY appointment_date ASC, start_time ASC
-        LIMIT 1
-    ");
-    $stmt->execute([$patientId]);
-    $defaultAppointmentId = (int)($stmt->fetchColumn() ?: 0);
+
+/* Hanapin ang pinaka-malapit na active appointment (default selection) */
+$defaultAppointmentId = 0;
+if (!empty($todayAppointments)) {
+    $defaultAppointmentId = (int)$todayAppointments[0]['id'];
+} elseif (!empty($upcomingAppointments)) {
+    // chronologically nearest upcoming
+    $nearestUpcoming = end($upcomingAppointments);
+    $defaultAppointmentId = (int)($nearestUpcoming['id'] ?? 0);
+} elseif (!empty($historyAppointments)) {
+    $defaultAppointmentId = (int)$historyAppointments[0]['id'];
 }
 
 /* Aling appointment ang kasalukuyang pinipili */
 $requestedAppointmentId = (int)($_GET['appointment_id'] ?? $_POST['appointment_id'] ?? 0);
-if ($requestedAppointmentId <= 0) {
+if (!isset($_GET['appointment_id']) && !isset($_POST['appointment_id'])) {
     $requestedAppointmentId = $defaultAppointmentId;
 }
 
 /* Kunin ang details ng napiling appointment (kung meron) */
 $appointment = null;
+$selectedCategory = 'none';
 if ($requestedAppointmentId > 0) {
     $stmt = $pdo->prepare("
         SELECT a.*, d.dentist_name
@@ -243,12 +250,23 @@ if ($requestedAppointmentId > 0) {
     $appointment = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($appointment) {
         $appointmentId = (int)$appointment['id'];
+        $selDate = substr((string)($appointment['appointment_date'] ?? ''), 0, 10);
+        $selStatus = trim($appointment['status'] ?? '');
+        if (in_array($selStatus, ['Completed', 'Cancelled', 'Canceled', 'No-Show'], true) || ($selDate < $todayDate)) {
+            $selectedCategory = 'history';
+        } elseif ($selDate === $todayDate) {
+            $selectedCategory = 'today';
+        } else {
+            $selectedCategory = 'upcoming';
+        }
     } else {
         $appointmentId = 0;
         $appointment = null;
+        $selectedCategory = 'none';
     }
 } else {
     $appointmentId = 0; // General concern
+    $selectedCategory = 'general';
 }
 
 /* Chat history: lahat ng concerns ng patient (o per appointment kung may pinili) */
@@ -1038,11 +1056,70 @@ textarea {
             <?php endif; ?>
 
 
+            <!-- APPOINTMENT CATEGORIES SELECTOR -->
+            <div class="concern-category-bar mb-3 p-3 rounded-3" style="background:#f8fafb; border:1.5px solid #d9e7e5;">
+                <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                    <span style="font-size:12px; font-weight:800; color:#143f51; text-transform:uppercase; letter-spacing:.5px;">
+                        <i class="bi bi-funnel-fill text-success me-1"></i> Choose Appointment Category
+                    </span>
+                    <a href="my_appointments.php" class="btn btn-sm btn-outline-success" style="font-size:11.5px; font-weight:700; border-radius:8px;">
+                        <i class="bi bi-calendar-check me-1"></i> Go to My Appointments
+                    </a>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2">
+                    <?php if (!empty($todayAppointments)): ?>
+                        <a href="appointment_concern.php?appointment_id=<?= (int)$todayAppointments[0]['id'] ?>" class="btn btn-sm <?= ($selectedCategory === 'today') ? 'btn-success' : 'btn-outline-success' ?>" style="font-weight:700; font-size:12.5px; border-radius:8px;">
+                            <i class="bi bi-calendar2-day-fill me-1"></i> Today's Appointments (<?= count($todayAppointments) ?>)
+                        </a>
+                    <?php else: ?>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" disabled style="font-size:12.5px; border-radius:8px; opacity:.65;">
+                            <i class="bi bi-calendar2-day-fill me-1"></i> Today's Appointments (0)
+                        </button>
+                    <?php endif; ?>
+
+                    <?php if (!empty($upcomingAppointments)): ?>
+                        <a href="appointment_concern.php?appointment_id=<?= (int)$upcomingAppointments[0]['id'] ?>" class="btn btn-sm <?= ($selectedCategory === 'upcoming') ? 'btn-primary' : 'btn-outline-primary' ?>" style="font-weight:700; font-size:12.5px; border-radius:8px;">
+                            <i class="bi bi-calendar2-plus-fill me-1"></i> Upcoming Appointments (<?= count($upcomingAppointments) ?>)
+                        </a>
+                    <?php else: ?>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" disabled style="font-size:12.5px; border-radius:8px; opacity:.65;">
+                            <i class="bi bi-calendar2-plus-fill me-1"></i> Upcoming Appointments (0)
+                        </button>
+                    <?php endif; ?>
+
+                    <?php if (!empty($historyAppointments)): ?>
+                        <a href="appointment_concern.php?appointment_id=<?= (int)$historyAppointments[0]['id'] ?>" class="btn btn-sm <?= ($selectedCategory === 'history' && $appointmentId > 0) ? 'btn-secondary' : 'btn-outline-secondary' ?>" style="font-weight:700; font-size:12.5px; border-radius:8px;">
+                            <i class="bi bi-clock-history me-1"></i> Appointment History (<?= count($historyAppointments) ?>)
+                        </a>
+                    <?php else: ?>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" disabled style="font-size:12.5px; border-radius:8px; opacity:.65;">
+                            <i class="bi bi-clock-history me-1"></i> Appointment History (0)
+                        </button>
+                    <?php endif; ?>
+
+                    <a href="appointment_concern.php?appointment_id=0" class="btn btn-sm <?= ($appointmentId <= 0) ? 'btn-dark' : 'btn-outline-dark' ?>" style="font-weight:700; font-size:12.5px; border-radius:8px;">
+                        <i class="bi bi-chat-left-text me-1"></i> General Concern
+                    </a>
+                </div>
+            </div>
+
             <?php if ($appointment && $appointmentId > 0): ?>
             <div class="appointment-details">
 
-                <div class="details-title">
-                    Appointment Details
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                    <div class="details-title mb-0">
+                        Appointment Details
+                    </div>
+                    <div>
+                        <?php if ($selectedCategory === 'today'): ?>
+                            <span class="badge" style="background:#059669; color:#fff; font-size:12px; padding:6px 12px; border-radius:8px;"><i class="bi bi-calendar2-day-fill me-1"></i> Today's Appointment</span>
+                        <?php elseif ($selectedCategory === 'upcoming'): ?>
+                            <span class="badge" style="background:#0284c7; color:#fff; font-size:12px; padding:6px 12px; border-radius:8px;"><i class="bi bi-calendar2-plus-fill me-1"></i> Upcoming Appointment</span>
+                        <?php else: ?>
+                            <span class="badge" style="background:#64748b; color:#fff; font-size:12px; padding:6px 12px; border-radius:8px;"><i class="bi bi-clock-history me-1"></i> Appointment History</span>
+                        <?php endif; ?>
+                    </div>
                 </div>
 
 
@@ -1146,6 +1223,13 @@ textarea {
 
                 </div>
 
+                <?php if ($selectedCategory === 'history'): ?>
+                <div class="alert alert-light border mt-3 mb-0" style="font-size:12px; color:#475569; background:#ffffff;">
+                    <i class="bi bi-clock-history text-secondary me-1"></i>
+                    <strong>Appointment History:</strong> Ito ay nakaraang appointment mo na tapos na. Pwede mong balikan at tignan ang mga detalye nito, o mag-iwan ng follow-up concern sa clinic gamit ang form sa ibaba.
+                </div>
+                <?php endif; ?>
+
             </div>
             <?php elseif (empty($myAppointments)): ?>
             <div class="alert alert-info">
@@ -1194,16 +1278,35 @@ textarea {
                         <label for="appointment_id" class="form-label">Related Appointment</label>
                         <select name="appointment_id" id="appointment_id" class="form-select" onchange="this.form.method='GET'; this.form.querySelector('[name=reason]') && null; window.location.href='appointment_concern.php?appointment_id='+this.value;">
                             <option value="0" <?= ($requestedAppointmentId <= 0) ? 'selected' : '' ?>>General Concern (walang specific appointment)</option>
-                            <?php foreach ($myAppointments as $a): ?>
-                                <option value="<?= (int)$a['id'] ?>" <?= ($requestedAppointmentId === (int)$a['id']) ? 'selected' : '' ?>>
-                                    <?= concern_e(date('M d, Y', strtotime($a['appointment_date']))) ?>
-                                    <?= concern_e(date('h:i A', strtotime($a['start_time']))) ?>
-                                    — <?= concern_e($a['service_type'] ?? 'Appointment') ?>
-                                    (<?= concern_e($a['status'] ?? '') ?>)
-                                </option>
-                            <?php endforeach; ?>
+                            <?php if (!empty($todayAppointments)): ?>
+                                <optgroup label="📅 Today's Appointments (Ngayong Araw)">
+                                    <?php foreach ($todayAppointments as $a): ?>
+                                        <option value="<?= (int)$a['id'] ?>" <?= ($requestedAppointmentId === (int)$a['id']) ? 'selected' : '' ?>>
+                                            [TODAY] <?= concern_e(date('h:i A', strtotime($a['start_time']))) ?> — <?= concern_e($a['service_type'] ?? 'Appointment') ?> (<?= concern_e($a['status'] ?? '') ?>)
+                                        </option>
+                                    <?php endforeach; ?>
+                                </optgroup>
+                            <?php endif; ?>
+                            <?php if (!empty($upcomingAppointments)): ?>
+                                <optgroup label="⏰ Upcoming Appointments (Darating)">
+                                    <?php foreach ($upcomingAppointments as $a): ?>
+                                        <option value="<?= (int)$a['id'] ?>" <?= ($requestedAppointmentId === (int)$a['id']) ? 'selected' : '' ?>>
+                                            <?= concern_e(date('M d, Y', strtotime($a['appointment_date']))) ?> <?= concern_e(date('h:i A', strtotime($a['start_time']))) ?> — <?= concern_e($a['service_type'] ?? 'Appointment') ?> (<?= concern_e($a['status'] ?? '') ?>)
+                                        </option>
+                                    <?php endforeach; ?>
+                                </optgroup>
+                            <?php endif; ?>
+                            <?php if (!empty($historyAppointments)): ?>
+                                <optgroup label="📜 Appointment History (Mga Tapos / Nakaraang Appointment)">
+                                    <?php foreach ($historyAppointments as $a): ?>
+                                        <option value="<?= (int)$a['id'] ?>" <?= ($requestedAppointmentId === (int)$a['id']) ? 'selected' : '' ?>>
+                                            [HISTORY] <?= concern_e(date('M d, Y', strtotime($a['appointment_date']))) ?> — <?= concern_e($a['service_type'] ?? 'Appointment') ?> (<?= concern_e($a['status'] ?? '') ?>)
+                                        </option>
+                                    <?php endforeach; ?>
+                                </optgroup>
+                            <?php endif; ?>
                         </select>
-                        <div class="text-muted mt-1" style="font-size:10px;">Pumili kung tungkol saan ang concern mo. Kung wala kang appointment, piliin ang General Concern.</div>
+                        <div class="text-muted mt-1" style="font-size:10px;">Pumili kung tungkol saan ang concern mo: Today's Appointments, Upcoming Appointments, Appointment History, o General Concern.</div>
                     </div>
 
                     <div class="mb-3">
