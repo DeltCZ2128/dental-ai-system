@@ -199,7 +199,7 @@ function permanentQrUrl()
 | Minimal SMTP + STARTTLS client for Gmail. No external library.
 | Returns [bool $ok, string $error].
 */
-function sendClinicGmail($toEmail, $subject, $body)
+function sendClinicGmail($toEmail, $subject, $body, $isHtml = false)
 {
     $toEmail = trim((string)$toEmail);
 
@@ -299,6 +299,8 @@ function sendClinicGmail($toEmail, $subject, $body)
     $encodedSubject = '=?UTF-8?B?' . base64_encode($subject) . '?=';
     $encodedBody = chunk_split(base64_encode($body));
 
+    $contentType = $isHtml ? 'text/html; charset=UTF-8' : 'text/plain; charset=UTF-8';
+
     $headers =
         'From: ' . $fromName . ' <' . $user . ">\r\n" .
         'To: <' . $toEmail . ">\r\n" .
@@ -306,7 +308,7 @@ function sendClinicGmail($toEmail, $subject, $body)
         'Reply-To: ' . $fromName . ' <' . $user . ">\r\n" .
         'Subject: ' . $encodedSubject . "\r\n" .
         'MIME-Version: 1.0' . "\r\n" .
-        'Content-Type: text/plain; charset=UTF-8' . "\r\n" .
+        'Content-Type: ' . $contentType . "\r\n" .
         'Content-Transfer-Encoding: base64' . "\r\n";
 
     $response = $sendCommand('MAIL FROM:<' . $user . '>');
@@ -341,6 +343,101 @@ function sendClinicGmail($toEmail, $subject, $body)
     }
 
     return [true, ''];
+}
+
+/**
+ * Generate a 6-digit OTP, store in database, and email it to the patient.
+ * Returns [bool $ok, string $error, string $otpCode].
+ */
+function sendPatientVerificationOtp($userId, $toEmail, $fullName = '')
+{
+    global $pdo;
+
+    $userId = (int)$userId;
+    $toEmail = trim((string)$toEmail);
+
+    if ($userId <= 0 || !filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
+        return [false, 'Invalid patient user ID or email address.', ''];
+    }
+
+    $otp = sprintf("%06d", random_int(100000, 999999));
+    $expiresAt = date('Y-m-d H:i:s', strtotime('+10 minutes'));
+
+    try {
+        $stmt = $pdo->prepare("
+            UPDATE users
+            SET otp_code = ?,
+                otp_expires_at = ?,
+                is_verified = 0
+            WHERE id = ?
+        ");
+        $stmt->execute([$otp, $expiresAt, $userId]);
+    } catch (PDOException $e) {
+        return [false, 'Failed to generate verification code in database.', ''];
+    }
+
+    $patientName = trim($fullName) !== '' ? trim($fullName) : 'Valued Patient';
+    $subject = "Your Verification Code: " . $otp . " - Abalos Dental Clinic";
+
+    $htmlBody = '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:24px;background-color:#f1f5f9;font-family:\'Plus Jakarta Sans\',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+        <tr>
+            <td align="center">
+                <table role="presentation" width="100%" style="max-width:540px;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.06);border:1px solid #e2e8f0;" cellspacing="0" cellpadding="0" border="0">
+                    <tr>
+                        <td style="background:linear-gradient(135deg,#047857 0%,#059669 55%,#10B981 100%);padding:30px 24px;text-align:center;color:#ffffff;">
+                            <div style="font-size:26px;margin-bottom:6px;">🦷</div>
+                            <h1 style="margin:0;font-size:22px;font-weight:800;letter-spacing:-0.5px;color:#ffffff;">Abalos Dental Clinic</h1>
+                            <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.9);font-weight:600;">Patient Account Verification</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:32px 28px;color:#334155;">
+                            <p style="margin:0 0 14px;font-size:15px;line-height:1.5;">Hello <strong>' . htmlspecialchars($patientName, ENT_QUOTES, 'UTF-8') . '</strong>,</p>
+                            <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#64748b;">
+                                Thank you for creating an account with <strong>Abalos Dental Clinic</strong>. To verify your email address and activate your account, please enter the 6-digit verification code below:
+                            </p>
+                            
+                            <div style="text-align:center;margin:28px 0;">
+                                <div style="display:inline-block;background:#EAF7F0;border:2px dashed #059669;border-radius:14px;padding:16px 36px;">
+                                    <span style="font-size:32px;font-weight:800;letter-spacing:10px;color:#047857;font-family:\'Courier New\',Courier,monospace;">' . $otp . '</span>
+                                </div>
+                                <p style="margin:12px 0 0;font-size:12.5px;color:#059669;font-weight:700;">
+                                    ⏳ This code is valid for 10 minutes only.
+                                </p>
+                            </div>
+
+                            <div style="background:#f8fafc;border-left:4px solid #059669;border-radius:6px;padding:12px 14px;margin-bottom:20px;">
+                                <p style="margin:0;font-size:12.5px;color:#64748b;line-height:1.5;">
+                                    <strong>Important Security Notice:</strong> Please never share this code with anyone. Abalos Dental Clinic staff will never ask for your verification code.
+                                </p>
+                            </div>
+
+                            <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5;">
+                                If you did not sign up for an account at Abalos Dental Clinic, you may safely ignore this message.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:16px 24px;text-align:center;font-size:11.5px;color:#94a3b8;">
+                            &copy; ' . date('Y') . ' Abalos Dental Clinic &bull; Automated System Notification
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>';
+
+    list($ok, $err) = sendClinicGmail($toEmail, $subject, $htmlBody, true);
+    return [$ok, $err, $otp];
 }
 
 /* Patient reply tokens migration (kept for compatibility; reply links disabled). */
@@ -1047,3 +1144,27 @@ function autoSyncPatientProfiles()
 }
 
 autoSyncPatientProfiles();
+
+/* Ensure OTP verification columns exist in users table */
+function ensureUserOtpColumns()
+{
+    global $pdo;
+    static $checked = false;
+    if ($checked) return;
+    $checked = true;
+
+    try {
+        $col = $pdo->query("SHOW COLUMNS FROM users LIKE 'is_verified'")->fetch();
+        if (!$col) {
+            $pdo->exec("
+                ALTER TABLE users
+                ADD COLUMN is_verified TINYINT(1) NOT NULL DEFAULT 1,
+                ADD COLUMN otp_code VARCHAR(6) NULL DEFAULT NULL,
+                ADD COLUMN otp_expires_at DATETIME NULL DEFAULT NULL
+            ");
+        }
+    } catch (Throwable $e) {
+    }
+}
+
+ensureUserOtpColumns();

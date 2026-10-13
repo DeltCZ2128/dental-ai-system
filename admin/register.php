@@ -167,7 +167,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         password,
                         full_name,
                         contact_number,
-                        role
+                        role,
+                        is_verified
                     )
                     VALUES
                     (
@@ -175,7 +176,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         ?,
                         ?,
                         ?,
-                        ?
+                        ?,
+                        0
                     )
                 ");
 
@@ -209,29 +211,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     } catch (PDOException $e) {
                         // autoSyncPatientProfiles() in config.php will also keep it synced.
                     }
+
+                    // Send Email OTP for verification
+                    list($sentOk, $sendErr, $otp) = sendPatientVerificationOtp($newUserId, $email, $full_name);
+
+                    $_SESSION['pending_verify_user_id'] = $newUserId;
+                    $_SESSION['pending_verify_email'] = $email;
+                    $_SESSION['pending_verify_name'] = $full_name;
+                    if (!$sentOk && !empty($sendErr)) {
+                        $_SESSION['pending_verify_error'] = $sendErr;
+                    }
+
+                    $redirectUrl = (strpos($_SERVER['REQUEST_URI'] ?? '', '/admin/') !== false) ? '../verify_otp.php' : 'verify_otp.php';
+                    header("Location: " . $redirectUrl);
+                    exit;
                 }
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | SUCCESS MESSAGE
-                |--------------------------------------------------------------------------
-                */
-
-                $message = "Registration successful! You may now login using your email address.";
-                $message_type = "success";
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | CLEAR FORM
-                |--------------------------------------------------------------------------
-                */
-
-                $_POST["first_name"] = "";
-                $_POST["last_name"] = "";
-                $_POST["email"] = "";
-                $_POST["contact_number"] = "";
 
 
             } catch (PDOException $e) {

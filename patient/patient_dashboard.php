@@ -898,6 +898,24 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
             <?php endif; ?>
+            <?php
+            $isVerifiedBanner = false;
+            if (isset($_GET['verified']) && $_GET['verified'] === '1') {
+                $isVerifiedBanner = true;
+            } elseif (!empty($_SESSION['just_verified'])) {
+                $isVerifiedBanner = true;
+                unset($_SESSION['just_verified']);
+            }
+            ?>
+            <?php if ($isVerifiedBanner): ?>
+            <div class="alert alert-success alert-dismissible fade show d-flex align-items-center mb-3" role="alert" style="background:#eaf7f0;border:1px solid #a7f3d0;color:#065f46;border-radius:14px;padding:14px 18px;">
+                <i class="bi bi-patch-check-fill fs-4 text-success me-2"></i>
+                <div class="flex-grow-1">
+                    <strong>Account Verified Successfully!</strong> Welcome to Abalos Dental Clinic. Your patient account is now active and ready to book appointments.
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            <?php endif; ?>
 
             <!-- WELCOME HERO -->
 

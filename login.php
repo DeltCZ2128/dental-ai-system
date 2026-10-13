@@ -23,6 +23,11 @@ if (isset($_SESSION['user_id'])) {
 }
 
 $error = "";
+$successMessage = "";
+
+if (isset($_GET['verified']) && $_GET['verified'] === '1') {
+    $successMessage = "Your email has been verified successfully! You may now sign in to your account.";
+}
 
 
 /*
@@ -75,6 +80,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user &&
             password_verify($password, $user['password'])
         ) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | CHECK EMAIL VERIFICATION (FOR PATIENTS)
+            |--------------------------------------------------------------------------
+            */
+            if (
+                strtolower(trim($user['role'] ?? '')) === 'patient' &&
+                isset($user['is_verified']) &&
+                (int)$user['is_verified'] === 0
+            ) {
+                $_SESSION['pending_verify_user_id'] = (int)$user['id'];
+                $_SESSION['pending_verify_email'] = $user['username'];
+                $_SESSION['pending_verify_name'] = $user['full_name'];
+
+                // Automatically resend fresh OTP if expired or missing
+                $expiresAt = strtotime((string)($user['otp_expires_at'] ?? ''));
+                if (!$expiresAt || $expiresAt <= time() || empty($user['otp_code'])) {
+                    sendPatientVerificationOtp((int)$user['id'], $user['username'], $user['full_name']);
+                }
+
+                header("Location: verify_otp.php?unverified=1");
+                exit;
+            }
 
             /*
             |--------------------------------------------------------------------------
@@ -859,6 +888,14 @@ body {
     </div>
 
 
+
+    <!-- SUCCESS -->
+    <?php if ($successMessage): ?>
+        <div class="alert alert-success d-flex align-items-center mb-3" role="alert" style="background:#eaf7f0;border:1px solid #a7f3d0;color:#065f46;border-radius:14px;font-size:13.5px;padding:12px 16px;">
+            <i class="bi bi-check-circle-fill me-2 fs-5 text-success"></i>
+            <div><?= htmlspecialchars($successMessage) ?></div>
+        </div>
+    <?php endif; ?>
 
     <!-- ERROR -->
 
