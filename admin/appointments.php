@@ -808,6 +808,20 @@ if ($upcomingStatus !== '') {
 }
 $keptQs = empty($filterParams) ? '' : http_build_query($filterParams) . '&';
 
+$initialTab = trim($_GET['tab'] ?? '');
+if (!in_array($initialTab, ['today', 'upcoming', 'history', 'all'], true)) {
+    if (isset($_GET['hstatus']) || isset($_GET['hpage']) || isset($_GET['hsearch'])) {
+        $initialTab = 'history';
+    } elseif (isset($_GET['ustatus']) || isset($_GET['upage']) || isset($_GET['udate'])) {
+        $initialTab = 'upcoming';
+    } elseif (isset($_GET['tstatus']) || isset($_GET['tpage'])) {
+        $initialTab = 'today';
+    } else {
+        $initialTab = 'all';
+    }
+}
+$totalAllAppts = (int) $summaryToday + (int) ($summaryUpcoming ?? 0) + (int) $historyTotal;
+
 $viewAppointment = null;
 $viewId = (int) ($_GET['view'] ?? 0);
 if ($viewId > 0) {
@@ -1163,6 +1177,61 @@ a.appt-summary-card:focus-visible { outline: 2px solid #ffffff; outline-offset: 
 .appt-card-toggle.collapsed .appt-acc-chevron { transform: rotate(-90deg); }
 .appt-card-body { padding: 0 !important; }
 .appt-card-collapse { border-top: 1px solid #C9E9DA; }
+
+/* Category Tabs Bar */
+.appt-category-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    background: #ffffff;
+    padding: 10px 14px;
+    border-radius: 14px;
+    border: 1px solid #C9E9DA;
+    box-shadow: 0 4px 16px rgba(14,107,94,.08);
+    margin-bottom: 16px;
+    align-items: center;
+}
+.appt-cat-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #F4FAF7;
+    border: 1.5px solid #C9E9DA;
+    color: #143f51;
+    font-weight: 700;
+    font-size: 13.5px;
+    padding: 9px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all .2s ease;
+    text-decoration: none;
+    font-family: "Inter", system-ui, sans-serif;
+}
+.appt-cat-btn:hover {
+    background: #EAF7F0;
+    border-color: #0E6B5E;
+    color: #0E6B5E;
+    transform: translateY(-1px);
+}
+.appt-cat-btn.active {
+    background: linear-gradient(135deg, #0E6B5E, #0A4A41) !important;
+    border-color: #0A4A41 !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(14,107,94,.28);
+}
+.appt-cat-btn .cat-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 800;
+    border-radius: 20px;
+    background: rgba(14,107,94,.12);
+    color: #0E6B5E;
+}
+.appt-cat-btn.active .cat-badge {
+    background: rgba(255,255,255,.24);
+    color: #ffffff;
+}
 </style>
 
 </head>
@@ -1189,7 +1258,7 @@ a.appt-summary-card:focus-visible { outline: 2px solid #ffffff; outline-offset: 
 
 <!-- SUMMARY CARDS: Today's / Upcoming (7 days) / Pending / Completed -->
 <div class="appt-summary-grid">
-<a href="#today" class="appt-summary-card" data-tip="View Today's Appointments">
+<a href="#today" class="appt-summary-card" data-tip="View Today's Appointments" onclick="selectAdminApptCategory('today', true)">
 <span class="appt-summary-head">
 <span class="appt-summary-icon"><i class="bi bi-calendar-event-fill"></i></span>
 <span class="appt-summary-label">Today's Appointments</span>
@@ -1198,7 +1267,7 @@ a.appt-summary-card:focus-visible { outline: 2px solid #ffffff; outline-offset: 
 <span class="appt-summary-sub"><span class="appt-summary-dot"></span>Scheduled for today</span>
 <span class="appt-summary-go"><i class="bi bi-chevron-right"></i></span>
 </a>
-<a href="#upcoming" class="appt-summary-card" data-tip="View Upcoming Appointments (next 7 days)">
+<a href="#upcoming" class="appt-summary-card" data-tip="View Upcoming Appointments (next 7 days)" onclick="selectAdminApptCategory('upcoming', true)">
 <span class="appt-summary-head">
 <span class="appt-summary-icon"><i class="bi bi-calendar2-week-fill"></i></span>
 <span class="appt-summary-label">Upcoming Appointments</span>
@@ -1227,6 +1296,30 @@ a.appt-summary-card:focus-visible { outline: 2px solid #ffffff; outline-offset: 
 </a>
 </div>
 
+<!-- Category Tabs Bar: Today's Appointments / Upcoming Appointments / Appointment History / All -->
+<div class="appt-category-bar mb-3" id="apptCategoryBar">
+    <button type="button" class="appt-cat-btn <?= $initialTab === 'today' ? 'active' : '' ?>" data-tab="today" onclick="selectAdminApptCategory('today', true)">
+        <i class="bi bi-calendar2-day-fill" style="color:#059669;"></i>
+        <span>Today's Appointments</span>
+        <span class="cat-badge"><?= (int) $summaryToday ?></span>
+    </button>
+    <button type="button" class="appt-cat-btn <?= $initialTab === 'upcoming' ? 'active' : '' ?>" data-tab="upcoming" onclick="selectAdminApptCategory('upcoming', true)">
+        <i class="bi bi-calendar2-plus-fill" style="color:#0284c7;"></i>
+        <span>Upcoming Appointments</span>
+        <span class="cat-badge"><?= (int) ($summaryUpcoming ?? 0) ?></span>
+    </button>
+    <button type="button" class="appt-cat-btn <?= $initialTab === 'history' ? 'active' : '' ?>" data-tab="history" onclick="selectAdminApptCategory('history', true)">
+        <i class="bi bi-clock-history" style="color:#64748b;"></i>
+        <span>Appointment History</span>
+        <span class="cat-badge"><?= (int) $historyTotal ?></span>
+    </button>
+    <button type="button" class="appt-cat-btn <?= $initialTab === 'all' ? 'active' : '' ?>" data-tab="all" onclick="selectAdminApptCategory('all', true)">
+        <i class="bi bi-collection-fill" style="color:#0E6B5E;"></i>
+        <span>All</span>
+        <span class="cat-badge"><?= (int) $totalAllAppts ?></span>
+    </button>
+</div>
+
 <?php
 $todayKey = date('Y-m-d');
 $todayAppts = $upcomingGroups[$todayKey] ?? [];
@@ -1247,7 +1340,7 @@ if ($todayPage > $todayTotalPages) {
 $todayOffset = ($todayPage - 1) * $todayPerPage;
 $todayPaginatedAppts = array_slice($todayAppts, $todayOffset, $todayPerPage);
 ?>
-<div class="card patient-card appt-card" id="today" style="scroll-margin-top: 110px;">
+<div class="card patient-card appt-card" id="today" style="scroll-margin-top: 110px;<?= ($initialTab !== 'today' && $initialTab !== 'all') ? ' display: none;' : '' ?>">
 <h2 class="appt-card-header" id="heading-today">
 <button class="appt-card-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-today" aria-expanded="true" aria-controls="collapse-today">
     <span class="appt-acc-head">
@@ -1443,7 +1536,7 @@ $tdStart = max(1, $tdEnd - 6);
 
 </div>
 
-<div class="card patient-card appt-card" id="upcoming" style="scroll-margin-top: 110px;">
+<div class="card patient-card appt-card" id="upcoming" style="scroll-margin-top: 110px;<?= ($initialTab !== 'upcoming' && $initialTab !== 'all') ? ' display: none;' : '' ?>">
 <?php
 $todayKeyUp = date('Y-m-d');
 $weekEndKey = date('Y-m-d', strtotime('+7 days'));
@@ -1489,7 +1582,7 @@ foreach ($futureGroups as $ugDay => $ugRows) {
 }
 ?>
 <h2 class="appt-card-header" id="heading-upcoming">
-<button class="appt-card-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-upcoming" aria-expanded="false" aria-controls="collapse-upcoming">
+<button class="appt-card-toggle<?= $initialTab === 'upcoming' ? '' : ' collapsed' ?>" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-upcoming" aria-expanded="<?= $initialTab === 'upcoming' ? 'true' : 'false' ?>" aria-controls="collapse-upcoming">
     <span class="appt-acc-head">
         <span>
             <span class="appt-acc-title"><i class="bi bi-calendar2-week-fill"></i> Upcoming Appointments <span class="appt-count-badge"><?= (int) $futureTotal ?></span></span>
@@ -1500,7 +1593,7 @@ foreach ($futureGroups as $ugDay => $ugRows) {
     </span>
 </button>
 </h2>
-<div id="collapse-upcoming" class="collapse appt-card-collapse">
+<div id="collapse-upcoming" class="collapse<?= $initialTab === 'upcoming' ? ' show' : '' ?> appt-card-collapse">
 <div class="appt-card-body">
 <div class="appointments-filter-bar">
 <form method="GET" action="appointments.php#upcoming" class="row g-2 mb-0">
@@ -1943,9 +2036,9 @@ No-Show
 
 <!-- APPOINTMENT HISTORY (ilalim, may pagination) -->
 
-<div class="card patient-card appt-card" id="history" style="scroll-margin-top: 110px;">
+<div class="card patient-card appt-card" id="history" style="scroll-margin-top: 110px;<?= ($initialTab !== 'history' && $initialTab !== 'all') ? ' display: none;' : '' ?>">
 <h2 class="appt-card-header" id="heading-history">
-<button class="appt-card-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-history" aria-expanded="false" aria-controls="collapse-history">
+<button class="appt-card-toggle<?= $initialTab === 'history' ? '' : ' collapsed' ?>" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-history" aria-expanded="<?= $initialTab === 'history' ? 'true' : 'false' ?>" aria-controls="collapse-history">
     <span class="appt-acc-head">
         <span>
             <span class="appt-acc-title"><i class="bi bi-clock-history"></i> Appointment History <span class="appt-count-badge"><?= (int) $historyTotal ?></span></span>
@@ -1955,7 +2048,7 @@ No-Show
     </span>
 </button>
 </h2>
-<div id="collapse-history" class="collapse appt-card-collapse">
+<div id="collapse-history" class="collapse<?= $initialTab === 'history' ? ' show' : '' ?> appt-card-collapse">
 <div class="appt-card-body">
 <div class="appointments-filter-bar">
 <form method="GET" action="appointments.php#history" class="row g-2 mb-0">
@@ -2899,40 +2992,98 @@ Save Appointment
 </script>
 
 <script>
-/* Buka ang accordion section na tinutukoy ng hash (hal. #upcoming, #appt-123). */
+function selectAdminApptCategory(cat, scroll) {
+    if (!cat) cat = 'all';
+    var todayCard = document.getElementById('today');
+    var upcomingCard = document.getElementById('upcoming');
+    var historyCard = document.getElementById('history');
+
+    // Update active tab buttons
+    document.querySelectorAll('#apptCategoryBar .appt-cat-btn').forEach(function(b) {
+        b.classList.toggle('active', b.getAttribute('data-tab') === cat);
+    });
+
+    function expandCollapse(cardId) {
+        var col = document.getElementById('collapse-' + cardId);
+        if (col && !col.classList.contains('show')) {
+            var inst = bootstrap.Collapse.getOrCreateInstance(col, { toggle: false });
+            inst.show();
+        }
+    }
+
+    if (cat === 'today') {
+        if (todayCard) todayCard.style.display = '';
+        if (upcomingCard) upcomingCard.style.display = 'none';
+        if (historyCard) historyCard.style.display = 'none';
+        expandCollapse('today');
+        if (scroll && todayCard) {
+            todayCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    } else if (cat === 'upcoming') {
+        if (todayCard) todayCard.style.display = 'none';
+        if (upcomingCard) upcomingCard.style.display = '';
+        if (historyCard) historyCard.style.display = 'none';
+        expandCollapse('upcoming');
+        if (scroll && upcomingCard) {
+            upcomingCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    } else if (cat === 'history') {
+        if (todayCard) todayCard.style.display = 'none';
+        if (upcomingCard) upcomingCard.style.display = 'none';
+        if (historyCard) historyCard.style.display = '';
+        expandCollapse('history');
+        if (scroll && historyCard) {
+            historyCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    } else { // 'all'
+        if (todayCard) todayCard.style.display = '';
+        if (upcomingCard) upcomingCard.style.display = '';
+        if (historyCard) historyCard.style.display = '';
+        if (scroll && todayCard) {
+            todayCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    if (scroll && window.location.hash !== '#' + cat) {
+        try {
+            history.replaceState(null, '', '#' + cat);
+        } catch (e) {}
+    }
+}
+
 (function () {
-    var sections = ['today', 'upcoming', 'pending', 'history'];
-    function openSection(id) {
-        var el = document.getElementById('collapse-' + id);
-        if (!el) return null;
-        var inst = bootstrap.Collapse.getOrCreateInstance(el, { toggle: false });
-        inst.show();
-        return el;
-    }
-    function sectionForHash(hash) {
-        var h = (hash || '').replace(/^#/, '');
-        if (sections.indexOf(h) !== -1) return h;
-        if (h.indexOf('appt-') === 0) {
-            var row = document.getElementById(h);
-            var card = row ? row.closest('.appt-card') : null;
-            return card ? card.id : null;
-        }
-        return null;
-    }
+    var validTabs = ['today', 'upcoming', 'history', 'all'];
+
     function syncFromHash() {
-        var id = sectionForHash(window.location.hash);
-        if (!id) return;
-        var el = openSection(id);
-        if (el) {
-            el.addEventListener('shown.bs.collapse', function onShown() {
-                el.removeEventListener('shown.bs.collapse', onShown);
-                var target = document.getElementById(window.location.hash.replace(/^#/, '')) || document.getElementById(id);
-                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            });
+        var rawHash = (window.location.hash || '').replace(/^#/, '');
+        if (!rawHash) return;
+
+        if (validTabs.indexOf(rawHash) !== -1) {
+            selectAdminApptCategory(rawHash, false);
+            return;
+        }
+
+        if (rawHash.indexOf('appt-') === 0) {
+            var row = document.getElementById(rawHash);
+            var card = row ? row.closest('.appt-card') : null;
+            if (card && card.id) {
+                selectAdminApptCategory(card.id, false);
+                var col = document.getElementById('collapse-' + card.id);
+                if (col) {
+                    var inst = bootstrap.Collapse.getOrCreateInstance(col, { toggle: false });
+                    inst.show();
+                }
+                setTimeout(function() {
+                    try { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch(e){}
+                }, 150);
+            }
         }
     }
+
     window.addEventListener('hashchange', syncFromHash);
-    syncFromHash();
+    if (window.location.hash) {
+        syncFromHash();
+    }
 })();
 </script>
 
