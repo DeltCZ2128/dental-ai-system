@@ -486,14 +486,198 @@ foreach ($notifications as $countNotif) {
 .topbar-time i{font-size:20px;}
 .topbar-time strong{display:block;font-size:12px;font-weight:800;line-height:1.2;}
 .topbar-time small{display:block;font-size:11px;opacity:.85;font-weight:600;font-variant-numeric:tabular-nums;}
-/* Summary tulad sa dentist — itulad sa My Appointments card */
-.notification-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:20px;}
-.notification-summary-card{background:#ffffff;border:1px solid #C9E9DA;border-radius:16px;padding:18px;display:flex;align-items:center;gap:14px;box-shadow:0 8px 24px rgba(14,107,94,.08);}
-.notification-summary-icon{width:56px;height:56px;border-radius:14px;background:#eaf5ff;color:#2675b9;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;}
-.notification-summary-label{font-size:12px;font-weight:700;color:#244f60;margin-bottom:3px;}
-.notification-summary-number{font-size:23px;font-weight:800;color:#0f2f3d;}
-.notification-summary-sub{font-size:11px;font-weight:600;color:#4b5e6b;margin-top:2px;}
-@media(max-width:768px){.notification-summary{grid-template-columns:1fr;}}
+/* Summary cards — Exact match with Patient Dashboard (#statsGrid .stat-card) */
+.notification-summary,
+#statsGrid.notification-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 22px;
+    align-items: stretch;
+}
+@media (max-width: 992px) {
+    .notification-summary,
+    #statsGrid.notification-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 576px) {
+    .notification-summary,
+    #statsGrid.notification-summary {
+        grid-template-columns: 1fr;
+    }
+}
+
+.notification-summary .stat-card,
+.notification-summary-card {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #047857 0%, #059669 55%, #10B981 100%) !important;
+    border: 1px solid rgba(255, 255, 255, .28) !important;
+    border-radius: 14px !important;
+    padding: 12px 14px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 3px !important;
+    box-shadow: 0 16px 34px rgba(5, 150, 105, .35) !important;
+    color: #ffffff !important;
+    height: 100% !important;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: .25s ease;
+    text-decoration: none !important;
+}
+
+.notification-summary .stat-card::before,
+.notification-summary .stat-card::after,
+.notification-summary-card::before,
+.notification-summary-card::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.notification-summary .stat-card::before,
+.notification-summary-card::before {
+    width: 130px;
+    height: 130px;
+    top: -60px;
+    right: -45px;
+    background: radial-gradient(circle, rgba(255, 255, 255, .22), rgba(255, 255, 255, 0) 70%);
+}
+
+.notification-summary .stat-card::after,
+.notification-summary-card::after {
+    width: 100px;
+    height: 100px;
+    bottom: -48px;
+    left: -32px;
+    background: radial-gradient(circle, rgba(255, 255, 255, .16), rgba(255, 255, 255, 0) 70%);
+}
+
+.notification-summary .stat-card > *,
+.notification-summary-card > * {
+    position: relative;
+    z-index: 1;
+}
+
+.notification-summary .stat-card:hover,
+.notification-summary-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 22px 42px rgba(5, 150, 105, .45) !important;
+    border-color: rgba(255, 255, 255, .62) !important;
+}
+
+.notification-summary .stat-card.active-card,
+.notification-summary-card.active-card {
+    border-color: #ffffff !important;
+    border-width: 2px !important;
+    box-shadow: 0 22px 42px rgba(5, 150, 105, .46) !important;
+    transform: translateY(-3px);
+}
+
+.pstat-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.pstat-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, .18);
+    border: 1px solid rgba(255, 255, 255, .32);
+    color: #ffffff;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, .14);
+}
+
+.pstat-label {
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.pstat-num {
+    color: #ffffff;
+    font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+    font-size: 27px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 6px 18px rgba(0, 0, 0, .22);
+    line-height: 1;
+    margin-top: auto;
+    padding-top: 4px;
+    padding-right: 48px;
+}
+
+.pstat-sub {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #ffffff;
+    margin-top: 3px;
+    background: rgba(255, 255, 255, .14);
+    border: 1px solid rgba(255, 255, 255, .35);
+    border-radius: 999px;
+    padding: 7px 14px;
+}
+
+.pstat-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #A7F3D0;
+    box-shadow: 0 0 0 4px rgba(167, 243, 208, .25);
+    animation: pstatDotPulse 1.9s ease-in-out infinite;
+    flex-shrink: 0;
+}
+
+@keyframes pstatDotPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: .5; transform: scale(.8); }
+}
+
+.notification-summary .stat-card > .stat-go,
+.notification-summary-card > .stat-go {
+    position: absolute;
+    right: 14px;
+    bottom: 18px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .10);
+    border: 1.5px solid rgba(255, 255, 255, .55);
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+    z-index: 2;
+    transition: .2s ease;
+}
+
+.notification-summary .stat-card:hover > .stat-go,
+.notification-summary-card:hover > .stat-go {
+    background: rgba(255, 255, 255, .25);
+    transform: translateX(2px);
+}
 
         .page-title {
             font-family: "Plus Jakarta Sans", sans-serif;
@@ -896,22 +1080,57 @@ foreach ($notifications as $countNotif) {
 
     <div class="patient-content">
 
-    <div class="notification-summary">
-        <div class="notification-summary-card">
-            <div class="notification-summary-icon"><i class="bi bi-bell-fill"></i></div>
-            <div><div class="notification-summary-label">Total Notifications</div><div class="notification-summary-number"><?= (int)$notificationCount ?></div><div class="notification-summary-sub">All notifications</div></div>
+    <div class="notification-summary" id="statsGrid">
+        <div class="stat-card stat-clickable notification-summary-card active-card" data-filter="all" role="button" tabindex="0" title="View all notifications">
+            <div class="pstat-head">
+                <span class="pstat-icon"><i class="bi bi-bell-fill"></i></span>
+                <span class="pstat-label">Total Notifications</span>
+            </div>
+            <div class="pstat-num"><?= (int)$notificationCount ?></div>
+            <div class="pstat-sub">
+                <span class="pstat-dot"></span>
+                All notifications
+            </div>
+            <span class="stat-go"><i class="bi bi-chevron-right"></i></span>
         </div>
-        <div class="notification-summary-card">
-            <div class="notification-summary-icon" style="background:#e7f8ef;color:#198754;"><i class="bi bi-check-circle-fill"></i></div>
-            <div><div class="notification-summary-label">Confirmed</div><div class="notification-summary-number"><?= (int)($categoryCounts['confirmed'] ?? 0) ?></div><div class="notification-summary-sub">Confirmed appointments</div></div>
+
+        <div class="stat-card stat-clickable notification-summary-card" data-filter="confirmed" role="button" tabindex="0" title="View confirmed appointments">
+            <div class="pstat-head">
+                <span class="pstat-icon"><i class="bi bi-check-circle-fill"></i></span>
+                <span class="pstat-label">Confirmed Appointments</span>
+            </div>
+            <div class="pstat-num"><?= (int)($categoryCounts['confirmed'] ?? 0) ?></div>
+            <div class="pstat-sub">
+                <span class="pstat-dot"></span>
+                Confirmed by clinic
+            </div>
+            <span class="stat-go"><i class="bi bi-chevron-right"></i></span>
         </div>
-        <div class="notification-summary-card">
-            <div class="notification-summary-icon" style="background:#fdebed;color:#dc3545;"><i class="bi bi-x-circle-fill"></i></div>
-            <div><div class="notification-summary-label">Cancelled</div><div class="notification-summary-number"><?= (int)($categoryCounts['cancelled'] ?? 0) ?></div><div class="notification-summary-sub">Cancelled appointments</div></div>
+
+        <div class="stat-card stat-clickable notification-summary-card" data-filter="cancelled" role="button" tabindex="0" title="View cancelled appointments">
+            <div class="pstat-head">
+                <span class="pstat-icon"><i class="bi bi-x-circle-fill"></i></span>
+                <span class="pstat-label">Cancelled Appointments</span>
+            </div>
+            <div class="pstat-num"><?= (int)($categoryCounts['cancelled'] ?? 0) ?></div>
+            <div class="pstat-sub">
+                <span class="pstat-dot"></span>
+                Cancelled appointments
+            </div>
+            <span class="stat-go"><i class="bi bi-chevron-right"></i></span>
         </div>
-        <div class="notification-summary-card">
-            <div class="notification-summary-icon" style="background:#e9ecef;color:#495057;"><i class="bi bi-person-x-fill"></i></div>
-            <div><div class="notification-summary-label">No-Show</div><div class="notification-summary-number"><?= (int)($categoryCounts['noshow'] ?? 0) ?></div><div class="notification-summary-sub">Missed appointments</div></div>
+
+        <div class="stat-card stat-clickable notification-summary-card" data-filter="noshow" role="button" tabindex="0" title="View missed appointments">
+            <div class="pstat-head">
+                <span class="pstat-icon"><i class="bi bi-calendar2-x-fill"></i></span>
+                <span class="pstat-label">No-Show Appointments</span>
+            </div>
+            <div class="pstat-num"><?= (int)($categoryCounts['noshow'] ?? 0) ?></div>
+            <div class="pstat-sub">
+                <span class="pstat-dot"></span>
+                Missed appointments
+            </div>
+            <span class="stat-go"><i class="bi bi-chevron-right"></i></span>
         </div>
     </div>
 
@@ -1155,6 +1374,35 @@ foreach ($notifications as $countNotif) {
         });
         if(noMatch) noMatch.style.display = visible === 0 ? '' : 'none';
     }
+    var summaryCards = document.querySelectorAll('.notification-summary-card[data-filter]');
+
+    function syncSummaryActive(f) {
+        summaryCards.forEach(function(c){
+            c.classList.toggle('active-card', c.getAttribute('data-filter') === f);
+        });
+    }
+
+    summaryCards.forEach(function(card){
+        card.addEventListener('click', function(){
+            var f = card.getAttribute('data-filter');
+            syncSummaryActive(f);
+            filterBtns.forEach(function(b){ b.classList.remove('active'); });
+            var targetBtn = document.querySelector('#notifFilterOptions button[data-filter="' + f + '"]');
+            if (targetBtn) {
+                targetBtn.classList.add('active');
+            } else if (f === 'all' && filterToggle) {
+                filterToggle.classList.add('active');
+            }
+            applyNotifFilter(f);
+            if (filterToggle && f !== 'all') {
+                var label = card.querySelector('.pstat-label') ? card.querySelector('.pstat-label').textContent : f;
+                filterToggle.innerHTML = '<i class="bi bi-funnel me-1"></i>' + label + ' <i class="bi bi-chevron-down toggle-chevron"></i>';
+            } else if (filterToggle) {
+                filterToggle.innerHTML = toggleAllLabel;
+            }
+        });
+    });
+
     if(filterToggle && filterOptions) {
         var toggleAllLabel = filterToggle.innerHTML;
         filterToggle.addEventListener('click', function(){
@@ -1169,6 +1417,7 @@ foreach ($notifications as $countNotif) {
             filterBtns.forEach(function(b){ b.classList.remove('active'); });
             filterToggle.classList.add('active');
             filterToggle.innerHTML = toggleAllLabel;
+            syncSummaryActive('all');
             applyNotifFilter('all');
         });
     }
@@ -1176,7 +1425,9 @@ foreach ($notifications as $countNotif) {
         btn.addEventListener('click', function(){
             filterBtns.forEach(function(b){ b.classList.remove('active'); });
             btn.classList.add('active');
-            applyNotifFilter(btn.getAttribute('data-filter'));
+            var f = btn.getAttribute('data-filter');
+            syncSummaryActive(f);
+            applyNotifFilter(f);
             /* Auto-close: bumabalik pataas pag nakapili na */
             if(filterOptions) filterOptions.classList.remove('open');
             if(filterToggle) {
