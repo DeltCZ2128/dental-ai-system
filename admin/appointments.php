@@ -1180,32 +1180,37 @@ a.appt-summary-card:focus-visible { outline: 2px solid #ffffff; outline-offset: 
 
 /* Category Tabs Bar */
 .appt-category-bar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
     background: #ffffff;
     padding: 10px 14px;
     border-radius: 14px;
     border: 1px solid #C9E9DA;
     box-shadow: 0 4px 16px rgba(14,107,94,.08);
-    margin-bottom: 16px;
+    margin: 0 14px 20px 14px;
     align-items: center;
+    box-sizing: border-box;
 }
 .appt-cat-btn {
+    width: 100%;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     background: #F4FAF7;
     border: 1.5px solid #C9E9DA;
     color: #143f51;
     font-weight: 700;
     font-size: 13.5px;
-    padding: 9px 16px;
+    padding: 10px 16px;
     border-radius: 10px;
     cursor: pointer;
     transition: all .2s ease;
     text-decoration: none;
     font-family: "Inter", system-ui, sans-serif;
+    white-space: nowrap;
+    box-sizing: border-box;
 }
 .appt-cat-btn:hover {
     background: #EAF7F0;
@@ -1231,6 +1236,23 @@ a.appt-summary-card:focus-visible { outline: 2px solid #ffffff; outline-offset: 
 .appt-cat-btn.active .cat-badge {
     background: rgba(255,255,255,.24);
     color: #ffffff;
+}
+@media (max-width: 1100px) {
+    .appt-category-bar {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 991px) {
+    .appt-category-bar {
+        gap: 10px;
+    }
+}
+@media (max-width: 575px) {
+    .appt-category-bar {
+        grid-template-columns: 1fr;
+        margin-left: 0;
+        margin-right: 0;
+    }
 }
 </style>
 
@@ -1297,7 +1319,7 @@ a.appt-summary-card:focus-visible { outline: 2px solid #ffffff; outline-offset: 
 </div>
 
 <!-- Category Tabs Bar: Today's Appointments / Upcoming Appointments / Appointment History / All -->
-<div class="appt-category-bar mb-3" id="apptCategoryBar">
+<div class="appt-category-bar" id="apptCategoryBar">
     <button type="button" class="appt-cat-btn <?= $initialTab === 'today' ? 'active' : '' ?>" data-tab="today" onclick="selectAdminApptCategory('today', true)">
         <i class="bi bi-calendar2-day-fill" style="color:#059669;"></i>
         <span>Today's Appointments</span>
