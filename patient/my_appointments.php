@@ -523,6 +523,67 @@ href="patient.css?v=8"
 .cat-pill-today { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
 .cat-pill-upcoming { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
 .cat-pill-history { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+
+/* Pagination Styling */
+.history-pagination {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 22px;
+    background: #F6FBF8;
+    border-top: 1px solid #E6F2EC;
+    border-bottom-left-radius: 16px;
+    border-bottom-right-radius: 16px;
+}
+.pagination-info {
+    font-size: 13px;
+    color: #3F525B;
+    font-family: "Inter",system-ui,sans-serif;
+    font-weight: 600;
+}
+.page-notation {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.page-link-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    height: 34px;
+    padding: 0 10px;
+    border-radius: 9px;
+    border: 1px solid #D1E7DD;
+    background: #fff;
+    color: #0E6B5E !important;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    font-family: "Inter",system-ui,sans-serif;
+    cursor: pointer;
+    transition: .15s;
+    user-select: none;
+}
+.page-link-btn:hover:not(.disabled) {
+    background: #EAF7F0;
+    border-color: #0E6B5E;
+}
+.page-link-btn.active {
+    background: linear-gradient(135deg, #149A72, #0A4A41) !important;
+    color: #fff !important;
+    border-color: transparent !important;
+    cursor: default;
+}
+.page-link-btn.disabled, .page-link-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+}
 </style>
 
 </head>
@@ -933,6 +994,15 @@ title="Have a concern about this past appointment? Send a message"
 
 </div>
 
+<div class="history-pagination" id="apptPagination" style="display:none;">
+    <span class="pagination-info" id="apptPaginationInfo">
+        Showing <strong>1</strong>-<strong>10</strong> of <strong>25</strong> appointments
+    </span>
+    <nav class="page-notation" id="apptPageNotation" aria-label="Appointment pagination">
+        <!-- Injected via JS -->
+    </nav>
+</div>
+
 <div class="appt-no-match" id="apptNoMatch" style="display:none;">
 <i class="bi bi-search me-1"></i>No appointments match your filter.
 </div>
@@ -1195,12 +1265,15 @@ document.getElementById('maCancelBtn').addEventListener('click', function(){
   new bootstrap.Modal(document.getElementById('cancelModal')).show();
 });
 
-/* Filters & Categories — Today, Upcoming, History, Status & Search */
+/* Filters & Categories — Today, Upcoming, History, Status & Search with Pagination */
 var currentApptCategory = '<?= $initialTab ?>';
 var activeApptStatus = 'all';
+var apptCurrentPage = 1;
+var apptPageSize = 10;
 
 function selectApptCategory(cat) {
   currentApptCategory = cat;
+  apptCurrentPage = 1;
   document.querySelectorAll('.appt-cat-btn').forEach(function(b){
     b.classList.toggle('active', b.getAttribute('data-tab') === cat);
   });
@@ -1220,13 +1293,26 @@ function selectApptCategory(cat) {
     if (titleEl) titleEl.innerHTML = '<i class="bi bi-table"></i> All Appointments';
     if (subEl) subEl.textContent = 'View all scheduled and recorded dental appointments';
   }
-  applyAppointmentsFilter();
+  applyAppointmentsFilter(true);
 }
 
-function applyAppointmentsFilter() {
+function goToApptPage(p) {
+  apptCurrentPage = p;
+  applyAppointmentsFilter(false);
+  var card = document.querySelector('.patient-card');
+  if (card) {
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function applyAppointmentsFilter(resetPage) {
+  if (resetPage) {
+    apptCurrentPage = 1;
+  }
+
   var search = document.getElementById('apptSearch');
   var q = (search && search.value ? search.value : '').toLowerCase().trim();
-  var visibleInTab = 0;
+  var matchingRows = [];
   var totalInCat = 0;
 
   document.querySelectorAll('.appt-row').forEach(function(row){
@@ -1241,9 +1327,29 @@ function applyAppointmentsFilter() {
 
     var okStatus = (activeApptStatus === 'all' || rowStatus === activeApptStatus);
     var okSearch = (q === '' || hay.indexOf(q) !== -1);
-    var show = matchCat && okStatus && okSearch;
-    row.style.display = show ? '' : 'none';
-    if (show) visibleInTab++;
+    
+    if (matchCat && okStatus && okSearch) {
+      matchingRows.push(row);
+    } else {
+      row.style.display = 'none';
+    }
+  });
+
+  var totalMatching = matchingRows.length;
+  var totalPages = Math.ceil(totalMatching / apptPageSize);
+  if (totalPages < 1) totalPages = 1;
+  if (apptCurrentPage > totalPages) apptCurrentPage = totalPages;
+  if (apptCurrentPage < 1) apptCurrentPage = 1;
+
+  var startIndex = (apptCurrentPage - 1) * apptPageSize;
+  var endIndex = startIndex + apptPageSize;
+
+  matchingRows.forEach(function(row, idx){
+    if (idx >= startIndex && idx < endIndex) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
   });
 
   var tableWrap = document.getElementById('apptTableWrap');
@@ -1251,6 +1357,7 @@ function applyAppointmentsFilter() {
   var emptyUpcoming = document.getElementById('emptyUpcoming');
   var emptyHistory = document.getElementById('emptyHistory');
   var noMatch = document.getElementById('apptNoMatch');
+  var paginationWrap = document.getElementById('apptPagination');
 
   if (emptyToday) emptyToday.style.display = 'none';
   if (emptyUpcoming) emptyUpcoming.style.display = 'none';
@@ -1259,15 +1366,82 @@ function applyAppointmentsFilter() {
 
   if (totalInCat === 0 && currentApptCategory !== 'all') {
     if (tableWrap) tableWrap.style.display = 'none';
+    if (paginationWrap) paginationWrap.style.display = 'none';
     if (currentApptCategory === 'today' && emptyToday) emptyToday.style.display = 'block';
     if (currentApptCategory === 'upcoming' && emptyUpcoming) emptyUpcoming.style.display = 'block';
     if (currentApptCategory === 'history' && emptyHistory) emptyHistory.style.display = 'block';
   } else {
     if (tableWrap) tableWrap.style.display = 'block';
-    if (visibleInTab === 0 && (q !== '' || activeApptStatus !== 'all')) {
+    if (totalMatching === 0 && (q !== '' || activeApptStatus !== 'all')) {
       if (noMatch) noMatch.style.display = 'block';
+      if (paginationWrap) paginationWrap.style.display = 'none';
+    } else if (totalMatching > 0) {
+      if (paginationWrap) {
+        paginationWrap.style.display = 'flex';
+        renderApptPagination(startIndex + 1, Math.min(endIndex, totalMatching), totalMatching, totalPages);
+      }
+    } else {
+      if (paginationWrap) paginationWrap.style.display = 'none';
     }
   }
+}
+
+function renderApptPagination(from, to, total, totalPages) {
+  var infoEl = document.getElementById('apptPaginationInfo');
+  var notationEl = document.getElementById('apptPageNotation');
+  if (!infoEl || !notationEl) return;
+
+  var categoryLabel = '';
+  if (currentApptCategory === 'today') categoryLabel = ' today';
+  else if (currentApptCategory === 'upcoming') categoryLabel = ' upcoming';
+  else if (currentApptCategory === 'history') categoryLabel = ' in history';
+
+  infoEl.innerHTML = 'Showing <strong>' + from + '</strong> to <strong>' + to + '</strong> of <strong>' + total + '</strong> appointment' + (total === 1 ? '' : 's') + categoryLabel;
+
+  var html = '';
+  // Prev button
+  if (apptCurrentPage > 1) {
+    html += '<button type="button" class="page-link-btn" onclick="goToApptPage(' + (apptCurrentPage - 1) + ')" aria-label="Previous"><i class="bi bi-chevron-left"></i></button>';
+  } else {
+    html += '<button type="button" class="page-link-btn disabled" disabled aria-label="Previous"><i class="bi bi-chevron-left"></i></button>';
+  }
+
+  var startP = Math.max(1, apptCurrentPage - 2);
+  var endP = Math.min(totalPages, startP + 4);
+  if (endP - startP < 4) {
+    startP = Math.max(1, endP - 4);
+  }
+
+  if (startP > 1) {
+    html += '<button type="button" class="page-link-btn" onclick="goToApptPage(1)">1</button>';
+    if (startP > 2) {
+      html += '<span style="color:#8ca0a8; padding:0 4px;">...</span>';
+    }
+  }
+
+  for (var p = startP; p <= endP; p++) {
+    if (p === apptCurrentPage) {
+      html += '<button type="button" class="page-link-btn active">' + p + '</button>';
+    } else {
+      html += '<button type="button" class="page-link-btn" onclick="goToApptPage(' + p + ')">' + p + '</button>';
+    }
+  }
+
+  if (endP < totalPages) {
+    if (endP < totalPages - 1) {
+      html += '<span style="color:#8ca0a8; padding:0 4px;">...</span>';
+    }
+    html += '<button type="button" class="page-link-btn" onclick="goToApptPage(' + totalPages + ')">' + totalPages + '</button>';
+  }
+
+  // Next button
+  if (apptCurrentPage < totalPages) {
+    html += '<button type="button" class="page-link-btn" onclick="goToApptPage(' + (apptCurrentPage + 1) + ')" aria-label="Next"><i class="bi bi-chevron-right"></i></button>';
+  } else {
+    html += '<button type="button" class="page-link-btn disabled" disabled aria-label="Next"><i class="bi bi-chevron-right"></i></button>';
+  }
+
+  notationEl.innerHTML = html;
 }
 
 (function(){
@@ -1279,16 +1453,20 @@ function applyAppointmentsFilter() {
         btns.forEach(function(x){ x.classList.remove('active'); });
         b.classList.add('active');
         activeApptStatus = b.getAttribute('data-filter') || 'all';
-        applyAppointmentsFilter();
+        applyAppointmentsFilter(true);
       });
     });
   }
 
   var search = document.getElementById('apptSearch');
-  if (search) search.addEventListener('input', applyAppointmentsFilter);
+  if (search) {
+    search.addEventListener('input', function(){
+      applyAppointmentsFilter(true);
+    });
+  }
 
   // Initialize view
-  applyAppointmentsFilter();
+  applyAppointmentsFilter(false);
 })();
 </script>
 
