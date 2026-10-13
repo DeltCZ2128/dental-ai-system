@@ -266,6 +266,121 @@ usort($recommendedSlots, function ($a, $b) {
         .report-accordion .accordion-button small { display: block; font-weight: 500; font-size: 12px; color: #8aa0a8; font-family: "Inter", "DM Sans", system-ui, sans-serif; }
         .report-accordion .accordion-button:not(.collapsed) small { color: #C9E9DA; }
         .report-accordion .accordion-body { padding: 16px 20px 20px !important; }
+
+        /* SUMMARY STAT CARDS (Dashboard style) */
+        .stat-card {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(135deg,#047857 0%,#059669 55%,#10B981 100%);
+            border: 1px solid rgba(255,255,255,.28);
+            border-radius: 14px;
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 3px;
+            box-shadow: 0 16px 34px rgba(5,150,105,.35);
+            color: #ffffff;
+            transition: .25s ease;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            height: 100%;
+        }
+        .stat-card::before,
+        .stat-card::after {
+            content: "";
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .stat-card::before {
+            width: 130px;
+            height: 130px;
+            top: -60px;
+            right: -45px;
+            background: radial-gradient(circle,rgba(255,255,255,.22),rgba(255,255,255,0) 70%);
+        }
+        .stat-card::after {
+            width: 100px;
+            height: 100px;
+            bottom: -48px;
+            left: -32px;
+            background: radial-gradient(circle,rgba(255,255,255,.16),rgba(255,255,255,0) 70%);
+        }
+        .stat-card > * {
+            position: relative;
+            z-index: 1;
+        }
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 22px 42px rgba(5,150,105,.45);
+            border-color: rgba(255,255,255,.62);
+            color: #ffffff;
+        }
+        .stat-featured-head {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+        }
+        .stat-featured-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 11px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+            background: rgba(255,255,255,.18);
+            border: 1px solid rgba(255,255,255,.32);
+            color: #ffffff;
+            box-shadow: 0 8px 18px rgba(0,0,0,.14);
+        }
+        .stat-featured-head h3 {
+            margin: 0;
+            flex: 1;
+            min-width: 0;
+            color: rgba(255,255,255,.92);
+            font-size: 13px;
+            font-weight: 700;
+            font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+            letter-spacing: -0.01em;
+        }
+        .stat-number {
+            color: #ffffff;
+            font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+            font-size: 27px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            font-variant-numeric: tabular-nums;
+            text-shadow: 0 6px 18px rgba(0,0,0,.22);
+            line-height: 1;
+            margin-top: auto;
+            padding-top: 4px;
+        }
+        .stat-featured-sub {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: rgba(255,255,255,.86);
+            margin-top: 3px;
+        }
+        .stat-featured-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #A7F3D0;
+            box-shadow: 0 0 0 4px rgba(167,243,208,.25);
+            animation: statDotPulse 1.9s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+        @keyframes statDotPulse {
+            0%,100% { opacity: 1; transform: scale(1); }
+            50% { opacity: .5; transform: scale(.8); }
+        }
         @media (max-width: 991px) { .reports-page { padding: 25px 16px 40px !important; } }
         @media print {
             body { background: #ffffff !important; animation: none !important; }
@@ -273,6 +388,16 @@ usort($recommendedSlots, function ($a, $b) {
             .reports-page { padding: 0 !important; }
             .reports-page h1.h4 { color: #143f51 !important; }
             .accordion-collapse { display: block !important; height: auto !important; visibility: visible !important; }
+            .stat-card {
+                background: #ffffff !important;
+                border: 1px solid #C9E9DA !important;
+                color: #143f51 !important;
+                box-shadow: none !important;
+            }
+            .stat-card h3, .stat-card .stat-number { color: #143f51 !important; }
+            .stat-featured-icon { background: #EAF7F0 !important; color: #0E6B5E !important; border-color: #C9E9DA !important; }
+            .stat-featured-sub { color: #6c858d !important; }
+            .stat-featured-dot { background: #0E6B5E !important; }
         }
     </style>
 </head>
@@ -308,17 +433,23 @@ usort($recommendedSlots, function ($a, $b) {
 
     <div class="row g-3 mb-4">
         <?php foreach ([
-            ['Total appointments', $totalAppointments, 'calendar2-check-fill'],
-            ['Completed appointments', $completedAppointments, 'check-circle-fill'],
-            ['Cancelled appointments', $cancelledAppointments, 'x-circle-fill'],
-            ['Pending appointments', $pendingAppointments, 'hourglass-split'],
-            ['Confirmed appointments', $confirmedAppointments, 'calendar-check-fill']
+            ['Total Appointments', $totalAppointments, 'calendar2-check-fill', 'All recorded bookings'],
+            ['Completed Appointments', $completedAppointments, 'check-circle-fill', 'Finished treatments'],
+            ['Cancelled Appointments', $cancelledAppointments, 'x-circle-fill', 'Cancelled or no-show'],
+            ['Pending Appointments', $pendingAppointments, 'hourglass-split', 'Awaiting confirmation'],
+            ['Confirmed Appointments', $confirmedAppointments, 'calendar-check-fill', 'Approved schedule']
         ] as $metric): ?>
             <div class="col-xl col-md-4 col-sm-6">
-                <div class="report-card">
-                    <i class="bi bi-<?= $metric[2] ?> text-info"></i>
-                    <div class="report-label mt-2"><?= e($metric[0]) ?></div>
-                    <div class="report-number"><?= (int) $metric[1] ?></div>
+                <div class="stat-card">
+                    <div class="stat-featured-head">
+                        <span class="stat-featured-icon"><i class="bi bi-<?= $metric[2] ?>"></i></span>
+                        <h3><?= e($metric[0]) ?></h3>
+                    </div>
+                    <div class="stat-number"><?= (int) $metric[1] ?></div>
+                    <div class="stat-featured-sub">
+                        <span class="stat-featured-dot"></span>
+                        <?= e($metric[3]) ?>
+                    </div>
                 </div>
             </div>
         <?php endforeach; ?>
