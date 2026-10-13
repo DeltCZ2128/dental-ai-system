@@ -440,6 +440,181 @@ function sendPatientVerificationOtp($userId, $toEmail, $fullName = '')
     return [$ok, $err, $otp];
 }
 
+/**
+ * Validate a Philippine mobile number format and network authenticity.
+ * Returns [bool $ok, string $error, string $cleanNumber].
+ */
+function validatePhilippineMobileNumber($number, $pdo = null)
+{
+    $clean = preg_replace('/[\s\-\(\)\.]/', '', (string)$number);
+
+    // Normalize +639 or 639 to 09
+    if (preg_match('/^\+639(\d{9})$/', $clean, $m)) {
+        $clean = '09' . $m[1];
+    } elseif (preg_match('/^639(\d{9})$/', $clean, $m)) {
+        $clean = '09' . $m[1];
+    }
+
+    if (!preg_match('/^09\d{9}$/', $clean)) {
+        return [false, "Please enter a valid 11-digit Philippine mobile number starting with 09 (e.g. 09171234567).", ""];
+    }
+
+    // Reject all-repeating identical digits (e.g. 09111111111, 09000000000)
+    if (preg_match('/^09(\d)\1{8}$/', $clean)) {
+        return [false, "The mobile number entered contains repeating dummy numbers. Please enter your genuine mobile number.", ""];
+    }
+
+    // Reject obvious dummy sequences
+    $dummySequences = [
+        '09123456789', '09876543210', '09012345678', '09987654321',
+        '09112233445', '09001122334', '09121212121', '09232323232'
+    ];
+    if (in_array($clean, $dummySequences, true)) {
+        return [false, "The mobile number entered appears to be a test/dummy sequence. Please provide your real mobile number.", ""];
+    }
+
+    // Active Philippine telecom prefixes (Globe, TM, Smart, TNT, Sun, DITO, GOMO)
+    $validPrefixes = [
+        '0905', '0906', '0915', '0916', '0917', '0926', '0927', '0935', '0936', '0937',
+        '0945', '0953', '0954', '0955', '0956', '0965', '0966', '0967', '0975', '0976',
+        '0977', '0978', '0979', '0995', '0996', '0997',
+        '0907', '0908', '0909', '0910', '0911', '0912', '0913', '0914', '0918', '0919',
+        '0920', '0921', '0922', '0923', '0924', '0925', '0928', '0929', '0930', '0931',
+        '0938', '0939', '0940', '0946', '0947', '0948', '0949', '0950', '0951', '0961',
+        '0963', '0968', '0969', '0970', '0971', '0981', '0982', '0985', '0989', '0992',
+        '0998', '0999', '0991', '0993', '0994',
+        '0932', '0933', '0934', '0942', '0943', '0944', '0960', '0962', '0964', '0972',
+        '0973', '0974', '0980'
+    ];
+    $prefix = substr($clean, 0, 4);
+    if (!in_array($prefix, $validPrefixes, true)) {
+        return [false, "Invalid network prefix ({$prefix}). Please enter an active Philippine mobile number from Globe, Smart, DITO, or TM.", ""];
+    }
+
+    if ($pdo instanceof PDO) {
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE contact_number = ? LIMIT 1");
+        $stmt->execute([$clean]);
+        if ($stmt->fetch()) {
+            return [false, "This mobile number is already registered to an existing account. Please sign in or use another number.", ""];
+        }
+    }
+
+    return [true, "", $clean];
+}
+
+/**
+ * Validate that an email is structurally valid, belongs to a real domain capable of receiving email,
+ * is not a disposable address, and is not already registered.
+ * Returns [bool $ok, string $error, string $cleanEmail].
+ */
+function validatePatientRegistrationEmail($email, $pdo = null)
+{
+    $email = strtolower(trim((string)$email));
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return [false, "Please enter a valid email address format (e.g. yourname@gmail.com).", ""];
+    }
+
+    $parts = explode('@', $email);
+    if (count($parts) !== 2) {
+        return [false, "Invalid email address structure.", ""];
+    }
+    $domain = strtolower($parts[1]);
+
+    $blockedDomains = [
+        'mailinator.com', '10minutemail.com', 'tempmail.com', 'guerrillamail.com',
+        'throwawaymail.com', 'fake.com', 'test.com', 'example.com'
+    ];
+    if (in_array($domain, $blockedDomains, true)) {
+        return [false, "Temporary or disposable email addresses are not permitted. Please use your legitimate personal email.", ""];
+    }
+
+    // Verify DNS MX / A records
+    if (!checkdnsrr($domain, 'MX') && !checkdnsrr($domain, 'A')) {
+        return [false, "The email domain (@{$domain}) does not exist or cannot receive mail. Please check for typos.", ""];
+    }
+
+    if ($pdo instanceof PDO) {
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ? LIMIT 1");
+        $stmt->execute([$email]);
+        if ($stmt->fetch()) {
+            return [false, "An account with this email address already exists. Please sign in instead.", ""];
+        }
+    }
+
+    return [true, "", $email];
+}
+
+/**
+ * Send OTP verification email for a pending patient registration (not yet in database).
+ * Returns [bool $ok, string $error].
+ */
+function sendRegistrationPendingOtp($toEmail, $fullName, $otp)
+{
+    $toEmail = trim((string)$toEmail);
+    $patientName = trim($fullName) !== '' ? trim($fullName) : 'Valued Patient';
+    $subject = "Your Verification Code: " . $otp . " - Abalos Dental Clinic";
+
+    $htmlBody = '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:24px;background-color:#f1f5f9;font-family:\'Plus Jakarta Sans\',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+        <tr>
+            <td align="center">
+                <table role="presentation" width="100%" style="max-width:540px;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.06);border:1px solid #e2e8f0;" cellspacing="0" cellpadding="0" border="0">
+                    <tr>
+                        <td style="background:linear-gradient(135deg,#047857 0%,#059669 55%,#10B981 100%);padding:30px 24px;text-align:center;color:#ffffff;">
+                            <div style="font-size:26px;margin-bottom:6px;">🦷</div>
+                            <h1 style="margin:0;font-size:22px;font-weight:800;letter-spacing:-0.5px;color:#ffffff;">Abalos Dental Clinic</h1>
+                            <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.9);font-weight:600;">Patient Account Verification</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:32px 28px;color:#334155;">
+                            <p style="margin:0 0 14px;font-size:15px;line-height:1.5;">Hello <strong>' . htmlspecialchars($patientName, ENT_QUOTES, 'UTF-8') . '</strong>,</p>
+                            <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#64748b;">
+                                Thank you for creating an account with <strong>Abalos Dental Clinic</strong>. To confirm your identity and complete your registration, please enter the 6-digit verification code below:
+                            </p>
+                            
+                            <div style="text-align:center;margin:28px 0;">
+                                <div style="display:inline-block;background:#EAF7F0;border:2px dashed #059669;border-radius:14px;padding:16px 36px;">
+                                    <span style="font-size:32px;font-weight:800;letter-spacing:10px;color:#047857;font-family:\'Courier New\',Courier,monospace;">' . $otp . '</span>
+                                </div>
+                                <p style="margin:12px 0 0;font-size:12.5px;color:#059669;font-weight:700;">
+                                    ⏳ This code is valid for 10 minutes only.
+                                </p>
+                            </div>
+
+                            <div style="background:#f8fafc;border-left:4px solid #059669;border-radius:6px;padding:12px 14px;margin-bottom:20px;">
+                                <p style="margin:0;font-size:12.5px;color:#64748b;line-height:1.5;">
+                                    <strong>Important Security Notice:</strong> Please never share this code with anyone. Your patient account will only be created once this code is verified.
+                                </p>
+                            </div>
+
+                            <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5;">
+                                If you did not sign up for an account at Abalos Dental Clinic, you may safely ignore this message.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:16px 24px;text-align:center;font-size:11.5px;color:#94a3b8;">
+                            &copy; ' . date('Y') . ' Abalos Dental Clinic &bull; Automated System Notification
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>';
+
+    return sendClinicGmail($toEmail, $subject, $htmlBody, true);
+}
+
 /* Patient reply tokens migration (kept for compatibility; reply links disabled). */
 
 /* Auto-mark missed appointments as No-Show (no manual click needed).

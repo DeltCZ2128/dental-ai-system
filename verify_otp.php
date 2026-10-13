@@ -4,13 +4,16 @@ require_once __DIR__ . '/config.php';
 
 /*
 |--------------------------------------------------------------------------
-| VERIFY_OTP.PHP - Patient Email Verification
+| VERIFY_OTP.PHP - Patient Email & Account Verification
 |--------------------------------------------------------------------------
-| Verifies new patient email addresses via a 6-digit OTP code before
-| granting access to the system.
+| Handles OTP verification for:
+| 1. New patient account creation (pending registration data in session,
+|    not yet written to the database until verified).
+| 2. Existing patient accounts that need verification.
+|--------------------------------------------------------------------------
 */
 
-// If user is already logged in and verified, send to role dashboard
+// If user is already logged in and verified, redirect to their dashboard
 if (isset($_SESSION['user_id'])) {
     $existingRole = strtolower(trim($_SESSION['role'] ?? ''));
     if ($existingRole === 'admin') {
@@ -20,7 +23,6 @@ if (isset($_SESSION['user_id'])) {
         header("Location: dentist/dentist_dashboard.php");
         exit;
     } elseif ($existingRole === 'patient') {
-        // Check if verified in DB
         $stmt = $pdo->prepare("SELECT is_verified FROM users WHERE id = ? LIMIT 1");
         $stmt->execute([(int)$_SESSION['user_id']]);
         $chk = $stmt->fetch();
@@ -29,64 +31,6 @@ if (isset($_SESSION['user_id'])) {
             exit;
         }
     }
-}
-
-// Resolve pending user from session or GET parameter
-$pendingUserId = (int)($_SESSION['pending_verify_user_id'] ?? 0);
-$pendingEmail = trim((string)($_SESSION['pending_verify_email'] ?? ($_GET['email'] ?? '')));
-
-if ($pendingUserId <= 0 && $pendingEmail !== '') {
-    $stmt = $pdo->prepare("SELECT id, username, full_name, role, is_verified FROM users WHERE username = ? LIMIT 1");
-    $stmt->execute([$pendingEmail]);
-    $u = $stmt->fetch();
-    if ($u) {
-        $pendingUserId = (int)$u['id'];
-        $_SESSION['pending_verify_user_id'] = $pendingUserId;
-        $_SESSION['pending_verify_email'] = $u['username'];
-        $_SESSION['pending_verify_name'] = $u['full_name'];
-    }
-}
-
-// If no pending user can be identified, send to login
-if ($pendingUserId <= 0) {
-    header("Location: login.php");
-    exit;
-}
-
-// Fetch current user details from database
-$stmt = $pdo->prepare("
-    SELECT id, username, full_name, role, is_verified, otp_code, otp_expires_at
-    FROM users
-    WHERE id = ?
-    LIMIT 1
-");
-$stmt->execute([$pendingUserId]);
-$user = $stmt->fetch();
-
-if (!$user) {
-    unset($_SESSION['pending_verify_user_id'], $_SESSION['pending_verify_email'], $_SESSION['pending_verify_name']);
-    header("Location: login.php");
-    exit;
-}
-
-// If account is already verified, redirect to login with verified notice
-if ((int)($user['is_verified'] ?? 1) === 1) {
-    unset($_SESSION['pending_verify_user_id'], $_SESSION['pending_verify_email'], $_SESSION['pending_verify_name']);
-    header("Location: login.php?verified=1");
-    exit;
-}
-
-$error = "";
-$success = "";
-$info = "";
-
-if (isset($_GET['unverified']) && $_GET['unverified'] === '1') {
-    $info = "Please verify your email address before signing in. A verification code has been sent to your inbox.";
-}
-
-if (!empty($_SESSION['pending_verify_error'])) {
-    $error = "Notice: " . $_SESSION['pending_verify_error'];
-    unset($_SESSION['pending_verify_error']);
 }
 
 // Helper: Mask email address for privacy (e.g. ro***1@gmail.com)
@@ -107,9 +51,87 @@ function maskEmailAddress($email)
     return $masked . '@' . $domain;
 }
 
+// Helper: Mask Philippine mobile phone (e.g. 0917****567)
+function maskPhoneNumber($num)
+{
+    $clean = preg_replace('/\D/', '', (string)$num);
+    if (strlen($clean) >= 11) {
+        return substr($clean, 0, 4) . '****' . substr($clean, -3);
+    }
+    return $num;
+}
+
+$hasPendingRegistration = !empty($_SESSION['pending_registration']) && is_array($_SESSION['pending_registration']);
+
+// If not a new registration, check if there's an existing unverified user in the database
+$pendingDbUser = null;
+if (!$hasPendingRegistration) {
+    $pendingUserId = (int)($_SESSION['pending_verify_user_id'] ?? 0);
+    $pendingEmail = trim((string)($_SESSION['pending_verify_email'] ?? ($_GET['email'] ?? '')));
+
+    if ($pendingUserId <= 0 && $pendingEmail !== '') {
+        $stmt = $pdo->prepare("SELECT id, username, full_name, role, is_verified, otp_code, otp_expires_at, contact_number FROM users WHERE username = ? LIMIT 1");
+        $stmt->execute([$pendingEmail]);
+        $u = $stmt->fetch();
+        if ($u) {
+            $pendingUserId = (int)$u['id'];
+            $_SESSION['pending_verify_user_id'] = $pendingUserId;
+            $_SESSION['pending_verify_email'] = $u['username'];
+            $_SESSION['pending_verify_name'] = $u['full_name'];
+        }
+    }
+
+    if ($pendingUserId > 0) {
+        $stmt = $pdo->prepare("SELECT id, username, full_name, role, is_verified, otp_code, otp_expires_at, contact_number FROM users WHERE id = ? LIMIT 1");
+        $stmt->execute([$pendingUserId]);
+        $pendingDbUser = $stmt->fetch();
+
+        // If already verified, send to login
+        if ($pendingDbUser && (int)($pendingDbUser['is_verified'] ?? 0) === 1) {
+            unset($_SESSION['pending_verify_user_id'], $_SESSION['pending_verify_email'], $_SESSION['pending_verify_name']);
+            header("Location: login.php?verified=1");
+            exit;
+        }
+    }
+}
+
+// If neither pending registration nor pending DB user exists, redirect to register
+if (!$hasPendingRegistration && !$pendingDbUser) {
+    header("Location: register.php");
+    exit;
+}
+
+// Identify active context details
+if ($hasPendingRegistration) {
+    $activeEmail = $_SESSION['pending_registration']['email'];
+    $activeName = $_SESSION['pending_registration']['full_name'];
+    $activePhone = $_SESSION['pending_registration']['contact_number'] ?? '';
+    $activeOtpCode = (string)($_SESSION['pending_registration']['otp_code'] ?? '');
+    $activeExpiresAt = (string)($_SESSION['pending_registration']['otp_expires_at'] ?? '');
+} else {
+    $activeEmail = $pendingDbUser['username'];
+    $activeName = $pendingDbUser['full_name'];
+    $activePhone = $pendingDbUser['contact_number'] ?? '';
+    $activeOtpCode = (string)($pendingDbUser['otp_code'] ?? '');
+    $activeExpiresAt = (string)($pendingDbUser['otp_expires_at'] ?? '');
+}
+
+$error = "";
+$success = "";
+$info = "";
+
+if (isset($_GET['unverified']) && $_GET['unverified'] === '1') {
+    $info = "Please verify your email address to activate your account. A verification code has been sent to your email.";
+}
+
+if (!empty($_SESSION['pending_verify_error'])) {
+    $error = "Notice: " . $_SESSION['pending_verify_error'];
+    unset($_SESSION['pending_verify_error']);
+}
+
 /*
 |--------------------------------------------------------------------------
-| HANDLE POST REQUESTS (VERIFY OR RESEND)
+| POST HANDLER (VERIFY OR RESEND)
 |--------------------------------------------------------------------------
 */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -118,7 +140,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = trim($_POST['action'] ?? 'verify');
 
     if ($action === 'resend') {
-        // Rate limit: 60 seconds
         $lastResend = (int)($_SESSION['last_otp_resend_time'] ?? 0);
         $secondsSince = time() - $lastResend;
 
@@ -126,79 +147,166 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $remaining = 60 - $secondsSince;
             $error = "Please wait {$remaining} seconds before requesting another code.";
         } else {
-            list($sentOk, $sendErr, $newOtp) = sendPatientVerificationOtp($user['id'], $user['username'], $user['full_name']);
-            if ($sentOk) {
+            $newOtp = sprintf("%06d", random_int(100000, 999999));
+            $newExpiresAt = date('Y-m-d H:i:s', strtotime('+10 minutes'));
+
+            if ($hasPendingRegistration) {
+                $_SESSION['pending_registration']['otp_code'] = $newOtp;
+                $_SESSION['pending_registration']['otp_expires_at'] = $newExpiresAt;
                 $_SESSION['last_otp_resend_time'] = time();
-                $success = "A fresh 6-digit verification code has been sent to your email!";
-                // Refresh local user record
-                $stmt->execute([$pendingUserId]);
-                $user = $stmt->fetch();
+
+                list($sentOk, $sendErr) = sendRegistrationPendingOtp($activeEmail, $activeName, $newOtp);
+                if ($sentOk) {
+                    $success = "A fresh 6-digit verification code has been sent to your email!";
+                    $activeOtpCode = $newOtp;
+                    $activeExpiresAt = $newExpiresAt;
+                } else {
+                    $error = !empty($sendErr) ? $sendErr : "Failed to send email. Please try again.";
+                }
             } else {
-                $error = !empty($sendErr) ? $sendErr : "Failed to send verification email. Please try again.";
+                // DB user resend
+                list($sentOk, $sendErr, $newOtp) = sendPatientVerificationOtp($pendingDbUser['id'], $activeEmail, $activeName);
+                if ($sentOk) {
+                    $_SESSION['last_otp_resend_time'] = time();
+                    $success = "A fresh 6-digit verification code has been sent to your email!";
+                    $activeOtpCode = $newOtp;
+                    $activeExpiresAt = $newExpiresAt;
+                } else {
+                    $error = !empty($sendErr) ? $sendErr : "Failed to send email. Please try again.";
+                }
             }
         }
+
     } else {
-        // Verify action
+        // VERIFY ACTION
         $enteredOtp = trim($_POST['otp'] ?? '');
         $enteredOtp = preg_replace('/\D/', '', $enteredOtp);
 
         if (strlen($enteredOtp) !== 6) {
             $error = "Please enter the complete 6-digit verification code.";
-        } elseif (empty($user['otp_code'])) {
+        } elseif (empty($activeOtpCode)) {
             $error = "No active verification code found. Please click 'Resend Code'.";
-        } elseif (hash_equals((string)$user['otp_code'], (string)$enteredOtp) === false) {
+        } elseif (hash_equals($activeOtpCode, (string)$enteredOtp) === false) {
             $error = "Incorrect verification code. Please check your email and try again.";
-        } elseif (strtotime((string)$user['otp_expires_at']) < time()) {
+        } elseif (strtotime($activeExpiresAt) < time()) {
             $error = "The verification code has expired (valid for 10 minutes). Please click 'Resend Code'.";
         } else {
-            // Valid OTP! Mark account as verified
-            try {
-                $updateStmt = $pdo->prepare("
-                    UPDATE users
-                    SET is_verified = 1,
-                        otp_code = NULL,
-                        otp_expires_at = NULL
-                    WHERE id = ?
-                ");
-                $updateStmt->execute([$user['id']]);
 
-                // Also ensure patient profile is active
+            if ($hasPendingRegistration) {
+                // ==========================================================
+                // FINALIZE ACCOUNT REGISTRATION IN DATABASE
+                // Patient is ONLY registered once their OTP is verified!
+                // ==========================================================
+                $reg = $_SESSION['pending_registration'];
+
                 try {
-                    $pdo->prepare("UPDATE patients SET status = 'active' WHERE user_id = ?")->execute([$user['id']]);
-                } catch (Throwable $pe) {}
+                    $pdo->beginTransaction();
 
-                // Clear pending verify session
-                unset(
-                    $_SESSION['pending_verify_user_id'],
-                    $_SESSION['pending_verify_email'],
-                    $_SESSION['pending_verify_name'],
-                    $_SESSION['pending_verify_error'],
-                    $_SESSION['last_otp_resend_time']
-                );
+                    // Re-check email uniqueness
+                    $chk = $pdo->prepare("SELECT id FROM users WHERE username = ? LIMIT 1");
+                    $chk->execute([$reg['email']]);
+                    if ($chk->fetch()) {
+                        $pdo->rollBack();
+                        unset($_SESSION['pending_registration']);
+                        $error = "This email was already registered. Please sign in.";
+                    } else {
+                        // 1. Insert into users as verified patient
+                        $stmt = $pdo->prepare("
+                            INSERT INTO users
+                            (username, password, full_name, contact_number, role, is_verified)
+                            VALUES (?, ?, ?, ?, 'patient', 1)
+                        ");
+                        $stmt->execute([
+                            $reg['email'],
+                            $reg['password_hash'],
+                            $reg['full_name'],
+                            $reg['contact_number']
+                        ]);
+                        $newUserId = (int)$pdo->lastInsertId();
 
-                // Auto-login user into patient dashboard
-                session_regenerate_id(false);
-                $_SESSION['user_id'] = (int)$user['id'];
-                $_SESSION['username'] = $user['username'];
-                $_SESSION['full_name'] = $user['full_name'];
-                $_SESSION['role'] = $user['role'];
-                $_SESSION['just_verified'] = true;
+                        // 2. Insert into patients
+                        $pNum = 'PAT-' . date('Ymd') . '-' . strtoupper(substr(md5($newUserId . uniqid('', true)), 0, 5));
+                        $pStmt = $pdo->prepare("
+                            INSERT INTO patients
+                            (user_id, patient_number, first_name, last_name, contact_number, email)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                        ");
+                        $pStmt->execute([
+                            $newUserId,
+                            $pNum,
+                            $reg['first_name'],
+                            $reg['last_name'],
+                            $reg['contact_number'],
+                            $reg['email']
+                        ]);
 
-                header("Location: patient/patient_dashboard.php?verified=1");
-                exit;
+                        $pdo->commit();
 
-            } catch (PDOException $e) {
-                $error = "A database error occurred. Please try again.";
+                        // Clear registration session
+                        unset($_SESSION['pending_registration'], $_SESSION['last_otp_resend_time']);
+
+                        // Auto-login into patient portal
+                        session_regenerate_id(false);
+                        $_SESSION['user_id'] = $newUserId;
+                        $_SESSION['username'] = $reg['email'];
+                        $_SESSION['full_name'] = $reg['full_name'];
+                        $_SESSION['role'] = 'patient';
+                        $_SESSION['just_verified'] = true;
+
+                        header("Location: patient/patient_dashboard.php?verified=1");
+                        exit;
+                    }
+                } catch (PDOException $e) {
+                    if ($pdo->inTransaction()) {
+                        $pdo->rollBack();
+                    }
+                    $error = "A database error occurred while creating your account. Please try again.";
+                }
+
+            } else {
+                // ==========================================================
+                // FINALIZE EXISTING DB USER VERIFICATION
+                // ==========================================================
+                try {
+                    $pdo->prepare("
+                        UPDATE users
+                        SET is_verified = 1,
+                            otp_code = NULL,
+                            otp_expires_at = NULL
+                        WHERE id = ?
+                    ")->execute([$pendingDbUser['id']]);
+
+                    unset(
+                        $_SESSION['pending_verify_user_id'],
+                        $_SESSION['pending_verify_email'],
+                        $_SESSION['pending_verify_name'],
+                        $_SESSION['last_otp_resend_time']
+                    );
+
+                    session_regenerate_id(false);
+                    $_SESSION['user_id'] = (int)$pendingDbUser['id'];
+                    $_SESSION['username'] = $pendingDbUser['username'];
+                    $_SESSION['full_name'] = $pendingDbUser['full_name'];
+                    $_SESSION['role'] = $pendingDbUser['role'];
+                    $_SESSION['just_verified'] = true;
+
+                    header("Location: patient/patient_dashboard.php?verified=1");
+                    exit;
+
+                } catch (PDOException $e) {
+                    $error = "Failed to update account status. Please try again.";
+                }
             }
         }
     }
 }
 
-// Calculate remaining seconds for countdown timer
+// Calculate countdown cooldown timer
 $lastResendTime = (int)($_SESSION['last_otp_resend_time'] ?? 0);
 $elapsed = time() - $lastResendTime;
 $cooldownRemaining = max(0, 60 - $elapsed);
-$maskedEmail = maskEmailAddress($user['username']);
+$maskedEmail = maskEmailAddress($activeEmail);
+$maskedPhone = !empty($activePhone) ? maskPhoneNumber($activePhone) : '';
 
 ?>
 <!DOCTYPE html>
@@ -206,7 +314,7 @@ $maskedEmail = maskEmailAddress($user['username']);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verify Your Email | Abalos Dental Clinic</title>
+    <title>Verify Email & Complete Registration | Abalos Dental Clinic</title>
 
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -279,7 +387,7 @@ $maskedEmail = maskEmailAddress($user['username']);
             position: relative;
             z-index: 2;
             width: 100%;
-            max-width: 500px;
+            max-width: 520px;
             background: rgba(255, 255, 255, 0.96);
             backdrop-filter: blur(18px);
             -webkit-backdrop-filter: blur(18px);
@@ -320,6 +428,14 @@ $maskedEmail = maskEmailAddress($user['username']);
             margin-bottom: 20px;
         }
 
+        .badges-wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
         .email-pill {
             display: inline-flex;
             align-items: center;
@@ -331,7 +447,19 @@ $maskedEmail = maskEmailAddress($user['username']);
             border-radius: 999px;
             font-size: 13.5px;
             font-weight: 700;
-            margin-bottom: 24px;
+        }
+
+        .phone-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            color: #334155;
+            padding: 7px 14px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 600;
         }
 
         /* OTP Input Field */
@@ -353,7 +481,7 @@ $maskedEmail = maskEmailAddress($user['username']);
             border-radius: 16px;
             transition: all 0.25s ease;
             box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04);
-            padding-left: 14px; /* balance letter spacing visually */
+            padding-left: 14px;
         }
 
         .otp-input:focus {
@@ -416,12 +544,6 @@ $maskedEmail = maskEmailAddress($user['username']);
             color: #022c22;
         }
 
-        .btn-resend:disabled {
-            color: #94a3b8;
-            cursor: not-allowed;
-            text-decoration: none;
-        }
-
         .timer-badge {
             font-weight: 700;
             color: #059669;
@@ -429,10 +551,11 @@ $maskedEmail = maskEmailAddress($user['username']);
 
         /* Links */
         .footer-links {
-            margin-top: 20px;
+            margin-top: 22px;
             font-size: 13px;
             display: flex;
             justify-content: center;
+            align-items: center;
             gap: 16px;
         }
 
@@ -504,12 +627,20 @@ $maskedEmail = maskEmailAddress($user['username']);
         <h1 class="verify-title">Verify Your Email</h1>
         
         <p class="verify-subtitle">
-            We've sent a 6-digit verification code to confirm that this is your legitimate email address:
+            Enter the 6-digit verification code sent to your email to confirm your identity and complete your patient registration:
         </p>
 
-        <div class="email-pill">
-            <i class="bi bi-envelope-fill"></i>
-            <span><?= htmlspecialchars($maskedEmail) ?></span>
+        <div class="badges-wrapper">
+            <div class="email-pill">
+                <i class="bi bi-envelope-fill"></i>
+                <span><?= htmlspecialchars($maskedEmail) ?></span>
+            </div>
+            <?php if (!empty($maskedPhone)): ?>
+            <div class="phone-pill">
+                <i class="bi bi-phone-fill text-success"></i>
+                <span><?= htmlspecialchars($maskedPhone) ?></span>
+            </div>
+            <?php endif; ?>
         </div>
 
         <!-- ALERTS -->
@@ -554,13 +685,13 @@ $maskedEmail = maskEmailAddress($user['username']);
                     autofocus
                 >
                 <div class="mt-2 text-muted" style="font-size: 12.5px;">
-                    <i class="bi bi-clock-history me-1"></i> Code expires in <strong>10 minutes</strong>
+                    <i class="bi bi-clock-history me-1"></i> Code is valid for <strong>10 minutes</strong>
                 </div>
             </div>
 
             <button type="submit" class="btn btn-verify" id="verifyBtn">
                 <i class="bi bi-check2-circle fs-5"></i>
-                <span>Verify & Activate Account</span>
+                <span>Complete Registration & Sign In</span>
             </button>
         </form>
 
@@ -583,12 +714,12 @@ $maskedEmail = maskEmailAddress($user['username']);
 
         <!-- FOOTER LINKS -->
         <div class="footer-links">
-            <a href="login.php">
-                <i class="bi bi-box-arrow-in-right me-1"></i> Back to Login
+            <a href="register.php">
+                <i class="bi bi-pencil-square me-1"></i> Edit Info / Back
             </a>
             <span style="color: #cbd5e1;">&bull;</span>
-            <a href="register.php">
-                <i class="bi bi-pencil-square me-1"></i> Register Again
+            <a href="login.php">
+                <i class="bi bi-box-arrow-in-right me-1"></i> Back to Login
             </a>
         </div>
 
@@ -609,7 +740,7 @@ $maskedEmail = maskEmailAddress($user['username']);
             }
         });
 
-        // Cooldown timer handler
+        // Cooldown countdown timer
         let remainingSeconds = <?= (int)$cooldownRemaining ?>;
         if (remainingSeconds > 0) {
             const interval = setInterval(function() {

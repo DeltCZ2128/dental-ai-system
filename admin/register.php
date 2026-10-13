@@ -41,18 +41,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $first_name = trim($_POST["first_name"] ?? "");
     $last_name = trim($_POST["last_name"] ?? "");
     $email = trim($_POST["email"] ?? "");
-
-    // Contact number entered by the patient
     $contact_number = trim($_POST["contact_number"] ?? "");
-
     $password = $_POST["password"] ?? "";
     $confirm_password = $_POST["confirm_password"] ?? "";
 
-
     /*
     |--------------------------------------------------------------------------
-    | VALIDATION
+    | STRICT REGISTRATION VALIDATION
     |--------------------------------------------------------------------------
+    | Validates all inputs to ensure legitimate email and legitimate PH phone
+    | BEFORE any patient record is created or saved into the database.
     */
 
     if (
@@ -63,183 +61,88 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         empty($password) ||
         empty($confirm_password)
     ) {
-
         $message = "Please complete all required fields.";
         $message_type = "danger";
 
-
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-
-        $message = "Please enter a valid email address.";
+    } elseif (mb_strlen($first_name) < 2 || mb_strlen($last_name) < 2) {
+        $message = "Please enter your complete and legitimate First Name and Last Name.";
         $message_type = "danger";
-
-
-    } elseif (!preg_match('/^09[0-9]{9}$/', $contact_number)) {
-
-        $message = "Please enter a valid 11-digit Philippine contact number starting with 09.";
-        $message_type = "danger";
-
-
-    } elseif ($password !== $confirm_password) {
-
-        $message = "Passwords do not match.";
-        $message_type = "danger";
-
-
-    } elseif (strlen($password) < 6) {
-
-        $message = "Password must be at least 6 characters.";
-        $message_type = "danger";
-
 
     } else {
 
-        /*
-        |--------------------------------------------------------------------------
-        | EMAIL WILL BE USED AS USERNAME
-        |--------------------------------------------------------------------------
-        */
+        // 1. Validate Philippine mobile number (genuine telco prefixes, length, no dummy numbers, uniqueness)
+        list($phoneOk, $phoneErr, $cleanPhone) = validatePhilippineMobileNumber($contact_number, $pdo);
 
-        $username = $email;
+        // 2. Validate legitimate email (format, valid DNS MX domain check, disposable email block, uniqueness)
+        list($emailOk, $emailErr, $cleanEmail) = validatePatientRegistrationEmail($email, $pdo);
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | CHECK IF ACCOUNT ALREADY EXISTS
-        |--------------------------------------------------------------------------
-        */
-
-        $check = $pdo->prepare("
-            SELECT id
-            FROM users
-            WHERE username = ?
-            LIMIT 1
-        ");
-
-        $check->execute([$username]);
-
-
-        if ($check->fetch()) {
-
-            $message = "An account with this email already exists. Please login instead.";
+        if (!$phoneOk) {
+            $message = $phoneErr;
             $message_type = "danger";
 
+        } elseif (!$emailOk) {
+            $message = $emailErr;
+            $message_type = "danger";
+
+        } elseif ($password !== $confirm_password) {
+            $message = "Passwords do not match. Please re-enter your password.";
+            $message_type = "danger";
+
+        } elseif (strlen($password) < 6) {
+            $message = "Password must be at least 6 characters long.";
+            $message_type = "danger";
 
         } else {
 
             /*
             |--------------------------------------------------------------------------
-            | CREATE FULL NAME
+            | GENERATE EMAIL OTP & STORE PENDING DATA IN SESSION
             |--------------------------------------------------------------------------
+            | NO record is inserted into `users` or `patients` tables yet!
+            | The patient will only be registered once they successfully enter
+            | the 6-digit OTP code sent to their email.
             */
+            $otp = sprintf("%06d", random_int(100000, 999999));
+            $expiresAt = date('Y-m-d H:i:s', strtotime('+10 minutes'));
+            $fullName = trim($first_name . " " . $last_name);
+            $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
-            $full_name = $first_name . " " . $last_name;
+            $_SESSION['pending_registration'] = [
+                'first_name' => $first_name,
+                'last_name' => $last_name,
+                'full_name' => $fullName,
+                'email' => $cleanEmail,
+                'contact_number' => $cleanPhone,
+                'password_hash' => $hashedPassword,
+                'otp_code' => $otp,
+                'otp_expires_at' => $expiresAt,
+                'created_at' => time()
+            ];
+            $_SESSION['last_otp_resend_time'] = time();
 
+            // Clear any old pending user DB ID
+            unset($_SESSION['pending_verify_user_id']);
 
-            /*
-            |--------------------------------------------------------------------------
-            | HASH PASSWORD
-            |--------------------------------------------------------------------------
-            */
+            // Send Verification Code to patient's email via Gmail SMTP
+            list($sentOk, $sendErr) = sendRegistrationPendingOtp($cleanEmail, $fullName, $otp);
 
-            $hashed_password = password_hash(
-                $password,
-                PASSWORD_DEFAULT
-            );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | INSERT PATIENT
-            |--------------------------------------------------------------------------
-            |
-            | IMPORTANT:
-            | Contact number is automatically saved here.
-            |--------------------------------------------------------------------------
-            */
-
-            try {
-
-                $stmt = $pdo->prepare("
-                    INSERT INTO users
-                    (
-                        username,
-                        password,
-                        full_name,
-                        contact_number,
-                        role,
-                        is_verified
-                    )
-                    VALUES
-                    (
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        0
-                    )
-                ");
-
-
-                $stmt->execute([
-                    $username,
-                    $hashed_password,
-                    $full_name,
-                    $contact_number,
-                    "patient"
-                ]);
-
-                $newUserId = (int)$pdo->lastInsertId();
-
-                if ($newUserId > 0) {
-                    try {
-                        $pNum = 'PAT-' . date('Ymd') . '-' . strtoupper(substr(md5($newUserId . uniqid('', true)), 0, 5));
-                        $pStmt = $pdo->prepare("
-                            INSERT INTO patients
-                            (user_id, patient_number, first_name, last_name, contact_number, email, status)
-                            VALUES (?, ?, ?, ?, ?, ?, 'Active')
-                        ");
-                        $pStmt->execute([
-                            $newUserId,
-                            $pNum,
-                            $first_name,
-                            $last_name,
-                            $contact_number,
-                            $email
-                        ]);
-                    } catch (PDOException $e) {
-                        // autoSyncPatientProfiles() in config.php will also keep it synced.
-                    }
-
-                    // Send Email OTP for verification
-                    list($sentOk, $sendErr, $otp) = sendPatientVerificationOtp($newUserId, $email, $full_name);
-
-                    $_SESSION['pending_verify_user_id'] = $newUserId;
-                    $_SESSION['pending_verify_email'] = $email;
-                    $_SESSION['pending_verify_name'] = $full_name;
-                    if (!$sentOk && !empty($sendErr)) {
-                        $_SESSION['pending_verify_error'] = $sendErr;
-                    }
-
-                    $redirectUrl = (strpos($_SERVER['REQUEST_URI'] ?? '', '/admin/') !== false) ? '../verify_otp.php' : 'verify_otp.php';
-                    header("Location: " . $redirectUrl);
-                    exit;
-                }
-
-
-            } catch (PDOException $e) {
-
-                $message = "Registration failed. Please try again.";
-                $message_type = "danger";
-
+            if (!$sentOk && !empty($sendErr)) {
+                $_SESSION['pending_verify_error'] = $sendErr;
             }
 
+            $redirectUrl = (strpos($_SERVER['REQUEST_URI'] ?? '', '/admin/') !== false) ? '../verify_otp.php' : 'verify_otp.php';
+            header("Location: " . $redirectUrl);
+            exit;
         }
-
     }
-
 }
+
+// Prefill form inputs from previous attempt or pending registration if any
+$prefill_first_name = $_POST["first_name"] ?? ($_SESSION['pending_registration']['first_name'] ?? '');
+$prefill_last_name = $_POST["last_name"] ?? ($_SESSION['pending_registration']['last_name'] ?? '');
+$prefill_email = $_POST["email"] ?? ($_SESSION['pending_registration']['email'] ?? '');
+$prefill_contact_number = $_POST["contact_number"] ?? ($_SESSION['pending_registration']['contact_number'] ?? '');
+
 
 ?>
 
@@ -1085,7 +988,7 @@ a {
                                             name="first_name"
                                             class="form-control"
                                             placeholder="Enter first name"
-                                            value="<?php echo htmlspecialchars($_POST["first_name"] ?? ""); ?>"
+                                            value="<?php echo htmlspecialchars($prefill_first_name); ?>"
                                             required
                                         >
 
@@ -1117,7 +1020,7 @@ a {
                                             name="last_name"
                                             class="form-control"
                                             placeholder="Enter last name"
-                                            value="<?php echo htmlspecialchars($_POST["last_name"] ?? ""); ?>"
+                                            value="<?php echo htmlspecialchars($prefill_last_name); ?>"
                                             required
                                         >
 
@@ -1151,11 +1054,14 @@ a {
                                     type="email"
                                     name="email"
                                     class="form-control"
-                                    placeholder="Enter email address"
-                                    value="<?php echo htmlspecialchars($_POST["email"] ?? ""); ?>"
+                                    placeholder="Enter active email address (e.g. name@gmail.com)"
+                                    value="<?php echo htmlspecialchars($prefill_email); ?>"
                                     required
                                 >
 
+                            </div>
+                            <div class="mt-1" style="font-size: 11.5px; color: #6f8a94;">
+                                <i class="bi bi-envelope-check me-1"></i> A 6-digit OTP verification code will be sent to this email to activate your account.
                             </div>
 
                         </div>
@@ -1183,7 +1089,7 @@ a {
                                     id="contact_number"
                                     class="form-control"
                                     placeholder="09XXXXXXXXX"
-                                    value="<?php echo htmlspecialchars($_POST["contact_number"] ?? ""); ?>"
+                                    value="<?php echo htmlspecialchars($prefill_contact_number); ?>"
                                     maxlength="11"
                                     pattern="09[0-9]{9}"
                                     inputmode="numeric"
@@ -1191,8 +1097,12 @@ a {
                                 >
 
                             </div>
+                            <div class="mt-1" style="font-size: 11.5px; color: #6f8a94;">
+                                <i class="bi bi-shield-check me-1"></i> Legitimate 11-digit Philippine mobile number starting with 09 (Globe, Smart, DITO, TM).
+                            </div>
 
                         </div>
+
 
 
                         <!-- =================================================
