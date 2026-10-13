@@ -821,7 +821,7 @@ function dentistRecordPopup(array $cfg)
     $showHeader = array_key_exists('show_header',$cfg) ? (bool)$cfg['show_header']: true;
     $showBack   = array_key_exists('show_back',  $cfg) ? (bool)$cfg['show_back']  : true;
 $maxRows   = isset($cfg['max_rows']) ? (int)$cfg['max_rows'] : 0;
-    $headNote  = isset($cfg['head_note']) ? $cfg['head_note'] : date('M d, Y') . ' · ' . count($list) . ' ipinapakita';
+    $headNote  = isset($cfg['head_note']) ? $cfg['head_note'] : date('M d, Y') . ' · ' . count($list) . ' showing';
 
     $dentistName = 'Dr. ' . trim((string)($_SESSION['full_name'] ?? 'Dentist'));
     ?>
@@ -2318,7 +2318,7 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
 
                 <div class="stat-featured-sub">
                     <span class="stat-featured-dot"></span>
-                    Kumpirmadong appointment
+                    Confirmed appointments
                 </div>
 
                 <span class="stat-go"><i class="bi bi-chevron-right"></i></span>
@@ -2339,7 +2339,7 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
 
                 <div class="stat-featured-sub">
                     <span class="stat-featured-dot"></span>
-                    Hindi sumipot sa schedule
+                    Missed scheduled appointments
                 </div>
 
                 <span class="stat-go"><i class="bi bi-chevron-right"></i></span>
@@ -2482,60 +2482,57 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
             #detail-today .detail-sub{color:#ffffff;font-weight:700}
             #detail-today .detail-date-pill{background:#fff;border-color:#fff;color:#0E6B5E;box-shadow:0 6px 14px rgba(0,0,0,.16);font-weight:800}
             #detail-today .card-body-custom{background:linear-gradient(180deg,#F7FDFB 0%,#fff 120px)}
-            #dTodayRecord .detail-mini{padding:13px 13px 13px 18px;border-radius:15px;background:#fff;box-shadow:0 6px 16px rgba(14,107,94,.07)}
-            #dTodayRecord .detail-mini::before{width:6px}
-            #dTodayRecord .detail-mini[data-filter="all"]::before{background:linear-gradient(180deg,#2563EB,#1E40AF)}
-            #dTodayRecord .detail-mini[data-filter="confirmed"]::before{background:linear-gradient(180deg,#10B981,#0E6B5E)}
-            #dTodayRecord .detail-mini[data-filter="pending"]::before{background:linear-gradient(180deg,#FBBF24,#D97706)}
-            #dTodayRecord .detail-mini[data-filter="completed"]::before{background:linear-gradient(180deg,#818CF8,#4F46E5)}
-            #dTodayRecord .detail-mini[data-filter="all"] .detail-mini-icon{background:linear-gradient(135deg,#2563EB,#1E40AF);box-shadow:0 6px 14px rgba(37,99,235,.30)}
-            #dTodayRecord .detail-mini[data-filter="confirmed"] .detail-mini-icon{background:linear-gradient(135deg,#10B981,#0E6B5E)}
-            #dTodayRecord .detail-mini[data-filter="pending"] .detail-mini-icon{background:linear-gradient(135deg,#FBBF24,#D97706);box-shadow:0 6px 14px rgba(217,119,6,.30)}
-            #dTodayRecord .detail-mini[data-filter="completed"] .detail-mini-icon{background:linear-gradient(135deg,#818CF8,#4F46E5);box-shadow:0 6px 14px rgba(79,70,229,.30)}
-            #dTodayRecord .detail-mini strong{font-size:21px}
-            #dTodayRecord .detail-progress{border-radius:15px;background:#fff;box-shadow:0 6px 16px rgba(14,107,94,.07)}
-            #dTodayRecord .detail-progress-track{height:10px}
-            .d-record-overlay .status{box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)}
-            /* ===== TODAY: TABLE VIEW (hinsan ang timeline cards) ===== */
-/* <td> lang ang maaaring children — i-reset ang grid display ng .d-tl-item base rule. */
-            /* Table rows ay may SARILING klase (d-tbl-row) para hindi maapektuhan ng
-   .d-tl-item{display:grid} na para sa timeline cards. */
-.d-record-overlay tr.d-tbl-row{display:table-row;gap:0;align-items:stretch}
-            .d-record-overlay .d-tbl-wrap{border:1px solid #C9E9DA;border-radius:16px;background:#fff;box-shadow:0 8px 24px rgba(14,107,94,.08);overflow:hidden}
-            .d-record-overlay .d-tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-            .d-record-overlay .d-table{width:100%;border-collapse:collapse;min-width:760px}
-            /* ===== HEAD BAR (icon + title + count) — gaya ng appointments.php ===== */
-            .d-record-overlay .d-tbl-head{display:flex;align-items:center;gap:11px;padding:13px 16px;border-bottom:1px solid #E6F2EC;background:#fff}
-            .d-record-overlay .d-tbl-head-icon{width:38px;height:38px;border-radius:11px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:17px;background:#EAF7F0;color:#0E6B5E}
-            .d-record-overlay .d-tbl-head-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-            .d-record-overlay .d-tbl-head-count{min-width:30px;height:30px;padding:0 8px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:#EAF7F0;border:1px solid #B9E4CF;color:#0E6B5E;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;flex-shrink:0}
+            #detail-today .detail-mini{padding:13px 13px 13px 18px;border-radius:15px;background:#fff;box-shadow:0 6px 16px rgba(14,107,94,.07);position:relative}
+            #detail-today .detail-mini::before{width:6px}
+            #detail-today .detail-mini[data-filter="all"]::before{background:linear-gradient(180deg,#2563EB,#1E40AF)}
+            #detail-today .detail-mini[data-filter="confirmed"]::before{background:linear-gradient(180deg,#10B981,#0E6B5E)}
+            #detail-today .detail-mini[data-filter="pending"]::before{background:linear-gradient(180deg,#FBBF24,#D97706)}
+            #detail-today .detail-mini[data-filter="completed"]::before{background:linear-gradient(180deg,#818CF8,#4F46E5)}
+            #detail-today .detail-mini[data-filter="all"] .detail-mini-icon{background:linear-gradient(135deg,#2563EB,#1E40AF);box-shadow:0 6px 14px rgba(37,99,235,.30)}
+            #detail-today .detail-mini[data-filter="confirmed"] .detail-mini-icon{background:linear-gradient(135deg,#10B981,#0E6B5E)}
+            #detail-today .detail-mini[data-filter="pending"] .detail-mini-icon{background:linear-gradient(135deg,#FBBF24,#D97706);box-shadow:0 6px 14px rgba(217,119,6,.30)}
+            #detail-today .detail-mini[data-filter="completed"] .detail-mini-icon{background:linear-gradient(135deg,#818CF8,#4F46E5);box-shadow:0 6px 14px rgba(79,70,229,.30)}
+            #detail-today .detail-mini strong{font-size:21px}
+            #detail-today .detail-progress{border-radius:15px;background:#fff;box-shadow:0 6px 16px rgba(14,107,94,.07)}
+            #detail-today .detail-progress-track{height:10px}
+            .card-detail .status, .d-record-overlay .status{box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)}
+            /* ===== TODAY: TABLE VIEW ===== */
+            .card-detail tr.d-tbl-row, .d-record-overlay tr.d-tbl-row{display:table-row;gap:0;align-items:stretch}
+            .card-detail .d-tbl-wrap, .d-record-overlay .d-tbl-wrap{border:1px solid #C9E9DA;border-radius:16px;background:#fff;box-shadow:0 8px 24px rgba(14,107,94,.08);overflow:hidden}
+            .card-detail .d-tbl-scroll, .d-record-overlay .d-tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+            .card-detail .d-table, .d-record-overlay .d-table{width:100%;border-collapse:collapse;min-width:760px}
+            /* ===== HEAD BAR (icon + title + count) ===== */
+            .card-detail .d-tbl-head, .d-record-overlay .d-tbl-head{display:flex;align-items:center;justify-content:space-between;gap:11px;padding:13px 16px;border-bottom:1px solid #E6F2EC;background:#fff}
+            .card-detail .d-tbl-head-icon, .d-record-overlay .d-tbl-head-icon{width:38px;height:38px;border-radius:11px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:17px;background:#EAF7F0;color:#0E6B5E}
+            .card-detail .d-tbl-head-txt, .d-record-overlay .d-tbl-head-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+            .card-detail .d-tbl-head-count, .d-record-overlay .d-tbl-head-count{min-width:30px;height:30px;padding:0 8px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:#EAF7F0;border:1px solid #B9E4CF;color:#0E6B5E;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;flex-shrink:0}
             /* ===== THEAD: solid emerald ===== */
-            .d-record-overlay .d-table thead th{background:#0A4A41;color:#fff;font-size:10.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;text-align:left;padding:11px 14px;border-bottom:none;white-space:nowrap}
-            .d-record-overlay .d-table tbody td{padding:13px 14px;border-bottom:1px solid #E6F2EC;font-size:13.5px;color:#4d6873;vertical-align:middle;background:#fff}
-            .d-record-overlay .d-table tbody tr:nth-child(even) td{background:#F6FBF8}
-            .d-record-overlay .d-table tbody tr:hover td{background:#EAF7F0}
-            .d-record-overlay .d-table tbody tr:last-child td{border-bottom:none}
-            .d-record-overlay .d-table tbody td strong{color:#143f51}
-            /* # column: maliit na badge */
-            .d-record-overlay .d-table .d-col-num{width:46px;min-width:46px;text-align:center;font-weight:800;font-variant-numeric:tabular-nums;color:#8499a1}
-            .d-record-overlay .d-table td.d-col-num span{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:8px;background:#EFF6F3;color:#7f9aa4;font-size:11.5px;line-height:1}
-            .d-record-overlay .d-tbl-when{white-space:nowrap;font-variant-numeric:tabular-nums}
+            .card-detail .d-table thead th, .d-record-overlay .d-table thead th{background:#0A4A41;color:#fff;font-size:10.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;text-align:left;padding:11px 14px;border-bottom:none;white-space:nowrap}
+            .card-detail .d-table tbody td, .d-record-overlay .d-table tbody td{padding:13px 14px;border-bottom:1px solid #E6F2EC;font-size:13.5px;color:#4d6873;vertical-align:middle;background:#fff}
+            .card-detail .d-table tbody tr:nth-child(even) td, .d-record-overlay .d-table tbody tr:nth-child(even) td{background:#F6FBF8}
+            .card-detail .d-table tbody tr:hover td, .d-record-overlay .d-table tbody tr:hover td{background:#EAF7F0}
+            .card-detail .d-table tbody tr:last-child td, .d-record-overlay .d-table tbody tr:last-child td{border-bottom:none}
+            .card-detail .d-table tbody td strong, .d-record-overlay .d-table tbody td strong{color:#143f51}
+            /* # column: badge */
+            .card-detail .d-table .d-col-num, .d-record-overlay .d-table .d-col-num{width:46px;min-width:46px;text-align:center;font-weight:800;font-variant-numeric:tabular-nums;color:#8499a1}
+            .card-detail .d-table td.d-col-num span, .d-record-overlay .d-table td.d-col-num span{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:8px;background:#EFF6F3;color:#7f9aa4;font-size:11.5px;line-height:1}
+            .card-detail .d-tbl-when, .d-record-overlay .d-tbl-when{white-space:nowrap;font-variant-numeric:tabular-nums}
             /* View button */
-            .d-record-overlay .d-view-btn{display:inline-flex;align-items:center;gap:6px;background:#EAF7F0;border:1px solid #B9E4CF;color:#0E6B5E;font-size:11.5px;font-weight:800;padding:7px 13px;border-radius:9px;cursor:pointer;transition:.18s;font-family:inherit;white-space:nowrap}
-            .d-record-overlay .d-view-btn:hover{background:#0E6B5E;border-color:#0E6B5E;color:#fff}
-            .d-record-overlay .d-view-btn i{font-size:11.5px}
-            .d-record-overlay .empty-state{background:linear-gradient(160deg,#F7FDFB,#EDF9F3);border:1px dashed #B9E4CF;border-radius:15px;padding:38px 14px}
-            #dTodayRecord .detail-mini{padding-bottom:16px}
-            #dTodayRecord .detail-mini-foot{display:inline-block;font-style:normal;font-size:10.5px;font-weight:800;letter-spacing:.2px;margin-top:5px;line-height:1;padding:5px 9px;border-radius:999px;border:1px solid transparent}
-            #dTodayRecord .detail-mini[data-filter="all"] .detail-mini-foot{background:#DBEAFE;color:#1E40AF;border-color:#BFDBFE}
-            #dTodayRecord .detail-mini[data-filter="confirmed"] .detail-mini-foot{background:#D1FAE5;color:#065F46;border-color:#A7F3D0}
-            #dTodayRecord .detail-mini[data-filter="pending"] .detail-mini-foot{background:#FEF3C7;color:#92400E;border-color:#FDE68A}
-            #dTodayRecord .detail-mini[data-filter="completed"] .detail-mini-foot{background:#E0E7FF;color:#3730A3;border-color:#C7D2FE}
-            #dTodayRecord .detail-mini::after{content:"";position:absolute;left:0;right:0;bottom:0;height:5px;border-radius:0 0 14px 14px}
-            #dTodayRecord .detail-mini[data-filter="all"]::after{background:linear-gradient(90deg,#2563EB,#1E40AF)}
-            #dTodayRecord .detail-mini[data-filter="confirmed"]::after{background:linear-gradient(90deg,#10B981,#0E6B5E)}
-            #dTodayRecord .detail-mini[data-filter="pending"]::after{background:linear-gradient(90deg,#FBBF24,#D97706)}
-            #dTodayRecord .detail-mini[data-filter="completed"]::after{background:linear-gradient(90deg,#818CF8,#4F46E5)}
+            .card-detail .d-view-btn, .d-record-overlay .d-view-btn{display:inline-flex;align-items:center;gap:6px;background:#EAF7F0;border:1px solid #B9E4CF;color:#0E6B5E;font-size:11.5px;font-weight:800;padding:7px 13px;border-radius:9px;cursor:pointer;transition:.18s;font-family:inherit;white-space:nowrap}
+            .card-detail .d-view-btn:hover, .d-record-overlay .d-view-btn:hover{background:#0E6B5E;border-color:#0E6B5E;color:#fff}
+            .card-detail .d-view-btn i, .d-record-overlay .d-view-btn i{font-size:11.5px}
+            .card-detail .empty-state, .d-record-overlay .empty-state{background:linear-gradient(160deg,#F7FDFB,#EDF9F3);border:1px dashed #B9E4CF;border-radius:15px;padding:38px 14px}
+            #detail-today .detail-mini{padding-bottom:16px}
+            #detail-today .detail-mini-foot{display:inline-block;font-style:normal;font-size:10.5px;font-weight:800;letter-spacing:.2px;margin-top:5px;line-height:1;padding:5px 9px;border-radius:999px;border:1px solid transparent}
+            #detail-today .detail-mini[data-filter="all"] .detail-mini-foot{background:#DBEAFE;color:#1E40AF;border-color:#BFDBFE}
+            #detail-today .detail-mini[data-filter="confirmed"] .detail-mini-foot{background:#D1FAE5;color:#065F46;border-color:#A7F3D0}
+            #detail-today .detail-mini[data-filter="pending"] .detail-mini-foot{background:#FEF3C7;color:#92400E;border-color:#FDE68A}
+            #detail-today .detail-mini[data-filter="completed"] .detail-mini-foot{background:#E0E7FF;color:#3730A3;border-color:#C7D2FE}
+            #detail-today .detail-mini::after{content:"";position:absolute;left:0;right:0;bottom:0;height:5px;border-radius:0 0 14px 14px}
+            #detail-today .detail-mini[data-filter="all"]::after{background:linear-gradient(90deg,#2563EB,#1E40AF)}
+            #detail-today .detail-mini[data-filter="confirmed"]::after{background:linear-gradient(90deg,#10B981,#0E6B5E)}
+            #detail-today .detail-mini[data-filter="pending"]::after{background:linear-gradient(90deg,#FBBF24,#D97706)}
+            #detail-today .detail-mini[data-filter="completed"]::after{background:linear-gradient(90deg,#818CF8,#4F46E5)}
             /* ===== UPCOMING interior gaya ng Today (scoped lang sa #detail-upcoming) ===== */
             #detail-upcoming{border-color:#B9E4CF;box-shadow:0 14px 34px rgba(8,145,178,.10)}
             #detail-upcoming .card-top{background:linear-gradient(135deg,#0E7490 0%,#0891B2 60%,#22D3EE 100%);border-bottom:none;color:#fff}
@@ -2715,30 +2712,27 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
                     <div>
                         <div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; Today's Appointments</div>
                         <h3><i class="bi bi-calendar-event-fill"></i> Today's Appointments</h3>
-                        <p class="detail-sub">Lahat ng naka-schedule sa iyo ngayong araw.</p>
+                        <p class="detail-sub">View and manage all appointments scheduled for today.</p>
                     </div>
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= dentistCardEscape(date('M d, Y')) ?></span>
-                        <button type="button" class="detail-close" aria-label="Close" title="Close"><i class="bi bi-x-lg"></i></button>
-                    </div>
+                    <span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= dentistCardEscape(date('F j, Y')) ?></span>
                 </div>
                 <div class="card-body-custom">
                     <div class="detail-mini-grid" data-mini-group="today">
                         <div class="detail-mini detail-mini-clickable active-mini" data-filter="all" role="button" tabindex="0">
                             <div class="detail-mini-icon"><i class="bi bi-calendar-event-fill"></i></div>
-                            <div><small>Total Today</small><strong><?= (int)$dTodaySub['total'] ?></strong><em class="detail-mini-foot">Lahat ngayong araw</em></div>
+                            <div><small>Total Appointments</small><strong><?= (int)$dTodaySub['total'] ?></strong><em class="detail-mini-foot">All today</em></div>
                         </div>
                         <div class="detail-mini detail-mini-clickable" data-filter="confirmed" role="button" tabindex="0">
                             <div class="detail-mini-icon"><i class="bi bi-patch-check-fill"></i></div>
-                            <div><small>Confirmed</small><strong><?= (int)$dTodaySub['confirmed'] ?></strong><em class="detail-mini-foot">Kumpirmado</em></div>
+                            <div><small>Confirmed</small><strong><?= (int)$dTodaySub['confirmed'] ?></strong><em class="detail-mini-foot">Confirmed</em></div>
                         </div>
                         <div class="detail-mini detail-mini-clickable" data-filter="pending" role="button" tabindex="0">
                             <div class="detail-mini-icon"><i class="bi bi-hourglass-split"></i></div>
-                            <div><small>Pending</small><strong><?= (int)$dTodaySub['pending'] ?></strong><em class="detail-mini-foot">Naghihintay</em></div>
+                            <div><small>Pending</small><strong><?= (int)$dTodaySub['pending'] ?></strong><em class="detail-mini-foot">Pending</em></div>
                         </div>
                         <div class="detail-mini detail-mini-clickable" data-filter="completed" role="button" tabindex="0">
                             <div class="detail-mini-icon"><i class="bi bi-check-circle-fill"></i></div>
-                            <div><small>Completed</small><strong><?= (int)$dTodaySub['completed'] ?></strong><em class="detail-mini-foot">Natapos</em></div>
+                            <div><small>Completed</small><strong><?= (int)$dTodaySub['completed'] ?></strong><em class="detail-mini-foot">Completed</em></div>
                         </div>
                     </div>
                     <div class="detail-tabs" data-tab-group="today">
@@ -2755,7 +2749,7 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
                             <span class="d-tbl-head-icon"><i class="bi bi-calendar-event-fill"></i></span>
                             <div class="d-tbl-head-txt">
                                 <strong>Today's Appointments</strong>
-                                <small><?= dentistCardEscape(date('M d, Y')) ?> · <?= count($dTodayList) ?> ipinapakita</small>
+                                <small><?= dentistCardEscape(date('M d, Y')) ?> · <?= count($dTodayList) ?> showing</small>
                             </div>
                             <span class="d-tbl-head-count"><?= count($dTodayList) ?></span>
                         </div>
@@ -2814,23 +2808,20 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
                     <div>
                         <div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; Upcoming Appointments</div>
                         <h3><i class="bi bi-calendar2-week-fill"></i> Upcoming Appointments</h3>
-                        <p class="detail-sub">Mga susunod mong naka-schedule na pasyente.</p>
+                        <p class="detail-sub">View upcoming scheduled patients and appointments.</p>
                     </div>
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <span class="detail-date-pill"><i class="bi bi-calendar3"></i> After today</span>
-                        <button type="button" class="detail-close" aria-label="Close" title="Close"><i class="bi bi-x-lg"></i></button>
-                    </div>
+                    <span class="detail-date-pill"><i class="bi bi-calendar3"></i> After today</span>
                 </div>
                 <div class="card-body-custom">
                     <div class="detail-mini-grid" data-mini-group="upcoming">
-                        <div class="detail-mini detail-mini-clickable" data-filter="all" role="button" tabindex="0"><div class="detail-mini-icon"><i class="bi bi-calendar2-week-fill"></i></div><div><small>Total Upcoming</small><strong><?= (int)$dUpcomingSub['total'] ?></strong><em class="detail-mini-foot">Lahat ng upcoming</em></div></div>
-                        <div class="detail-mini detail-mini-clickable" data-filter="week" role="button" tabindex="0"><div class="detail-mini-icon"><i class="bi bi-calendar-week-fill"></i></div><div><small>This Week</small><strong><?= (int)$dUpcomingSub['week'] ?></strong><em class="detail-mini-foot">Linggong ito</em></div></div>
-                        <div class="detail-mini detail-mini-clickable" data-filter="month" role="button" tabindex="0"><div class="detail-mini-icon"><i class="bi bi-calendar-month-fill"></i></div><div><small>This Month</small><strong><?= (int)$dUpcomingSub['month'] ?></strong><em class="detail-mini-foot">Buwang ito</em></div></div>
-                        <div class="detail-mini detail-mini-clickable" data-filter="beyond" role="button" tabindex="0"><div class="detail-mini-icon"><i class="bi bi-arrow-right-circle-fill"></i></div><div><small>Beyond Month</small><strong><?= (int)$dUpcomingSub['beyond'] ?></strong><em class="detail-mini-foot">Lagpas sa buwan</em></div></div>
+                        <div class="detail-mini detail-mini-clickable" data-filter="all" role="button" tabindex="0"><div class="detail-mini-icon"><i class="bi bi-calendar2-week-fill"></i></div><div><small>Total Upcoming</small><strong><?= (int)$dUpcomingSub['total'] ?></strong><em class="detail-mini-foot">All upcoming</em></div></div>
+                        <div class="detail-mini detail-mini-clickable" data-filter="week" role="button" tabindex="0"><div class="detail-mini-icon"><i class="bi bi-calendar-week-fill"></i></div><div><small>This Week</small><strong><?= (int)$dUpcomingSub['week'] ?></strong><em class="detail-mini-foot">This week</em></div></div>
+                        <div class="detail-mini detail-mini-clickable" data-filter="month" role="button" tabindex="0"><div class="detail-mini-icon"><i class="bi bi-calendar-month-fill"></i></div><div><small>This Month</small><strong><?= (int)$dUpcomingSub['month'] ?></strong><em class="detail-mini-foot">This month</em></div></div>
+                        <div class="detail-mini detail-mini-clickable" data-filter="beyond" role="button" tabindex="0"><div class="detail-mini-icon"><i class="bi bi-arrow-right-circle-fill"></i></div><div><small>Beyond Month</small><strong><?= (int)$dUpcomingSub['beyond'] ?></strong><em class="detail-mini-foot">Beyond month</em></div></div>
                     </div>
                     <?php $dpTotal=(int)($dUpcomingSub['total']??0); $dpVal=(int)($dUpcomingSub['week']??0); $dpPct=$dpTotal>0?(int)round($dpVal/$dpTotal*100):0; ?>
                     <div class="detail-progress">
-                        <div class="detail-progress-info"><span><i class="bi bi-calendar-week-fill"></i> Nasa loob ng 7 araw</span><strong><?= $dpPct ?>% · <?= $dpVal ?>/<?= $dpTotal ?></strong></div>
+                        <div class="detail-progress-info"><span><i class="bi bi-calendar-week-fill"></i> Within 7 days</span><strong><?= $dpPct ?>% · <?= $dpVal ?>/<?= $dpTotal ?></strong></div>
                         <div class="detail-progress-track"><span style="width:<?= $dpPct ?>%"></span></div>
                     </div>
                     <div class="detail-tabs" data-tab-group="upcoming">
@@ -2868,12 +2859,9 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
                     <div>
                         <div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; Completed Appointments</div>
                         <h3><i class="bi bi-check-circle-fill"></i> Completed Appointments</h3>
-                        <p class="detail-sub">Record ng mga natapos mong treatments.</p>
+                        <p class="detail-sub">View records of all completed treatments and appointments.</p>
                     </div>
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= dentistCardEscape(date('M d, Y')) ?></span>
-                        <button type="button" class="detail-close" aria-label="Close" title="Close"><i class="bi bi-x-lg"></i></button>
-                    </div>
+                    <span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= dentistCardEscape(date('F j, Y')) ?></span>
                 </div>
                 <div class="card-body-custom">
                     <div class="detail-mini-grid" data-mini-group="completed">
@@ -2884,7 +2872,7 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
                     </div>
                     <?php $dpTotal=(int)($dCompletedSub['total']??0); $dpVal=(int)($dCompletedSub['month']??0); $dpPct=$dpTotal>0?(int)round($dpVal/$dpTotal*100):0; ?>
                     <div class="detail-progress">
-                        <div class="detail-progress-info"><span><i class="bi bi-calendar-check-fill"></i> Natapos ngayong buwan</span><strong><?= $dpPct ?>% · <?= $dpVal ?>/<?= $dpTotal ?></strong></div>
+                        <div class="detail-progress-info"><span><i class="bi bi-calendar-check-fill"></i> Completed this month</span><strong><?= $dpPct ?>% · <?= $dpVal ?>/<?= $dpTotal ?></strong></div>
                         <div class="detail-progress-track"><span style="width:<?= $dpPct ?>%"></span></div>
                     </div>
                     <div class="detail-tabs" data-tab-group="completed">
@@ -2921,12 +2909,9 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
                     <div>
                         <div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; Pending Appointments</div>
                         <h3><i class="bi bi-hourglass-split"></i> Pending Appointments</h3>
-                        <p class="detail-sub">Mga appointment request na naghihintay ng action.</p>
+                        <p class="detail-sub">View and manage all pending appointment requests.</p>
                     </div>
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= dentistCardEscape(date('M d, Y')) ?></span>
-                        <button type="button" class="detail-close" aria-label="Close" title="Close"><i class="bi bi-x-lg"></i></button>
-                    </div>
+                    <span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= dentistCardEscape(date('F j, Y')) ?></span>
                 </div>
                 <div class="card-body-custom">
                     <div class="detail-mini-grid" data-mini-group="pending">
@@ -2937,7 +2922,7 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
                     </div>
                     <?php $dpTotal=(int)($dPendingSub['total']??0); $dpVal=(int)($dPendingSub['week']??0); $dpPct=$dpTotal>0?(int)round($dpVal/$dpTotal*100):0; ?>
                     <div class="detail-progress">
-                        <div class="detail-progress-info"><span><i class="bi bi-hourglass-split"></i> Para sa ngayong linggo</span><strong><?= $dpPct ?>% · <?= $dpVal ?>/<?= $dpTotal ?></strong></div>
+                        <div class="detail-progress-info"><span><i class="bi bi-hourglass-split"></i> Scheduled this week</span><strong><?= $dpPct ?>% · <?= $dpVal ?>/<?= $dpTotal ?></strong></div>
                         <div class="detail-progress-track"><span style="width:<?= $dpPct ?>%"></span></div>
                     </div>
                     <div class="detail-tabs" data-tab-group="pending">
@@ -2974,12 +2959,9 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
                     <div>
                         <div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; Confirmed Appointments</div>
                         <h3><i class="bi bi-calendar2-check-fill"></i> Confirmed Appointments</h3>
-                        <p class="detail-sub">Mga kumpirmadong appointment na naka-assign sa iyo.</p>
+                        <p class="detail-sub">View and manage all confirmed appointments assigned to you.</p>
                     </div>
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= dentistCardEscape(date('M d, Y')) ?></span>
-                        <button type="button" class="detail-close" aria-label="Close" title="Close"><i class="bi bi-x-lg"></i></button>
-                    </div>
+                    <span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= dentistCardEscape(date('F j, Y')) ?></span>
                 </div>
                 <div class="card-body-custom">
                     <div class="detail-mini-grid" data-mini-group="confirmed">
@@ -2990,7 +2972,7 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
                     </div>
                     <?php $dpTotal=(int)($dConfirmedSub['total']??0); $dpVal=(int)($dConfirmedSub['week']??0); $dpPct=$dpTotal>0?(int)round($dpVal/$dpTotal*100):0; ?>
                     <div class="detail-progress">
-                        <div class="detail-progress-info"><span><i class="bi bi-calendar2-check-fill"></i> Para sa ngayong linggo</span><strong><?= $dpPct ?>% · <?= $dpVal ?>/<?= $dpTotal ?></strong></div>
+                        <div class="detail-progress-info"><span><i class="bi bi-calendar2-check-fill"></i> Scheduled this week</span><strong><?= $dpPct ?>% · <?= $dpVal ?>/<?= $dpTotal ?></strong></div>
                         <div class="detail-progress-track"><span style="width:<?= $dpPct ?>%"></span></div>
                     </div>
                     <div class="detail-tabs" data-tab-group="confirmed">
@@ -3027,12 +3009,9 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
                     <div>
                         <div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; No-Show Patients</div>
                         <h3><i class="bi bi-person-x-fill"></i> No-Show Patients</h3>
-                        <p class="detail-sub">Mga pasyenteng hindi sumipot sa schedule.</p>
+                        <p class="detail-sub">Records of patients who missed their scheduled appointments.</p>
                     </div>
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= dentistCardEscape(date('M d, Y')) ?></span>
-                        <button type="button" class="detail-close" aria-label="Close" title="Close"><i class="bi bi-x-lg"></i></button>
-                    </div>
+                    <span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= dentistCardEscape(date('F j, Y')) ?></span>
                 </div>
                 <div class="card-body-custom">
                     <div class="detail-mini-grid" data-mini-group="noshow">
@@ -3043,7 +3022,7 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
                     </div>
                     <?php $dpTotal=(int)($dNoshowSub['total']??0); $dpVal=(int)($dNoshowSub['week']??0); $dpPct=$dpTotal>0?(int)round($dpVal/$dpTotal*100):0; ?>
                     <div class="detail-progress">
-                        <div class="detail-progress-info"><span><i class="bi bi-person-x-fill"></i> Nangyari ngayong linggo</span><strong><?= $dpPct ?>% · <?= $dpVal ?>/<?= $dpTotal ?></strong></div>
+                        <div class="detail-progress-info"><span><i class="bi bi-person-x-fill"></i> Recorded this week</span><strong><?= $dpPct ?>% · <?= $dpVal ?>/<?= $dpTotal ?></strong></div>
                         <div class="detail-progress-track"><span style="width:<?= $dpPct ?>%"></span></div>
                     </div>
                     <div class="detail-tabs" data-tab-group="noshow">

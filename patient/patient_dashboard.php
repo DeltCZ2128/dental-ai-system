@@ -346,7 +346,7 @@ if ($patientId > 0) {
 
         $totalAppointments += $count;
 
-        /* Pending card — lahat ng pending kahit anong date */
+        /* Pending card — all pending appointments regardless of date */
         if ($status === 'Pending') {
             $pendingAppointments += $count;
             if ($apptDate === $todayDate) {
@@ -357,7 +357,7 @@ if ($patientId > 0) {
             }
         }
 
-        /* Confirmed card — confirmed/approved + aktibong checked-in/late/serving kahit anong date */
+        /* Confirmed card — confirmed/approved + active checked-in/late/serving regardless of date */
         if (
             $status === 'Confirmed' || $status === 'Approved'
             || $status === 'Checked In' || $status === 'Late' || $status === 'Serving'
@@ -371,7 +371,7 @@ if ($patientId > 0) {
             }
         }
 
-        /* Completed card — lahat ng completed kahit anong date */
+        /* Completed card — all completed appointments regardless of date */
         if ($status === 'Completed') {
             $completedAppointments += $count;
             if ($apptDate === $todayDate) {
@@ -451,7 +451,7 @@ if ($patientId > 0) {
 
 /* =========================
    CARD DETAIL LISTS (clickable summary cards — same page, no new tab)
-   Gaya ng admin dashboard: pag pinindot ang card, detail panel ang bubukas.
+   Similar to admin dashboard: clicking a summary card opens its detail panel inline.
 ========================= */
 
 $detailAppointments = [];
@@ -936,7 +936,7 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
 
                         <div class="pstat-head">
                             <span class="pstat-icon"><i class="bi bi-calendar2-day-fill"></i></span>
-                            <span class="pstat-label">Today's Appointment</span>
+                            <span class="pstat-label">Today's Appointments</span>
                         </div>
 
                         <div class="pstat-num"><?= $todayAppointments ?></div>
@@ -960,7 +960,7 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
 
                             <span class="pstat-icon"><i class="bi bi-calendar2-plus-fill"></i></span>
 
-                            <span class="pstat-label">Upcoming Appointment</span>
+                            <span class="pstat-label">Upcoming Appointments</span>
 
                         </div>
 
@@ -987,7 +987,7 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
 
                             <span class="pstat-icon"><i class="bi bi-hourglass-split"></i></span>
 
-                            <span class="pstat-label">Pending Appointment</span>
+                            <span class="pstat-label">Pending Appointments</span>
 
                         </div>
 
@@ -1014,7 +1014,7 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
 
                             <span class="pstat-icon"><i class="bi bi-check-circle-fill"></i></span>
 
-                            <span class="pstat-label">Confirm Appointment</span>
+                            <span class="pstat-label">Confirmed Appointments</span>
 
                         </div>
 
@@ -1041,7 +1041,7 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
 
                             <span class="pstat-icon"><i class="bi bi-clipboard2-check-fill"></i></span>
 
-                            <span class="pstat-label">Completed Appointment</span>
+                            <span class="pstat-label">Completed Appointments</span>
 
                         </div>
 
@@ -1122,25 +1122,14 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
                 .detail-nav-card small{display:block;color:#8ca0a8;font-size:10px;font-weight:600;line-height:1.2}
                 .detail-nav-card strong{display:block;color:#173f50;font-size:17px;font-weight:800;line-height:1.2}
                 .card-detail{background:#fff;border:1px solid #808080;border-radius:18px;overflow:hidden;margin-bottom:16px;animation:cardDetailIn .25s ease}
-                .card-detail.pdetail{background:transparent;border:none;box-shadow:none;overflow:visible}
-                .pdetail-bar{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#022c22,#064e3b);border-radius:14px;padding:14px 16px;color:#fff;margin-bottom:14px}
-                .pdetail-bar-icon{width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);display:inline-flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
-                .pdetail-bar-text{flex:1;min-width:0}
-                .pdetail-bar-text strong{display:block;font-size:16px;font-weight:800}
-                .pdetail-bar-text small{display:block;color:rgba(255,255,255,.75);font-size:12px}
-                .pdetail-x{width:32px;height:32px;border-radius:9px;background:transparent;border:1px solid rgba(255,255,255,.4);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;flex-shrink:0}
-                .pdetail-x:hover{background:rgba(255,255,255,.15)}
-                .pdetail-card{background:#fff;border:1px solid #e3eeea;border-radius:14px;overflow:hidden}
-                .pdetail-card-head{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #eef3f1}
-                .pdetail-card-icon{width:38px;height:38px;border-radius:11px;background:#EAF7F0;color:#0E6B5E;display:inline-flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
-                .pdetail-card-headtext{flex:1;min-width:0}
-                .pdetail-card-headtext strong{display:block;color:#143f51;font-size:15.5px;font-weight:800}
-                .pdetail-card-headtext small{display:block;color:#8ca0a8;font-size:12px}
-                .pdetail-count{min-width:34px;height:34px;padding:0 8px;border-radius:50%;background:#EAF7F0;border:1px solid #B9E4CF;color:#0E6B5E;display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0}
-                .pdetail-body{padding:16px 18px 18px}
+                .detail-back-row{display:none;margin-bottom:12px}
+                .detail-back-row.is-open{display:block}
+                .detail-back-btn{display:inline-flex;align-items:center;gap:7px;border:1px solid #B9E4CF;background:#EAF7F0;color:#0E6B5E;font-size:12.5px;font-weight:700;padding:8px 15px;border-radius:999px;cursor:pointer;transition:.2s;font-family:inherit}
+                .detail-back-btn:hover{background:#0E6B5E;border-color:#0E6B5E;color:#fff}
+                .detail-back-btn i{font-size:13px}
                 #cardDetailWrap .appointment-table th{background:#0A3B34;color:#ffffff;font-size:11.5px;letter-spacing:.4px;text-transform:uppercase}
                 @keyframes cardDetailIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
-                .card-top{padding:19px 21px;border-bottom:1px solid #808080;background:linear-gradient(180deg,#fbfeff,#fff)}
+                .card-top{padding:19px 21px;border-bottom:1px solid #808080;background:linear-gradient(180deg,#fbfeff,#fff);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
                 .card-top h3{color:#1c4454;font-size:16px;font-weight:800;margin:6px 0 4px;display:flex;align-items:center;gap:10px}
                 .detail-crumb{font-size:11px;color:#8ca0a8;font-weight:700}
                 .detail-sub{color:#8ca0a8;font-size:12.5px;margin:0}
@@ -1160,9 +1149,10 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
                 .detail-tab.active{background:#0E6B5E;border-color:#0E6B5E;color:#fff}
                 .table-wrapper{overflow-x:auto;border:1px solid #edf2f7;border-radius:12px}
                 .appointment-table{width:100%;border-collapse:collapse;min-width:640px}
-                .appointment-table th{background:#f8fcfd;color:#8ca0a7;font-size:11px;text-align:left;padding:12px;font-weight:800;white-space:nowrap}
+                .appointment-table th{background:#0A3B34;color:#ffffff;font-size:11px;text-align:left;padding:12px;font-weight:800;white-space:nowrap;letter-spacing:.4px;text-transform:uppercase}
                 .appointment-table td{padding:12px;font-size:13px;color:#4d6873;border-bottom:1px solid #edf2f7}
                 .appointment-table tr:last-child td{border-bottom:none}
+                .appointment-table tbody tr:hover{background:#f8fcfd}
                 .empty-state{text-align:center;padding:32px 12px;color:#91a5ac}
                 @media(max-width:767px){#detailNav{grid-template-columns:repeat(2,1fr)}.detail-mini-grid{grid-template-columns:repeat(2,1fr)}}
 
@@ -1194,47 +1184,128 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
 
             <div id="cardDetailWrap">
 
-                <div id="detailNav">
-                    <div class="detail-nav-card" data-goto="today">
+                <div id="detailNav" style="display:none;">
+                    <div class="detail-nav-card" data-goto="today" role="button" tabindex="0" title="Today's Appointments">
                         <span class="detail-nav-icon"><i class="bi bi-calendar2-day-fill"></i></span>
                         <span><small>Today</small><strong><?= $todayAppointments ?></strong></span>
                     </div>
-                    <div class="detail-nav-card" data-goto="upcoming">
+                    <div class="detail-nav-card" data-goto="upcoming" role="button" tabindex="0" title="Upcoming Appointments">
                         <span class="detail-nav-icon"><i class="bi bi-calendar2-plus-fill"></i></span>
                         <span><small>Upcoming</small><strong><?= $upcomingAppointments ?></strong></span>
                     </div>
-                    <div class="detail-nav-card" data-goto="pending">
+                    <div class="detail-nav-card" data-goto="pending" role="button" tabindex="0" title="Pending Appointments">
                         <span class="detail-nav-icon"><i class="bi bi-hourglass-split"></i></span>
                         <span><small>Pending</small><strong><?= $pendingAppointments ?></strong></span>
                     </div>
-                    <div class="detail-nav-card" data-goto="confirmed">
+                    <div class="detail-nav-card" data-goto="confirmed" role="button" tabindex="0" title="Confirmed Appointments">
                         <span class="detail-nav-icon"><i class="bi bi-check-circle-fill"></i></span>
-                        <span><small>Confirm</small><strong><?= $confirmedAppointments ?></strong></span>
+                        <span><small>Confirmed</small><strong><?= $confirmedAppointments ?></strong></span>
                     </div>
-                    <div class="detail-nav-card" data-goto="completed">
+                    <div class="detail-nav-card" data-goto="completed" role="button" tabindex="0" title="Completed Appointments">
                         <span class="detail-nav-icon"><i class="bi bi-clipboard2-check-fill"></i></span>
                         <span><small>Completed</small><strong><?= $completedAppointments ?></strong></span>
                     </div>
-                    <div class="detail-nav-card" data-goto="noshow-cancelled">
+                    <div class="detail-nav-card" data-goto="noshow-cancelled" role="button" tabindex="0" title="No Show & Cancelled">
                         <span class="detail-nav-icon"><i class="bi bi-calendar2-x-fill"></i></span>
                         <span><small>No Show &amp; Cancelled</small><strong><?= $noShowCancelledAppointments ?></strong></span>
                     </div>
                 </div>
 
+                <!-- TODAY -->
+                <div class="card-detail" id="detail-today" style="display:none;">
+                    <div class="card-top">
+                        <div>
+                            <div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; Today's Appointments</div>
+                            <h3><i class="bi bi-calendar2-day-fill"></i> Today's Appointments</h3>
+                            <p class="detail-sub">View and manage all appointments scheduled for today.</p>
+                        </div>
+                        <span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= date('F j, Y') ?></span>
+                    </div>
+                    <div class="card-body-custom">
+                        <div class="table-wrapper"><table class="appointment-table"><thead><tr><th>#</th><th>Date &amp; Time</th><th>Dentist</th><th>Service</th><th>Status</th></tr></thead><tbody>
+                        <?php $tn=0; foreach ($detailAppointments as $a):
+                            $dstr=substr((string)($a['appointment_date']??''),0,10);
+                            if($dstr!==$pDetailToday) continue; $tn++;
+                            $dt='—'; if($dstr!==''){ $ts=strtotime($dstr.' '.($a['start_time']??'')); if($ts) $dt=date('M d, Y h:i A',$ts); }
+                            $dn=trim($a['dentist_name']??'')!==''?$a['dentist_name']:'Not assigned';
+                            $st=trim($a['status']??'Pending'); $fk=patientCardStatusKey($st);
+                            $badge='status-pending'; if($fk==='confirmed')$badge='status-confirmed'; elseif($fk==='completed')$badge='status-completed'; elseif($fk==='cancelled'||$fk==='no-show')$badge='status-cancelled';
+                        ?>
+                            <tr data-status="<?= patientDashboardEscape($fk) ?>">
+                                <td><?= $tn ?></td><td><?= patientDashboardEscape($dt) ?></td><td><?= patientDashboardEscape($dn) ?></td><td><?= patientDashboardEscape($a['service_type'] ?? 'Dental Service') ?></td><td><span class="status-badge <?= $badge ?>"><?= patientDashboardEscape($st) ?></span></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        <?php if($tn===0): ?><tr><td colspan="5"><div class="empty-state">No appointments scheduled for today.</div></td></tr><?php endif; ?>
+                        </tbody></table></div>
+                    </div>
+                </div>
+
+                <!-- UPCOMING -->
+                <div class="card-detail" id="detail-upcoming" style="display:none;">
+                    <div class="card-top">
+                        <div>
+                            <div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; Upcoming Appointments</div>
+                            <h3><i class="bi bi-calendar2-plus-fill"></i> Upcoming Appointments</h3>
+                            <p class="detail-sub">View your upcoming scheduled appointments.</p>
+                        </div>
+                        <span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= date('F j, Y') ?></span>
+                    </div>
+                    <div class="card-body-custom">
+                        <div class="table-wrapper"><table class="appointment-table"><thead><tr><th>#</th><th>Date &amp; Time</th><th>Dentist</th><th>Service</th><th>Status</th></tr></thead><tbody>
+                        <?php $un=0; foreach ($detailAppointments as $a):
+                            $dstr=substr((string)($a['appointment_date']??''),0,10);
+                            if($dstr<=$pDetailToday) continue; $un++;
+                            $dt='—'; if($dstr!==''){ $ts=strtotime($dstr.' '.($a['start_time']??'')); if($ts) $dt=date('M d, Y h:i A',$ts); }
+                            $dn=trim($a['dentist_name']??'')!==''?$a['dentist_name']:'Not assigned';
+                            $st=trim($a['status']??'Pending'); $fk=patientCardStatusKey($st);
+                            $badge='status-pending'; if($fk==='confirmed')$badge='status-confirmed'; elseif($fk==='completed')$badge='status-completed'; elseif($fk==='cancelled'||$fk==='no-show')$badge='status-cancelled';
+                        ?>
+                            <tr data-status="<?= patientDashboardEscape($fk) ?>">
+                                <td><?= $un ?></td><td><?= patientDashboardEscape($dt) ?></td><td><?= patientDashboardEscape($dn) ?></td><td><?= patientDashboardEscape($a['service_type'] ?? 'Dental Service') ?></td><td><span class="status-badge <?= $badge ?>"><?= patientDashboardEscape($st) ?></span></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        <?php if($un===0): ?><tr><td colspan="5"><div class="empty-state">No upcoming appointments.</div></td></tr><?php endif; ?>
+                        </tbody></table></div>
+                    </div>
+                </div>
+
+                <!-- PENDING -->
+                <div class="card-detail" id="detail-pending" style="display:none;">
+                    <div class="card-top">
+                        <div>
+                            <div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; Pending Appointments</div>
+                            <h3><i class="bi bi-hourglass-split"></i> Pending Appointments</h3>
+                            <p class="detail-sub">View your appointments awaiting clinic confirmation.</p>
+                        </div>
+                        <span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= date('F j, Y') ?></span>
+                    </div>
+                    <div class="card-body-custom">
+                        <div class="table-wrapper"><table class="appointment-table"><thead><tr><th>#</th><th>Date &amp; Time</th><th>Dentist</th><th>Service</th><th>Status</th></tr></thead><tbody>
+                        <?php $pn=0; foreach ($detailAppointments as $a): if(patientCardStatusKey($a['status']??'')!=='pending') continue; $pn++;
+                            $dstr=substr((string)($a['appointment_date']??''),0,10);
+                            $dt='—'; if($dstr!==''){ $ts=strtotime($dstr.' '.($a['start_time']??'')); if($ts) $dt=date('M d, Y h:i A',$ts); }
+                            $dn=trim($a['dentist_name']??'')!==''?$a['dentist_name']:'Not assigned';
+                        ?>
+                            <tr data-status="pending">
+                                <td><?= $pn ?></td><td><?= patientDashboardEscape($dt) ?></td><td><?= patientDashboardEscape($dn) ?></td><td><?= patientDashboardEscape($a['service_type'] ?? 'Dental Service') ?></td><td><span class="status-badge status-pending">Pending</span></td>
+                            </tr>
+                         <?php endforeach; ?>
+                         <?php if($pn===0): ?><tr><td colspan="5"><div class="empty-state">No pending appointments.</div></td></tr><?php endif; ?>
+                         </tbody></table></div>
+                    </div>
+                </div>
+
                 <!-- CONFIRMED -->
-                <div class="card-detail pdetail" id="detail-confirmed" style="display:none;">
-                    <div class="pdetail-bar">
-                        <span class="pdetail-bar-icon"><i class="bi bi-check-circle-fill"></i></span>
-                        <span class="pdetail-bar-text"><strong>Confirmed Appointments</strong><small><?= date('M d, Y') ?> · Mga appointment mong kumpirmado na ng clinic</small></span>
-                        <button type="button" class="pdetail-x" data-close-detail aria-label="Close"><i class="bi bi-x-lg"></i></button>
+                <div class="card-detail" id="detail-confirmed" style="display:none;">
+                    <div class="card-top">
+                        <div>
+                            <div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; Confirmed Appointments</div>
+                            <h3><i class="bi bi-check-circle-fill"></i> Confirmed Appointments</h3>
+                            <p class="detail-sub">View and manage all your confirmed appointments.</p>
+                        </div>
+                        <span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= date('F j, Y') ?></span>
                     </div>
-                    <div class="pdetail-card">
-                    <div class="pdetail-card-head">
-                        <span class="pdetail-card-icon"><i class="bi bi-check-circle-fill"></i></span>
-                        <span class="pdetail-card-headtext"><strong>Confirmed Appointments</strong><small><?= date('M d, Y') ?> · <?= $pConfirmedSub['total'] ?> ipinapakita</small></span>
-                        <span class="pdetail-count"><?= $pConfirmedSub['total'] ?></span>
-                    </div>
-                    <div class="pdetail-body">
+                    <div class="card-body-custom">
                         <div class="detail-tabs" data-tab-group="confirmed">
                             <button type="button" class="detail-tab active" data-filter="all">All (<?= $pConfirmedSub['total'] ?>)</button>
                             <button type="button" class="detail-tab" data-filter="today">Today (<?= $pConfirmedSub['today'] ?>)</button>
@@ -1252,26 +1323,22 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
                                 <td><?= $cn ?></td><td><?= patientDashboardEscape($dt) ?></td><td><?= patientDashboardEscape($dn) ?></td><td><?= patientDashboardEscape($a['service_type'] ?? 'Dental Service') ?></td><td><span class="status-badge status-confirmed">Confirmed</span></td>
                             </tr>
                         <?php endforeach; ?>
-                        <?php if($cn===0): ?><tr><td colspan="5"><div class="empty-state">Walang confirmed appointments.</div></td></tr><?php endif; ?>
+                        <?php if($cn===0): ?><tr><td colspan="5"><div class="empty-state">No confirmed appointments.</div></td></tr><?php endif; ?>
                         </tbody></table></div>
-                    </div>
                     </div>
                 </div>
 
                 <!-- COMPLETED -->
-                <div class="card-detail pdetail" id="detail-completed" style="display:none;">
-                    <div class="pdetail-bar">
-                        <span class="pdetail-bar-icon"><i class="bi bi-clipboard2-check-fill"></i></span>
-                        <span class="pdetail-bar-text"><strong>Completed Appointments</strong><small><?= date('M d, Y') ?> · Record ng mga natapos mong treatments</small></span>
-                        <button type="button" class="pdetail-x" data-close-detail aria-label="Close"><i class="bi bi-x-lg"></i></button>
+                <div class="card-detail" id="detail-completed" style="display:none;">
+                    <div class="card-top">
+                        <div>
+                            <div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; Completed Appointments</div>
+                            <h3><i class="bi bi-clipboard2-check-fill"></i> Completed Appointments</h3>
+                            <p class="detail-sub">View records of your completed treatments and dental visits.</p>
+                        </div>
+                        <span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= date('F j, Y') ?></span>
                     </div>
-                    <div class="pdetail-card">
-                    <div class="pdetail-card-head">
-                        <span class="pdetail-card-icon"><i class="bi bi-clipboard2-check-fill"></i></span>
-                        <span class="pdetail-card-headtext"><strong>Completed Appointments</strong><small><?= date('M d, Y') ?> · <?= $pCompletedSub['total'] ?> ipinapakita</small></span>
-                        <span class="pdetail-count"><?= $pCompletedSub['total'] ?></span>
-                    </div>
-                    <div class="pdetail-body">
+                    <div class="card-body-custom">
                         <div class="detail-tabs" data-tab-group="completed">
                             <button type="button" class="detail-tab active" data-filter="all">All (<?= $pCompletedSub['total'] ?>)</button>
                             <button type="button" class="detail-tab" data-filter="today">Today (<?= $pCompletedSub['today'] ?>)</button>
@@ -1289,122 +1356,22 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
                                 <td><?= $dn2 ?></td><td><?= patientDashboardEscape($dt) ?></td><td><?= patientDashboardEscape($dent) ?></td><td><?= patientDashboardEscape($a['service_type'] ?? 'Dental Service') ?></td><td><span class="status-badge status-completed">Completed</span></td>
                             </tr>
                          <?php endforeach; ?>
-                         <?php if($dn2===0): ?><tr><td colspan="5"><div class="empty-state">Walang completed appointments.</div></td></tr><?php endif; ?>
+                         <?php if($dn2===0): ?><tr><td colspan="5"><div class="empty-state">No completed appointments.</div></td></tr><?php endif; ?>
                          </tbody></table></div>
-                     </div>
-                     </div>
-                 </div>
-
-                <!-- TODAY -->
-                <div class="card-detail pdetail" id="detail-today" style="display:none;">
-                    <div class="pdetail-bar">
-                        <span class="pdetail-bar-icon"><i class="bi bi-calendar2-day-fill"></i></span>
-                        <span class="pdetail-bar-text"><strong>Today's Appointments</strong><small><?= date('M d, Y') ?> · Mga appointment mo ngayong araw</small></span>
-                        <button type="button" class="pdetail-x" data-close-detail aria-label="Close"><i class="bi bi-x-lg"></i></button>
-                    </div>
-                    <div class="pdetail-card">
-                    <div class="pdetail-card-head">
-                        <span class="pdetail-card-icon"><i class="bi bi-calendar2-day-fill"></i></span>
-                        <span class="pdetail-card-headtext"><strong>Today's Appointments</strong><small><?= date('M d, Y') ?> · <?= $todayAppointments ?> ipinapakita</small></span>
-                        <span class="pdetail-count"><?= $todayAppointments ?></span>
-                    </div>
-                    <div class="pdetail-body">
-                        <div class="table-wrapper"><table class="appointment-table"><thead><tr><th>#</th><th>Date &amp; Time</th><th>Dentist</th><th>Service</th><th>Status</th></tr></thead><tbody>
-                        <?php $tn=0; foreach ($detailAppointments as $a):
-                            $dstr=substr((string)($a['appointment_date']??''),0,10);
-                            if($dstr!==$pDetailToday) continue; $tn++;
-                            $dt='—'; if($dstr!==''){ $ts=strtotime($dstr.' '.($a['start_time']??'')); if($ts) $dt=date('M d, Y h:i A',$ts); }
-                            $dn=trim($a['dentist_name']??'')!==''?$a['dentist_name']:'Not assigned';
-                            $st=trim($a['status']??'Pending'); $fk=patientCardStatusKey($st);
-                            $badge='status-pending'; if($fk==='confirmed')$badge='status-confirmed'; elseif($fk==='completed')$badge='status-completed'; elseif($fk==='cancelled'||$fk==='no-show')$badge='status-cancelled';
-                        ?>
-                            <tr data-status="<?= patientDashboardEscape($fk) ?>">
-                                <td><?= $tn ?></td><td><?= patientDashboardEscape($dt) ?></td><td><?= patientDashboardEscape($dn) ?></td><td><?= patientDashboardEscape($a['service_type'] ?? 'Dental Service') ?></td><td><span class="status-badge <?= $badge ?>"><?= patientDashboardEscape($st) ?></span></td>
-                            </tr>
-                        <?php endforeach; ?>
-                        <?php if($tn===0): ?><tr><td colspan="5"><div class="empty-state">Walang appointments ngayong araw.</div></td></tr><?php endif; ?>
-                        </tbody></table></div>
-                    </div>
                     </div>
                 </div>
-
-                <!-- UPCOMING -->
-                <div class="card-detail pdetail" id="detail-upcoming" style="display:none;">
-                    <div class="pdetail-bar">
-                        <span class="pdetail-bar-icon"><i class="bi bi-calendar2-plus-fill"></i></span>
-                        <span class="pdetail-bar-text"><strong>Upcoming Appointments</strong><small><?= date('M d, Y') ?> · Mga future appointments mo</small></span>
-                        <button type="button" class="pdetail-x" data-close-detail aria-label="Close"><i class="bi bi-x-lg"></i></button>
-                    </div>
-                    <div class="pdetail-card">
-                    <div class="pdetail-card-head">
-                        <span class="pdetail-card-icon"><i class="bi bi-calendar2-plus-fill"></i></span>
-                        <span class="pdetail-card-headtext"><strong>Upcoming Appointments</strong><small><?= date('M d, Y') ?> · <?= $upcomingAppointments ?> ipinapakita</small></span>
-                        <span class="pdetail-count"><?= $upcomingAppointments ?></span>
-                    </div>
-                    <div class="pdetail-body">
-                        <div class="table-wrapper"><table class="appointment-table"><thead><tr><th>#</th><th>Date &amp; Time</th><th>Dentist</th><th>Service</th><th>Status</th></tr></thead><tbody>
-                        <?php $un=0; foreach ($detailAppointments as $a):
-                            $dstr=substr((string)($a['appointment_date']??''),0,10);
-                            if($dstr<=$pDetailToday) continue; $un++;
-                            $dt='—'; if($dstr!==''){ $ts=strtotime($dstr.' '.($a['start_time']??'')); if($ts) $dt=date('M d, Y h:i A',$ts); }
-                            $dn=trim($a['dentist_name']??'')!==''?$a['dentist_name']:'Not assigned';
-                            $st=trim($a['status']??'Pending'); $fk=patientCardStatusKey($st);
-                            $badge='status-pending'; if($fk==='confirmed')$badge='status-confirmed'; elseif($fk==='completed')$badge='status-completed'; elseif($fk==='cancelled'||$fk==='no-show')$badge='status-cancelled';
-                        ?>
-                            <tr data-status="<?= patientDashboardEscape($fk) ?>">
-                                <td><?= $un ?></td><td><?= patientDashboardEscape($dt) ?></td><td><?= patientDashboardEscape($dn) ?></td><td><?= patientDashboardEscape($a['service_type'] ?? 'Dental Service') ?></td><td><span class="status-badge <?= $badge ?>"><?= patientDashboardEscape($st) ?></span></td>
-                            </tr>
-                        <?php endforeach; ?>
-                        <?php if($un===0): ?><tr><td colspan="5"><div class="empty-state">Walang upcoming appointments.</div></td></tr><?php endif; ?>
-                        </tbody></table></div>
-                    </div>
-                    </div>
-                </div>
-
-                <!-- PENDING -->
-                <div class="card-detail pdetail" id="detail-pending" style="display:none;">
-                    <div class="pdetail-bar">
-                        <span class="pdetail-bar-icon"><i class="bi bi-hourglass-split"></i></span>
-                        <span class="pdetail-bar-text"><strong>Pending Appointments</strong><small><?= date('M d, Y') ?> · Mga naghihintay ng confirmation</small></span>
-                        <button type="button" class="pdetail-x" data-close-detail aria-label="Close"><i class="bi bi-x-lg"></i></button>
-                    </div>
-                    <div class="pdetail-card">
-                    <div class="pdetail-card-head">
-                        <span class="pdetail-card-icon"><i class="bi bi-hourglass-split"></i></span>
-                        <span class="pdetail-card-headtext"><strong>Pending Appointments</strong><small><?= date('M d, Y') ?> · <?= $pendingAppointments ?> ipinapakita</small></span>
-                        <span class="pdetail-count"><?= $pendingAppointments ?></span>
-                    </div>
-                    <div class="pdetail-body">
-                        <div class="table-wrapper"><table class="appointment-table"><thead><tr><th>#</th><th>Date &amp; Time</th><th>Dentist</th><th>Service</th><th>Status</th></tr></thead><tbody>
-                        <?php $pn=0; foreach ($detailAppointments as $a): if(patientCardStatusKey($a['status']??'')!=='pending') continue; $pn++;
-                            $dstr=substr((string)($a['appointment_date']??''),0,10);
-                            $dt='—'; if($dstr!==''){ $ts=strtotime($dstr.' '.($a['start_time']??'')); if($ts) $dt=date('M d, Y h:i A',$ts); }
-                            $dn=trim($a['dentist_name']??'')!==''?$a['dentist_name']:'Not assigned';
-                        ?>
-                            <tr data-status="pending">
-                                <td><?= $pn ?></td><td><?= patientDashboardEscape($dt) ?></td><td><?= patientDashboardEscape($dn) ?></td><td><?= patientDashboardEscape($a['service_type'] ?? 'Dental Service') ?></td><td><span class="status-badge status-pending">Pending</span></td>
-                            </tr>
-                         <?php endforeach; ?>
-                         <?php if($pn===0): ?><tr><td colspan="5"><div class="empty-state">Walang pending appointments.</div></td></tr><?php endif; ?>
-                         </tbody></table></div>
-                     </div>
-                     </div>
-                 </div>
 
                 <!-- NO SHOW & CANCELLED -->
-                <div class="card-detail pdetail" id="detail-noshow-cancelled" style="display:none;">
-                    <div class="pdetail-bar">
-                        <span class="pdetail-bar-icon"><i class="bi bi-calendar2-x-fill"></i></span>
-                        <span class="pdetail-bar-text"><strong>No Show &amp; Cancelled</strong><small><?= date('M d, Y') ?> · Mga nawala o nakansel na appointments</small></span>
-                        <button type="button" class="pdetail-x" data-close-detail aria-label="Close"><i class="bi bi-x-lg"></i></button>
+                <div class="card-detail" id="detail-noshow-cancelled" style="display:none;">
+                    <div class="card-top">
+                        <div>
+                            <div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; No Show &amp; Cancelled</div>
+                            <h3><i class="bi bi-calendar2-x-fill"></i> No Show &amp; Cancelled</h3>
+                            <p class="detail-sub">Records of your missed or cancelled appointments.</p>
+                        </div>
+                        <span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= date('F j, Y') ?></span>
                     </div>
-                    <div class="pdetail-card">
-                    <div class="pdetail-card-head">
-                        <span class="pdetail-card-icon"><i class="bi bi-calendar2-x-fill"></i></span>
-                        <span class="pdetail-card-headtext"><strong>No Show &amp; Cancelled</strong><small><?= date('M d, Y') ?> · <?= $noShowCancelledAppointments ?> ipinapakita</small></span>
-                        <span class="pdetail-count"><?= $noShowCancelledAppointments ?></span>
-                    </div>
-                    <div class="pdetail-body">
+                    <div class="card-body-custom">
                         <div class="table-wrapper"><table class="appointment-table"><thead><tr><th>#</th><th>Date &amp; Time</th><th>Dentist</th><th>Service</th><th>Status</th></tr></thead><tbody>
                         <?php $nc=0; foreach ($detailAppointments as $a):
                             $fk=patientCardStatusKey($a['status']??'');
@@ -1419,12 +1386,11 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
                                 <td><?= $nc ?></td><td><?= patientDashboardEscape($dt) ?></td><td><?= patientDashboardEscape($dn) ?></td><td><?= patientDashboardEscape($a['service_type'] ?? 'Dental Service') ?></td><td><span class="status-badge <?= $badge ?>"><?= patientDashboardEscape($st) ?></span></td>
                             </tr>
                         <?php endforeach; ?>
-                        <?php if($nc===0): ?><tr><td colspan="5"><div class="empty-state">Walang no-show o cancelled appointments.</div></td></tr><?php endif; ?>
+                        <?php if($nc===0): ?><tr><td colspan="5"><div class="empty-state">No missed or cancelled appointments.</div></td></tr><?php endif; ?>
                         </tbody></table></div>
                     </div>
-                    </div>
                 </div>
-             </div>
+            </div>
 
             <!-- MY DENTAL JOURNEY (CHARTS) -->
 
@@ -1749,77 +1715,101 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
 ===================================================== */
 (function initPatientCardDetails(){
   var VIEWS = ["today","upcoming","pending","confirmed","completed","noshow-cancelled"];
+  var KEY = "patientCardDetailView";
   var wrap = document.getElementById("cardDetailWrap");
   if (!wrap) return;
-  var cards = Array.prototype.slice.call(document.querySelectorAll(".stat-clickable[data-view]"));
+  var cards = Array.prototype.slice.call(document.querySelectorAll("#statsGrid .stat-clickable[data-view]"));
   var statsGrid = document.getElementById("statsGrid");
   var welcomeHero = document.getElementById("welcomeHero");
+
   function panels(){ return VIEWS.map(function(v){ return document.getElementById("detail-" + v); }).filter(Boolean); }
   function getNav(){ return document.getElementById("detailNav"); }
+
   function hidePanelsOnly(){
     panels().forEach(function(p){ p.style.display = "none"; });
     cards.forEach(function(c){ c.classList.remove("active-card"); });
+    document.querySelectorAll(".detail-back-row").forEach(function(r){ r.classList.remove("is-open"); });
   }
+
+  function showBackRowFor(panel){
+    document.querySelectorAll(".detail-back-row").forEach(function(r){
+      var match = r.getAttribute("data-for") === panel.id;
+      r.classList.toggle("is-open", match);
+    });
+  }
+
   function closeAll(){
     hidePanelsOnly();
-    // Ibalik ang labas na summary cards + welcome.
     if (statsGrid) statsGrid.style.display = "";
     if (welcomeHero) welcomeHero.style.display = "";
     var nav2 = getNav();
     if (nav2) {
       nav2.style.display = "none";
-      nav2.querySelectorAll(".detail-nav-card").forEach(function(n){ n.classList.remove("active-nav"); n.style.display = ""; });
+      nav2.querySelectorAll(".detail-nav-card").forEach(function(n){
+        n.classList.remove("active-nav");
+        n.style.display = "";
+      });
     }
+    try { sessionStorage.removeItem(KEY); } catch(e){}
     try { history.replaceState(null, "", window.location.pathname + window.location.search); } catch(e){}
-    if (statsGrid && statsGrid.scrollIntoView) setTimeout(function(){ statsGrid.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80);
+    if (statsGrid && statsGrid.scrollIntoView) {
+      setTimeout(function(){ statsGrid.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80);
+    }
   }
-  // "Back to Dashboard" button sa bawat detail panel (walang summary row na maiiwan).
-  document.querySelectorAll(".card-detail").forEach(function(panel){
+
+  // "Back to Dashboard" button placed above each detail card
+  panels().forEach(function(panel){
     if (panel.querySelector(".detail-back-btn")) return;
+    if (panel.parentNode && panel.parentNode.querySelector(".detail-back-row[data-for='" + panel.id + "']")) return;
+
     var backBtn = document.createElement("button");
     backBtn.type = "button";
     backBtn.className = "detail-back-btn";
     backBtn.innerHTML = '<i class="bi bi-arrow-left"></i> Back to Dashboard';
     backBtn.addEventListener("click", closeAll);
-    var pbar = panel.querySelector(".pdetail-bar");
-    if (pbar && pbar.nextSibling) panel.insertBefore(backBtn, pbar.nextSibling);
-    else if (pbar) panel.appendChild(backBtn);
-    else panel.insertBefore(backBtn, panel.firstChild);
+
+    var row = document.createElement("div");
+    row.className = "detail-back-row";
+    row.setAttribute("data-for", panel.id);
+    row.appendChild(backBtn);
+
+    if (panel.parentNode) panel.parentNode.insertBefore(row, panel);
   });
+
   document.querySelectorAll("[data-close-detail]").forEach(function(x){
     x.addEventListener("click", closeAll);
   });
+
   function show(view, scroll, fromNav){
-    if (view === "today") {
-      var todayModalEl = document.getElementById("todayModal");
-      if (todayModalEl && typeof bootstrap !== "undefined") {
-        var todayModal = new bootstrap.Modal(todayModalEl);
-        todayModal.show();
-      }
-      return;
-    }
     var panel = document.getElementById("detail-" + view);
     if (!panel) return;
     var alreadyOpen = panel.style.display !== "none";
     var nav = getNav();
-    // Pinindot ulit ang parehong summary card: isara at bumalik sa summary cards view.
+
+    // Clicking the same card again toggles it closed
     if (alreadyOpen) {
       if (fromNav) {
-        if (nav) nav.querySelectorAll(".detail-nav-card").forEach(function(n){ n.classList.toggle("active-nav", n.getAttribute("data-goto") === view); });
+        if (nav) {
+          nav.querySelectorAll(".detail-nav-card").forEach(function(n){
+            n.classList.toggle("active-nav", n.getAttribute("data-goto") === view);
+          });
+        }
         return;
       }
       closeAll();
-      if (scroll !== false && statsGrid && statsGrid.scrollIntoView) setTimeout(function(){ statsGrid.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80);
+      if (scroll !== false && statsGrid && statsGrid.scrollIntoView) {
+        setTimeout(function(){ statsGrid.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80);
+      }
       return;
     }
+
     hidePanelsOnly();
     panel.style.display = "block";
-    cards.forEach(function(c){ c.classList.toggle("active-card", c.getAttribute("data-view") === view); });
-    // PAWALAIN ang labas na summary cards + welcome habang bukas ang detail.
-    // Walang summary row na maiiwan — tanging ang detail panel lang ang kita.
+    showBackRowFor(panel);
     if (statsGrid) statsGrid.style.display = "none";
     if (welcomeHero) welcomeHero.style.display = "none";
-    // Loob na nav: lahat ng summary cards MALIBAN sa kasalukuyang bukas.
+    cards.forEach(function(c){ c.classList.toggle("active-card", c.getAttribute("data-view") === view); });
+
     if (nav) {
       nav.style.display = "grid";
       nav.querySelectorAll(".detail-nav-card").forEach(function(n){
@@ -1828,18 +1818,29 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
         n.style.display = isCurrent ? "none" : "";
       });
     }
+
+    try { sessionStorage.setItem(KEY, view); } catch(e){}
     try { history.replaceState(null, "", "#card-" + view); } catch(e){ window.location.hash = "card-" + view; }
-    if (scroll !== false && wrap.scrollIntoView) setTimeout(function(){ wrap.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80);
+    if (scroll !== false && wrap && wrap.scrollIntoView) {
+      setTimeout(function(){ wrap.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80);
+    }
   }
+
   document.querySelectorAll("#detailNav .detail-nav-card").forEach(function(navCard){
     var goNav = function(){ show(navCard.getAttribute("data-goto"), true, true); };
     navCard.addEventListener("click", goNav);
-    navCard.addEventListener("keydown", function(ev){ if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); goNav(); } });
+    navCard.addEventListener("keydown", function(ev){
+      if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); goNav(); }
+    });
   });
+
   cards.forEach(function(card){
     card.addEventListener("click", function(){ show(card.getAttribute("data-view")); });
-    card.addEventListener("keydown", function(ev){ if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); show(card.getAttribute("data-view")); } });
+    card.addEventListener("keydown", function(ev){
+      if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); show(card.getAttribute("data-view")); }
+    });
   });
+
   function applyDetailFilter(card, group, filter){
     var f = (filter || "all").toLowerCase();
     var rows = Array.prototype.slice.call(card.querySelectorAll("tbody tr[data-status], tbody tr[data-today]"));
@@ -1855,6 +1856,7 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
       r.style.display = keep ? "" : "none";
     });
   }
+
   document.querySelectorAll(".card-detail").forEach(function(card){
     var tabWrap = card.querySelector(".detail-tabs");
     var miniWrap = card.querySelector(".detail-mini-grid[data-mini-group]");
@@ -1877,8 +1879,24 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
     });
     syncActive("all");
   });
-  // DEFAULT: lahat ng detail nakatago pag load — bubukas lang pag pinindot ang summary card.
-  closeAll();
+
+  // Restore active view if hash or session is set, otherwise default closed
+  var initialView = "";
+  try {
+    var hash = (window.location.hash || "").replace("#card-", "");
+    if (VIEWS.indexOf(hash) !== -1) initialView = hash;
+  } catch(e){}
+  if (!initialView) {
+    try {
+      var saved = sessionStorage.getItem(KEY);
+      if (saved && VIEWS.indexOf(saved) !== -1) initialView = saved;
+    } catch(e){}
+  }
+  if (initialView) {
+    setTimeout(function(){ show(initialView, false); }, 50);
+  } else {
+    closeAll();
+  }
 })();
 </script>
 
@@ -1904,7 +1922,7 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
         <?php if (empty($todayApptList)): ?>
           <div class="today-empty">
             <i class="bi bi-calendar2-x"></i>
-            <p>Walang appointments ngayong araw.</p>
+            <p>No appointments scheduled for today.</p>
           </div>
         <?php else: ?>
           <div class="today-table-wrapper">
