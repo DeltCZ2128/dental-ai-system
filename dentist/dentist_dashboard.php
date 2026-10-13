@@ -2363,17 +2363,11 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
             .stat-clickable.active-card[data-view="noshow"]{border-color:#e11d48 !important}
             #cardDetailWrap{margin-bottom:25px}
             #detailNav{display:none;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px}
-            /* Back button — NASA LOOB NG CARD (sa .card-top), hindi na labas sa itaas. */
-            .detail-back-btn{display:inline-flex;align-items:center;gap:6px;flex-shrink:0;border:1px solid #B9E4CF;background:#EAF7F0;color:#0E6B5E;font-size:11.5px;font-weight:700;line-height:1;padding:7px 12px;border-radius:999px;cursor:pointer;transition:.2s;font-family:inherit}
+            .detail-back-row{display:none;margin:0 0 14px}
+            .detail-back-row.is-open{display:block}
+            .detail-back-btn{display:inline-flex;align-items:center;gap:7px;border:1px solid #B9E4CF;background:#EAF7F0;color:#0E6B5E;font-size:12.5px;font-weight:700;padding:8px 15px;border-radius:999px;cursor:pointer;transition:.2s;font-family:inherit}
             .detail-back-btn:hover{background:#0E6B5E;border-color:#0E6B5E;color:#fff}
-            .detail-back-btn i{font-size:11.5px}
-            /* Nasa loob ng .card-top, bawat panel — unang bagay sa text block. */
-            .card-top .detail-back-btn{margin:0 0 9px}
-            /* Walang .card-top (Today): loob ng box, sa itaas ng nilalaman. */
-            #detail-today .d-today-body > .detail-back-btn{margin:0 0 14px}
-            /* May colored header (green/cyan): gawing white glass para readable. */
-            #detail-upcoming .detail-back-btn{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.38);color:#fff;backdrop-filter:blur(3px)}
-            #detail-upcoming .detail-back-btn:hover{background:#fff;border-color:#fff;color:#0E6B5E}
+            .detail-back-btn i{font-size:13px}
             .detail-nav-card{display:flex;align-items:center;gap:9px;background:#F2F9F4;border:1px solid #e3eeea;border-radius:12px;padding:11px 12px;cursor:pointer;user-select:none;transition:.15s}
             .detail-nav-card:hover{border-color:#0E6B5E;transform:translateY(-2px);box-shadow:0 8px 20px rgba(14,107,94,.12)}
             .detail-nav-card.active-nav{border-color:#0E6B5E;border-width:2px;background:#EAF7F0}
@@ -2699,205 +2693,11 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
             .d-modal-btn{background:linear-gradient(135deg,#149A72,#0A4A41);border:1.5px solid #0E6B5E;color:#fff;font-size:12.5px;font-weight:800;padding:9px 18px;border-radius:10px;cursor:pointer;font-family:inherit;transition:.18s}
             .d-modal-btn:hover{filter:brightness(1.1)}
             @media(max-width:520px){.d-modal-row{flex-direction:column;gap:3px}.d-modal-row label{flex:none}}
+            .d-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(10,59,52,.65);backdrop-filter:blur(4px);z-index:99999;display:none;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
+            .d-modal-overlay.open{display:flex !important}
+            .detail-close{width:32px;height:32px;border-radius:9px;border:1px solid #B9E4CF;background:#fff;color:#0E6B5E;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;transition:.18s}
+            .detail-close:hover{background:#0E6B5E;border-color:#0E6B5E;color:#fff}
         </style>
-
-<div id="dTodayRecord" class="d-modal-overlay d-record-overlay">
-    <div class="d-modal-box d-record-box" role="dialog" aria-modal="true" aria-label="Today's Appointments">
-        <div class="d-modal-head">
-            <span class="d-modal-head-icon"><i class="bi bi-calendar-event-fill"></i></span>
-            <div>
-                <h4>Today's Appointments</h4>
-                <small><?= dentistCardEscape(date('M d, Y')) ?> · Lahat ng naka-schedule sa iyo ngayong araw</small>
-            </div>
-            <button type="button" class="d-modal-x" id="dTodayRecordClose" aria-label="Close"><i class="bi bi-x-lg"></i></button>
-        </div>
-        <div class="d-record-body">
-            <!-- ===== RECORD VIEW: popup ===== -->
-            <div class="card-record">
-                <button type="button" class="detail-back-btn card-record-back"><i class="bi bi-arrow-left"></i> Back to Dashboard</button>
-                <div class="d-tbl-wrap">
-                <?php if (empty($dTodayList)): ?><div class="empty-state"><i class="bi bi-calendar-x"></i><p>No appointments for today.</p></div>
-                <?php else: $n=1; ?>
-                <div class="d-tbl-head">
-                    <span class="d-tbl-head-icon"><i class="bi bi-calendar-event-fill"></i></span>
-                    <div class="d-tbl-head-txt">
-                        <strong>Today's Appointment</strong>
-                        <small><?= dentistCardEscape(date('M d, Y')) ?> · <?= count($dTodayList) ?> ipinapakita</small>
-                    </div>
-                    <span class="d-tbl-head-count"><?= count($dTodayList) ?></span>
-                </div>
-                <div class="d-tbl-scroll">
-                <table class="d-table">
-                    <thead>
-                        <tr>
-                            <th class="d-col-num">#</th>
-                            <th>Patient Name</th>
-                            <th>Time of Appointment</th>
-                            <th>Dental Service</th>
-                            <th>Assigned Dentist</th>
-                            <th>Status</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                <?php
-                $dAssignedDentist = 'Dr. ' . trim((string)($dentist['name'] ?? 'Dentist'));
-                foreach ($dTodayList as $a):
-                    $pn=trim(($a['patient_name']??''))!==''?$a['patient_name']:'Patient';
-                    $tStart=!empty($a['appointment_time'])?date('h:i A',strtotime($a['appointment_time'])):'—';
-                    $tEnd=!empty($a['end_time'])?date('h:i A',strtotime($a['end_time'])):'';
-                    $tmFull=date('M d, Y').' '.$tStart.($tEnd!==''?' – '.$tEnd:'');
-                    $st=trim($a['status']??'Pending'); $fk=dentistCardStatusKey($st);
-                ?><tr class="d-tbl-row" data-status="<?= dentistCardEscape($fk) ?>">
-                    <td class="d-col-num"><span><?= $n++ ?></span></td>
-                    <td><strong><?= dentistCardEscape($pn) ?></strong></td>
-                    <td class="d-tbl-when"><?= dentistCardEscape($tmFull) ?></td>
-                    <td><?= dentistCardEscape($a['service_type']??'—') ?></td>
-                    <td><?= dentistCardEscape($dAssignedDentist) ?></td>
-                    <td><span class="status <?= dentistCardEscape($fk) ?>"><?= dentistCardEscape($st) ?></span></td>
-                    <td>
-                        <button type="button" class="d-view-btn"
-                            data-d-patient="<?= dentistCardEscape($pn) ?>"
-                            data-d-service="<?= dentistCardEscape($a['service_type']??'—') ?>"
-                            data-d-dentist="<?= dentistCardEscape($dAssignedDentist) ?>"
-                            data-d-time="<?= dentistCardEscape($tmFull) ?>"
-                            data-d-status="<?= dentistCardEscape($st) ?>"
-                            data-d-notes="<?= dentistCardEscape($a['notes']??'') ?>"
-                            data-tip="View Details"><i class="bi bi-eye"></i> View</button>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-                    </tbody>
-                </table>
-                </div>
-                <?php endif; ?>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-        <!-- ===== RECORD POPUPS: Upcoming / Completed / Pending / Confirmed / No-Show ===== -->
-
-            <?php
-            /* Popup ng 'upcoming': parehong itsura ng Today's popup (green header +
-               Back to Dashboard + head bar) at parehong 7-column table gaya ng
-               dentist/appointments.php — # | PATIENT NAME | TIME OF APPOINTMENT
-               | DENTAL SERVICE | ASSIGNED DENTIST | STATUS | ACTION. */
-            dentistRecordPopup([
-                'view' => 'upcoming',
-                'title' => 'Upcoming Appointments',
-                'sub' => 'Lahat ng naka-schedule sa iyo pagkatapos ngayong araw.',
-                'icon' => 'bi-calendar2-week-fill',
-                'head_label' => 'Upcoming Appointment',
-                'head_note' => 'After today · ' . count($dUpcomingList) . ' ipinapakita',
-                'show_header' => true,
-                'show_back' => true,
-                'list' => $dUpcomingList,
-                'empty' => 'No upcoming appointments.',
-                'empty_icon' => 'bi-calendar2-week',
-                'status_key' => 'upcoming',
-                'show_tabs' => false,
-                'show_date' => true,
-                'max_rows' => 10,
-                'tabs' => [
-                    ['filter' => 'all',    'label' => 'All',          'count' => $dUpcomingSub['total']],
-                    ['filter' => 'week',   'label' => 'This Week',    'count' => $dUpcomingSub['week']],
-                    ['filter' => 'month',  'label' => 'This Month',   'count' => $dUpcomingSub['month']],
-                    ['filter' => 'beyond', 'label' => 'Beyond Month', 'count' => $dUpcomingSub['beyond']],
-                ],
-            ]);
-            ?>
-
-            <?php
-            dentistRecordPopup([
-                'view' => 'completed',
-                'title' => 'Completed Appointments',
-                'sub' => 'Record ng mga natapos mong treatments.',
-                'icon' => 'bi-check-circle-fill',
-                'head_label' => 'Completed Appointments',
-                'list' => $dCompletedList,
-                'empty' => 'No completed appointments.',
-                'empty_icon' => 'bi-check2-circle',
-                'status_key' => 'completed',
-                'max_rows' => 10,
-                'tabs' => [
-                    ['filter' => 'all',   'label' => 'All',        'count' => $dCompletedSub['total']],
-                    ['filter' => 'today', 'label' => 'Today',      'count' => $dCompletedSub['today']],
-                    ['filter' => 'week',  'label' => 'This Week',  'count' => $dCompletedSub['week']],
-                    ['filter' => 'month', 'label' => 'This Month', 'count' => $dCompletedSub['month']],
-                ],
-            ]);
-            ?>
-
-            <?php
-            dentistRecordPopup([
-                'view' => 'pending',
-                'title' => 'Pending Appointments',
-                'sub' => 'Mga appointment request na naghihintay ng action.',
-                'icon' => 'bi-hourglass-split',
-                'head_label' => 'Pending Appointments',
-                'head_note' => 'Naghihintay ng action · ' . count($dPendingList) . ' ipinapakita',
-                'list' => $dPendingList,
-                'empty' => 'No pending appointments.',
-                'empty_icon' => 'bi-hourglass',
-                'status_key' => 'pending',
-                'show_tabs' => false,
-                'show_date' => true,
-                'max_rows' => 10,
-                'tabs' => [
-                    ['filter' => 'all',   'label' => 'All',        'count' => $dPendingSub['total']],
-                    ['filter' => 'today', 'label' => 'Today',      'count' => $dPendingSub['today']],
-                    ['filter' => 'week',  'label' => 'This Week',  'count' => $dPendingSub['week']],
-                    ['filter' => 'month', 'label' => 'This Month', 'count' => $dPendingSub['month']],
-                ],
-            ]);
-            ?>
-
-            <?php
-            dentistRecordPopup([
-                'view' => 'confirmed',
-                'title' => 'Confirmed Appointments',
-                'sub' => 'Mga kumpirmadong appointment na naka-assign sa iyo.',
-                'icon' => 'bi-calendar2-check-fill',
-                'head_label' => 'Confirmed Appointments',
-                'list' => $dConfirmedList,
-                'empty' => 'No confirmed appointments.',
-                'empty_icon' => 'bi-calendar2-check',
-                'status_key' => 'confirmed',
-                'max_rows' => 10,
-                'tabs' => [
-                    ['filter' => 'all',   'label' => 'All',        'count' => $dConfirmedSub['total']],
-                    ['filter' => 'today', 'label' => 'Today',      'count' => $dConfirmedSub['today']],
-                    ['filter' => 'week',  'label' => 'This Week',  'count' => $dConfirmedSub['week']],
-                    ['filter' => 'month', 'label' => 'This Month', 'count' => $dConfirmedSub['month']],
-                ],
-            ]);
-            ?>
-
-            <?php
-            dentistRecordPopup([
-                'view' => 'noshow',
-                'title' => 'No-Show Patients',
-                'sub' => 'Mga pasyenteng hindi sumipot sa schedule.',
-                'icon' => 'bi-person-x-fill',
-                'head_label' => 'No-Show Patients',
-                'head_note' => 'Hindi sumipot sa schedule · ' . count($dNoshowList) . ' ipinapakita',
-                'list' => $dNoshowList,
-                'empty' => 'No no-show records.',
-                'empty_icon' => 'bi-person-x',
-                'status_key' => 'no-show',
-                'show_tabs' => false,
-                'show_date' => true,
-                'max_rows' => 10,
-                'tabs' => [
-                    ['filter' => 'all',   'label' => 'All',        'count' => $dNoshowSub['total']],
-                    ['filter' => 'today', 'label' => 'Today',      'count' => $dNoshowSub['today']],
-                    ['filter' => 'week',  'label' => 'This Week',  'count' => $dNoshowSub['week']],
-                    ['filter' => 'month', 'label' => 'This Month', 'count' => $dNoshowSub['month']],
-                ],
-            ]);
-            ?>
 
         <div id="cardDetailWrap">
             <div id="detailNav">
@@ -2909,13 +2709,118 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
                 <div class="detail-nav-card" data-goto="noshow" role="button" tabindex="0" title="No-Show Patients"><div class="detail-nav-icon"><i class="bi bi-person-x-fill"></i></div><div><small>No-Show</small><strong><?= (int)($noShowCount ?? 0) ?></strong></div></div>
             </div>
 
-            <style>.card-detail .detail-tabs { display: none !important; }</style>
-            <!-- TODAY: nasa summary card na mismo ang record view (walang hiwalay na panel). -->
-            <div class="card-detail" id="detail-today" style="display:none;"></div>
+            <!-- TODAY -->
+            <div class="card-detail" id="detail-today" style="display:none;">
+                <div class="card-top">
+                    <div>
+                        <div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; Today's Appointments</div>
+                        <h3><i class="bi bi-calendar-event-fill"></i> Today's Appointments</h3>
+                        <p class="detail-sub">Lahat ng naka-schedule sa iyo ngayong araw.</p>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= dentistCardEscape(date('M d, Y')) ?></span>
+                        <button type="button" class="detail-close" aria-label="Close" title="Close"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </div>
+                <div class="card-body-custom">
+                    <div class="detail-mini-grid" data-mini-group="today">
+                        <div class="detail-mini detail-mini-clickable active-mini" data-filter="all" role="button" tabindex="0">
+                            <div class="detail-mini-icon"><i class="bi bi-calendar-event-fill"></i></div>
+                            <div><small>Total Today</small><strong><?= (int)$dTodaySub['total'] ?></strong><em class="detail-mini-foot">Lahat ngayong araw</em></div>
+                        </div>
+                        <div class="detail-mini detail-mini-clickable" data-filter="confirmed" role="button" tabindex="0">
+                            <div class="detail-mini-icon"><i class="bi bi-patch-check-fill"></i></div>
+                            <div><small>Confirmed</small><strong><?= (int)$dTodaySub['confirmed'] ?></strong><em class="detail-mini-foot">Kumpirmado</em></div>
+                        </div>
+                        <div class="detail-mini detail-mini-clickable" data-filter="pending" role="button" tabindex="0">
+                            <div class="detail-mini-icon"><i class="bi bi-hourglass-split"></i></div>
+                            <div><small>Pending</small><strong><?= (int)$dTodaySub['pending'] ?></strong><em class="detail-mini-foot">Naghihintay</em></div>
+                        </div>
+                        <div class="detail-mini detail-mini-clickable" data-filter="completed" role="button" tabindex="0">
+                            <div class="detail-mini-icon"><i class="bi bi-check-circle-fill"></i></div>
+                            <div><small>Completed</small><strong><?= (int)$dTodaySub['completed'] ?></strong><em class="detail-mini-foot">Natapos</em></div>
+                        </div>
+                    </div>
+                    <div class="detail-tabs" data-tab-group="today">
+                        <button type="button" class="detail-tab active" data-filter="all">All (<?= (int)$dTodaySub['total'] ?>)</button>
+                        <button type="button" class="detail-tab" data-filter="confirmed">Confirmed (<?= (int)$dTodaySub['confirmed'] ?>)</button>
+                        <button type="button" class="detail-tab" data-filter="pending">Pending (<?= (int)$dTodaySub['pending'] ?>)</button>
+                        <button type="button" class="detail-tab" data-filter="completed">Completed (<?= (int)$dTodaySub['completed'] ?>)</button>
+                    </div>
+                    <div class="d-tbl-wrap">
+                    <?php if (empty($dTodayList)): ?>
+                        <div class="empty-state"><i class="bi bi-calendar-x"></i><p>No appointments for today.</p></div>
+                    <?php else: $n=1; ?>
+                        <div class="d-tbl-head">
+                            <span class="d-tbl-head-icon"><i class="bi bi-calendar-event-fill"></i></span>
+                            <div class="d-tbl-head-txt">
+                                <strong>Today's Appointments</strong>
+                                <small><?= dentistCardEscape(date('M d, Y')) ?> · <?= count($dTodayList) ?> ipinapakita</small>
+                            </div>
+                            <span class="d-tbl-head-count"><?= count($dTodayList) ?></span>
+                        </div>
+                        <div class="d-tbl-scroll">
+                        <table class="d-table">
+                            <thead>
+                                <tr>
+                                    <th class="d-col-num">#</th>
+                                    <th>Patient Name</th>
+                                    <th>Time of Appointment</th>
+                                    <th>Dental Service</th>
+                                    <th>Assigned Dentist</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                        <?php
+                        $dAssignedDentist = 'Dr. ' . trim((string)($dentist['name'] ?? 'Dentist'));
+                        foreach ($dTodayList as $a):
+                            $pn=trim(($a['patient_name']??''))!==''?$a['patient_name']:'Patient';
+                            $tStart=!empty($a['appointment_time'])?date('h:i A',strtotime($a['appointment_time'])):'—';
+                            $tEnd=!empty($a['end_time'])?date('h:i A',strtotime($a['end_time'])):'';
+                            $tmFull=date('M d, Y').' '.$tStart.($tEnd!==''?' – '.$tEnd:'');
+                            $st=trim($a['status']??'Pending'); $fk=dentistCardStatusKey($st);
+                        ?><tr class="d-tbl-row" data-status="<?= dentistCardEscape($fk) ?>">
+                            <td class="d-col-num"><span><?= $n++ ?></span></td>
+                            <td><strong><?= dentistCardEscape($pn) ?></strong></td>
+                            <td class="d-tbl-when"><?= dentistCardEscape($tmFull) ?></td>
+                            <td><?= dentistCardEscape($a['service_type']??'—') ?></td>
+                            <td><?= dentistCardEscape($dAssignedDentist) ?></td>
+                            <td><span class="status <?= dentistCardEscape($fk) ?>"><?= dentistCardEscape($st) ?></span></td>
+                            <td>
+                                <button type="button" class="d-view-btn"
+                                    data-d-patient="<?= dentistCardEscape($pn) ?>"
+                                    data-d-service="<?= dentistCardEscape($a['service_type']??'—') ?>"
+                                    data-d-dentist="<?= dentistCardEscape($dAssignedDentist) ?>"
+                                    data-d-time="<?= dentistCardEscape($tmFull) ?>"
+                                    data-d-status="<?= dentistCardEscape($st) ?>"
+                                    data-d-notes="<?= dentistCardEscape($a['notes']??'') ?>"
+                                    data-tip="View Details"><i class="bi bi-eye"></i> View</button>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                        </div>
+                    <?php endif; ?>
+                    </div>
+                </div>
+            </div>
 
             <!-- UPCOMING -->
             <div class="card-detail" id="detail-upcoming" style="display:none;">
-                <div class="card-top"><div><div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; Upcoming Appointments</div><h3><i class="bi bi-calendar2-week-fill"></i> Upcoming Appointments</h3><p class="detail-sub">Mga susunod mong naka-schedule na pasyente.</p></div><span class="detail-date-pill"><i class="bi bi-calendar3"></i> After today</span></div>
+                <div class="card-top">
+                    <div>
+                        <div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; Upcoming Appointments</div>
+                        <h3><i class="bi bi-calendar2-week-fill"></i> Upcoming Appointments</h3>
+                        <p class="detail-sub">Mga susunod mong naka-schedule na pasyente.</p>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span class="detail-date-pill"><i class="bi bi-calendar3"></i> After today</span>
+                        <button type="button" class="detail-close" aria-label="Close" title="Close"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </div>
                 <div class="card-body-custom">
                     <div class="detail-mini-grid" data-mini-group="upcoming">
                         <div class="detail-mini detail-mini-clickable" data-filter="all" role="button" tabindex="0"><div class="detail-mini-icon"><i class="bi bi-calendar2-week-fill"></i></div><div><small>Total Upcoming</small><strong><?= (int)$dUpcomingSub['total'] ?></strong><em class="detail-mini-foot">Lahat ng upcoming</em></div></div>
@@ -2959,7 +2864,17 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
 
             <!-- COMPLETED -->
             <div class="card-detail" id="detail-completed" style="display:none;">
-                <div class="card-top"><div><div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; Completed Appointments</div><h3><i class="bi bi-check-circle-fill"></i> Completed Appointments</h3><p class="detail-sub">Record ng mga natapos mong treatments.</p></div><span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= dentistCardEscape(date('M d, Y')) ?></span></div>
+                <div class="card-top">
+                    <div>
+                        <div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; Completed Appointments</div>
+                        <h3><i class="bi bi-check-circle-fill"></i> Completed Appointments</h3>
+                        <p class="detail-sub">Record ng mga natapos mong treatments.</p>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= dentistCardEscape(date('M d, Y')) ?></span>
+                        <button type="button" class="detail-close" aria-label="Close" title="Close"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </div>
                 <div class="card-body-custom">
                     <div class="detail-mini-grid" data-mini-group="completed">
                         <div class="detail-mini detail-mini-clickable" data-filter="all" role="button" tabindex="0"><div class="detail-mini-icon"><i class="bi bi-check-circle-fill"></i></div><div><small>Total Completed</small><strong><?= (int)$dCompletedSub['total'] ?></strong></div></div>
@@ -3002,7 +2917,17 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
 
             <!-- PENDING -->
             <div class="card-detail" id="detail-pending" style="display:none;">
-                <div class="card-top"><div><div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; Pending Appointments</div><h3><i class="bi bi-hourglass-split"></i> Pending Appointments</h3><p class="detail-sub">Mga appointment request na naghihintay ng action.</p></div><span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= dentistCardEscape(date('M d, Y')) ?></span></div>
+                <div class="card-top">
+                    <div>
+                        <div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; Pending Appointments</div>
+                        <h3><i class="bi bi-hourglass-split"></i> Pending Appointments</h3>
+                        <p class="detail-sub">Mga appointment request na naghihintay ng action.</p>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= dentistCardEscape(date('M d, Y')) ?></span>
+                        <button type="button" class="detail-close" aria-label="Close" title="Close"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </div>
                 <div class="card-body-custom">
                     <div class="detail-mini-grid" data-mini-group="pending">
                         <div class="detail-mini detail-mini-clickable" data-filter="all" role="button" tabindex="0"><div class="detail-mini-icon"><i class="bi bi-hourglass-split"></i></div><div><small>Total Pending</small><strong><?= (int)$dPendingSub['total'] ?></strong></div></div>
@@ -3045,7 +2970,17 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
 
             <!-- CONFIRMED -->
             <div class="card-detail" id="detail-confirmed" style="display:none;">
-                <div class="card-top"><div><div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; Confirmed Appointments</div><h3><i class="bi bi-calendar2-check-fill"></i> Confirmed Appointments</h3><p class="detail-sub">Mga kumpirmadong appointment na naka-assign sa iyo.</p></div><span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= dentistCardEscape(date('M d, Y')) ?></span></div>
+                <div class="card-top">
+                    <div>
+                        <div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; Confirmed Appointments</div>
+                        <h3><i class="bi bi-calendar2-check-fill"></i> Confirmed Appointments</h3>
+                        <p class="detail-sub">Mga kumpirmadong appointment na naka-assign sa iyo.</p>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= dentistCardEscape(date('M d, Y')) ?></span>
+                        <button type="button" class="detail-close" aria-label="Close" title="Close"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </div>
                 <div class="card-body-custom">
                     <div class="detail-mini-grid" data-mini-group="confirmed">
                         <div class="detail-mini detail-mini-clickable" data-filter="all" role="button" tabindex="0"><div class="detail-mini-icon"><i class="bi bi-calendar2-check-fill"></i></div><div><small>Total Confirmed</small><strong><?= (int)$dConfirmedSub['total'] ?></strong></div></div>
@@ -3088,7 +3023,17 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
 
             <!-- NOSHOW -->
             <div class="card-detail" id="detail-noshow" style="display:none;">
-                <div class="card-top"><div><div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; No-Show Patients</div><h3><i class="bi bi-person-x-fill"></i> No-Show Patients</h3><p class="detail-sub">Mga pasyenteng hindi sumipot sa schedule.</p></div><span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= dentistCardEscape(date('M d, Y')) ?></span></div>
+                <div class="card-top">
+                    <div>
+                        <div class="detail-crumb"><i class="bi bi-house-door"></i> Dashboard &nbsp;›&nbsp; No-Show Patients</div>
+                        <h3><i class="bi bi-person-x-fill"></i> No-Show Patients</h3>
+                        <p class="detail-sub">Mga pasyenteng hindi sumipot sa schedule.</p>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span class="detail-date-pill"><i class="bi bi-calendar3"></i> <?= dentistCardEscape(date('M d, Y')) ?></span>
+                        <button type="button" class="detail-close" aria-label="Close" title="Close"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </div>
                 <div class="card-body-custom">
                     <div class="detail-mini-grid" data-mini-group="noshow">
                         <div class="detail-mini detail-mini-clickable" data-filter="all" role="button" tabindex="0"><div class="detail-mini-icon"><i class="bi bi-person-x-fill"></i></div><div><small>Total No-Show</small><strong><?= (int)$dNoshowSub['total'] ?></strong></div></div>
@@ -4164,117 +4109,66 @@ createCalendar();
 /* CLICKABLE SUMMARY CARDS — gaya ng admin dashboard (same page, no new tab) */
 (function initDentistCardDetails(){
     var VIEWS = ["today","upcoming","completed","pending","confirmed","noshow"];
+    var KEY = "dentistCardDetailView";
     var wrap = document.getElementById("cardDetailWrap");
     if (!wrap) return;
     var cards = Array.prototype.slice.call(document.querySelectorAll(".stat-clickable[data-view]"));
     var statsGrid = document.getElementById("statsGrid");
     var welcomeHero = document.getElementById("welcomeHero");
-    function panels(){ return VIEWS.map(function(v){ return document.getElementById("detail-" + v); }).filter(Boolean); }
-    function getNav(){ return document.getElementById("detailNav"); }
+
+    function panels(){
+        return VIEWS.map(function(v){ return document.getElementById("detail-" + v); }).filter(Boolean);
+    }
+    function getNav(){
+        return document.getElementById("detailNav");
+    }
     function hidePanelsOnly(){
         panels().forEach(function(p){ p.style.display = "none"; });
         cards.forEach(function(c){ c.classList.remove("active-card"); });
+        document.querySelectorAll(".detail-back-row").forEach(function(r){ r.classList.remove("is-open"); });
     }
-    /* LAHAT NG CARD = POPUP (today + upcoming/completed/pending/confirmed/noshow).
-       NOTE: ang mga popup markup ay NASA ITAS ng script na ito. */
-    function getRecordOverlay(view){
-        return view === "today"
-            ? document.getElementById("dTodayRecord")
-            : document.getElementById("dRecord-" + view);
-    }
-    function closeRecordPopups(){
-        document.querySelectorAll(".d-record-overlay").forEach(function(o){ o.classList.remove("open"); });
-        document.body.style.overflow = "";
-    }
-    function openRecordPopup(view){
-        var rec = getRecordOverlay(view);
-        if (!rec) return;
-        closeRecordPopups();
-        rec.classList.add("open");
-        document.body.style.overflow = "hidden";
-    }
-    /* DIRECT binding — bawat summary card ay may sariling popup (#dTodayRecord o #dRecord-<view>).
-           Ito ang nagta-toggle; si show() ay nag-rereturn na lang para hindi mag-cancel. */
-    /* Bawat summary card ay may sariling popup (#dTodayRecord o #dRecord-<view>). */
-    document.querySelectorAll(".stat-clickable[data-view]").forEach(function(card){
-        var view = card.getAttribute("data-view");
-        if (!getRecordOverlay(view)) return;              // walang popup para sa card na ito
-        var go = function(){
-            var rec = getRecordOverlay(view);
-            if (rec.classList.contains("open")) closeRecordPopups();
-            else openRecordPopup(view);
-        };
-        card.addEventListener("click", go);
-        card.addEventListener("keydown", function(ev){
-            if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); go(); }
+    function showBackRowFor(panel){
+        document.querySelectorAll(".detail-back-row").forEach(function(r){
+            var match = r.getAttribute("data-for") === panel.id;
+            r.classList.toggle("is-open", match);
         });
-    });
-    document.querySelectorAll(".d-record-overlay .card-record-back, .d-record-overlay .d-modal-x").forEach(function(btn){
-        btn.addEventListener("click", closeRecordPopups);
-    });
-    document.querySelectorAll(".d-record-overlay").forEach(function(ov){
-        ov.addEventListener("click", function(e){ if(e.target === ov) closeRecordPopups(); });
-    });
-    document.addEventListener("keydown", function(e){
-        if(e.key !== "Escape") return;
-        // Kung bukas ang View details modal sa itaas, hindi ito ang isasara.
-        var det = document.getElementById("dApptDetails");
-        if(det && det.classList.contains("open")) return;
-        closeRecordPopups();
-    });
-    function closeAll(){
-        hidePanelsOnly();
-        closeRecordPopups();
-        // Ibalik ang labas na summary cards + welcome.
-        if (statsGrid) statsGrid.style.display = "";
-        if (welcomeHero) welcomeHero.style.display = "";
-        var nav2 = getNav();
-        if (nav2) {
-            nav2.style.display = "none";
-            nav2.querySelectorAll(".detail-nav-card").forEach(function(n){ n.classList.remove("active-nav"); n.style.display = ""; });
-        }
-        try { history.replaceState(null, "", window.location.pathname + window.location.search); } catch(e){}
-        if (statsGrid && statsGrid.scrollIntoView) setTimeout(function(){ statsGrid.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80);
     }
-    // "Back to Dashboard" button — NASA LOOB NG BOX (.card-top), hindi na labas sa panel.
-    document.querySelectorAll(".card-detail").forEach(function(panel){
-        if (panel.querySelector(".detail-back-btn")) return;
-        var backBtn = document.createElement("button");
-        backBtn.type = "button";
-        backBtn.className = "detail-back-btn";
-        backBtn.innerHTML = '<i class="bi bi-arrow-left"></i> Back to Dashboard';
-        backBtn.addEventListener("click", closeAll);
-        // NASA LOOB NG BOX lagi — sa card-top kung may header, else sa itaas ng body.
-        var top = panel.querySelector(".card-top");
-        var holder = top ? (top.firstElementChild || top) : panel.querySelector(".card-body-custom") || panel;
-        holder.insertBefore(backBtn, holder.firstChild);
-    });
+
     function show(view, scroll, fromNav){
-        // May sariling popup ang card na ito — dinirect na hinawakan ng listener sa itaas.
-        // Huwag nang mag-toggle dito para hindi mag-cancel ang isang beses.
-        if (getRecordOverlay(view)) return;
         var panel = document.getElementById("detail-" + view);
         if (!panel) return;
         var alreadyOpen = panel.style.display !== "none";
         var nav = getNav();
-        closeRecordPopups();
-        // Pinindot ulit ang parehong summary card: isara at bumalik sa summary cards view.
+
+        // Pinindot ulit ang parehong summary card: toggle (isara) para bumalik sa summary cards view.
+        // Galing sa loob na nav at bukas na: stay lang.
         if (alreadyOpen) {
             if (fromNav) {
-                if (nav) nav.querySelectorAll(".detail-nav-card").forEach(function(n){ n.classList.toggle("active-nav", n.getAttribute("data-goto") === view); });
+                if (nav) {
+                    nav.querySelectorAll(".detail-nav-card").forEach(function(n){
+                        n.classList.toggle("active-nav", n.getAttribute("data-goto") === view);
+                    });
+                }
                 return;
             }
             closeAll();
-            if (scroll !== false && statsGrid && statsGrid.scrollIntoView) setTimeout(function(){ statsGrid.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80);
+            if (scroll !== false && statsGrid && statsGrid.scrollIntoView) {
+                setTimeout(function(){ statsGrid.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80);
+            }
             return;
         }
+
+        // 1. Itago lahat ng panels
         hidePanelsOnly();
+        // 2. Ipakita ang napiling panel at ang Back button row nito
         panel.style.display = "block";
-        cards.forEach(function(c){ c.classList.toggle("active-card", c.getAttribute("data-view") === view); });
-        // PAWALAIN ang labas na summary cards + welcome habang bukas ang detail.
+        showBackRowFor(panel);
+        // 3. Pawalain ang summary cards + welcome banner
         if (statsGrid) statsGrid.style.display = "none";
         if (welcomeHero) welcomeHero.style.display = "none";
-        // Loob na nav: lahat ng summary cards MALIBAN sa kasalukuyang bukas.
+        cards.forEach(function(c){ c.classList.toggle("active-card", c.getAttribute("data-view") === view); });
+
+        // 4. Loob na nav: lahat ng summary cards maliban sa kasalukuyang bukas
         if (nav) {
             nav.style.display = "grid";
             nav.querySelectorAll(".detail-nav-card").forEach(function(n){
@@ -4283,17 +4177,82 @@ createCalendar();
                 n.style.display = isCurrent ? "none" : "";
             });
         }
+
+        try { sessionStorage.setItem(KEY, view); } catch(e){}
         try { history.replaceState(null, "", "#card-" + view); } catch(e){ window.location.hash = "card-" + view; }
-        if (scroll !== false && wrap && wrap.scrollIntoView) setTimeout(function(){ wrap.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80);
+        if (scroll !== false && wrap && wrap.scrollIntoView) {
+            setTimeout(function(){ wrap.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80);
+        }
     }
+
+    function closeAll(){
+        hidePanelsOnly();
+        if (statsGrid) statsGrid.style.display = "";
+        if (welcomeHero) welcomeHero.style.display = "";
+        var nav2 = getNav();
+        if (nav2) {
+            nav2.style.display = "none";
+            nav2.querySelectorAll(".detail-nav-card").forEach(function(n){
+                n.classList.remove("active-nav");
+                n.style.display = "";
+            });
+        }
+        try { sessionStorage.removeItem(KEY); } catch(e){}
+        try { history.replaceState(null, "", window.location.pathname + window.location.search); } catch(e){}
+        if (statsGrid && statsGrid.scrollIntoView) {
+            setTimeout(function(){ statsGrid.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80);
+        }
+    }
+
+    // "Back to Dashboard" — NASA LABAS ng card box, sa itaas nito (gaya ng Admin Dashboard)
+    document.querySelectorAll(".card-detail").forEach(function(panel){
+        if (panel.querySelector(".detail-back-btn")) return;
+        if (panel.parentNode && panel.parentNode.querySelector(".detail-back-row[data-for='" + panel.id + "']")) return;
+
+        var backBtn = document.createElement("button");
+        backBtn.type = "button";
+        backBtn.className = "detail-back-btn";
+        backBtn.innerHTML = '<i class="bi bi-arrow-left"></i> Back to Dashboard';
+        backBtn.addEventListener("click", closeAll);
+
+        var row = document.createElement("div");
+        row.className = "detail-back-row";
+        row.setAttribute("data-for", panel.id);
+        row.appendChild(backBtn);
+
+        if (panel.parentNode) panel.parentNode.insertBefore(row, panel);
+    });
+
+    // Close buttons (X button sa header o anumang data-close-detail)
+    document.querySelectorAll(".detail-close, [data-close-detail]").forEach(function(btn){
+        btn.addEventListener("click", closeAll);
+    });
+
+    // Loob na nav cards (switch view nang hindi nag-close)
     document.querySelectorAll("#detailNav .detail-nav-card").forEach(function(navCard){
         var goNav = function(){ show(navCard.getAttribute("data-goto"), true, true); };
         navCard.addEventListener("click", goNav);
-        navCard.addEventListener("keydown", function(ev){ if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); goNav(); } });
+        navCard.addEventListener("keydown", function(ev){
+            if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); goNav(); }
+        });
     });
+
+    // Labas na summary cards sa statsGrid
     cards.forEach(function(card){
         card.addEventListener("click", function(){ show(card.getAttribute("data-view")); });
-        card.addEventListener("keydown", function(ev){ if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); show(card.getAttribute("data-view")); } });
+        card.addEventListener("keydown", function(ev){
+            if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); show(card.getAttribute("data-view")); }
+        });
+    });
+
+    // ESC key closes detail view
+    document.addEventListener("keydown", function(e){
+        if (e.key !== "Escape") return;
+        var det = document.getElementById("dApptDetails");
+        if (det && det.classList.contains("open")) return;
+        var logout = document.getElementById("dentistLogoutConfirm");
+        if (logout && logout.style.display !== "none") return;
+        closeAll();
     });
     function applyDetailFilter(card, group, filter){
         var f = (filter || "all").toLowerCase();
@@ -4472,6 +4431,12 @@ createCalendar();
         rec.addEventListener("click", function(ev){ ev.stopPropagation(); });
     });
     // DEFAULT: lahat ng detail nakatago pag load — bubukas lang pag pinindot ang summary card.
+    try { sessionStorage.removeItem(KEY); } catch(e){}
+    try {
+        if (window.location.hash && window.location.hash.indexOf("#card-") === 0) {
+            history.replaceState(null, "", window.location.pathname + window.location.search);
+        }
+    } catch(e){}
     closeAll();
 })();
 </script>
