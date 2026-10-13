@@ -734,39 +734,42 @@ foreach ($notifications as $notification) {
 
         .notification-summary {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-            gap: 18px;
-            margin-bottom: 25px;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 18px;
+            align-items: stretch;
         }
 
         @media (max-width: 1200px) {
             .notification-summary {
-                grid-template-columns: repeat(3, 1fr);
+                grid-template-columns: repeat(3, minmax(0, 1fr));
             }
         }
-        @media (max-width: 800px) {
+        @media (max-width: 768px) {
             .notification-summary {
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: repeat(2, minmax(0, 1fr));
             }
         }
-        @media (max-width: 520px) {
+        @media (max-width: 480px) {
             .notification-summary {
                 grid-template-columns: 1fr;
             }
         }
 
-        /* ===== SUMMARY CARD: Matching Dentist Dashboard Summary Cards ===== */
+        /* ===== SUMMARY CARD: Exact Match with Dentist Dashboard (#statsGrid .card.stat-featured) ===== */
         .notification-summary-card {
             position: relative;
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            gap: 6px;
-            padding: 22px;
-            background: linear-gradient(135deg, #0E6B5E 0%, #0F8A72 55%, #10B981 100%);
-            border: 1px solid rgba(255,255,255,.28) !important;
-            border-radius: 16px;
-            box-shadow: 0 16px 34px rgba(10,74,65,.34);
+            align-items: flex-start;
+            height: 100%;
+            gap: 4px;
+            padding: 11px 11px 10px;
+            background: linear-gradient(135deg, #047857 0%, #059669 55%, #10B981 100%) !important;
+            border: 1px solid rgba(255, 255, 255, .28) !important;
+            border-radius: 13px;
+            box-shadow: 0 16px 34px rgba(5, 150, 105, .35);
             color: #ffffff;
             text-decoration: none !important;
             cursor: pointer;
@@ -788,7 +791,7 @@ foreach ($notifications as $notification) {
             height: 170px;
             top: -78px;
             right: -58px;
-            background: radial-gradient(circle, rgba(255,255,255,.22), rgba(255,255,255,0) 70%);
+            background: radial-gradient(circle, rgba(255, 255, 255, .22), rgba(255, 255, 255, 0) 70%);
         }
 
         .notification-summary-card::after {
@@ -796,7 +799,7 @@ foreach ($notifications as $notification) {
             height: 130px;
             bottom: -60px;
             left: -40px;
-            background: radial-gradient(circle, rgba(255,255,255,.16), rgba(255,255,255,0) 70%);
+            background: radial-gradient(circle, rgba(255, 255, 255, .16), rgba(255, 255, 255, 0) 70%);
         }
 
         .notification-summary-card > * {
@@ -806,15 +809,15 @@ foreach ($notifications as $notification) {
 
         .notification-summary-card:hover {
             transform: translateY(-4px);
-            box-shadow: 0 22px 42px rgba(10,74,65,.42);
-            border-color: rgba(255,255,255,.62) !important;
+            box-shadow: 0 22px 42px rgba(5, 150, 105, .45);
+            border-color: rgba(255, 255, 255, .62) !important;
             color: #ffffff;
         }
 
         .notification-summary-card.active-card {
             border-color: #ffffff !important;
             border-width: 2px !important;
-            box-shadow: 0 22px 44px rgba(10,74,65,.46);
+            box-shadow: 0 22px 42px rgba(5, 150, 105, .46);
             transform: translateY(-3px);
         }
 
@@ -822,48 +825,54 @@ foreach ($notifications as $notification) {
         .stat-featured-head {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 10px;
+            gap: 8px;
+            flex-wrap: nowrap;
             width: 100%;
         }
 
         .notification-summary-icon,
         .stat-featured-icon {
-            width: 44px;
-            height: 44px;
-            border-radius: 14px;
-            background: rgba(255,255,255,.18);
-            border: 1px solid rgba(255,255,255,.32);
+            width: 30px;
+            height: 30px;
+            border-radius: 9px;
+            font-size: 14px;
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, .18);
+            border: 1px solid rgba(255, 255, 255, .32);
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
             color: #ffffff;
-            box-shadow: 0 8px 18px rgba(0,0,0,.14);
-            flex-shrink: 0;
+            box-shadow: 0 8px 18px rgba(0, 0, 0, .14);
         }
 
         .notification-summary-label,
         .notification-summary-card h3 {
-            color: rgba(255,255,255,.92);
-            font-size: 13.5px;
-            font-weight: 700;
-            letter-spacing: .2px;
-            margin: 0;
-            flex: 1;
+            font-size: 14px !important;
+            line-height: 1.2 !important;
+            margin: 0 !important;
+            flex: 1 !important;
+            min-width: 0 !important;
+            letter-spacing: 0 !important;
+            min-height: 2.4em !important;
+            display: flex !important;
+            align-items: center !important;
+            color: rgba(255, 255, 255, .92) !important;
+            font-weight: 700 !important;
         }
 
         .notification-summary-number,
         .notification-summary-card .number {
-            color: #ffffff;
-            font-family: "Plus Jakarta Sans","Inter",system-ui,sans-serif;
-            font-size: 40px;
+            font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+            font-size: 32px;
             line-height: 1;
             font-weight: 800;
             letter-spacing: -.03em;
             font-variant-numeric: tabular-nums;
-            text-shadow: 0 6px 18px rgba(0,0,0,.22);
-            margin: 10px 0 6px;
+            text-shadow: 0 6px 18px rgba(0, 0, 0, .22);
+            color: #ffffff;
+            margin-top: auto;
+            padding-top: 4px;
         }
 
         .notification-summary-sub,
@@ -871,48 +880,50 @@ foreach ($notifications as $notification) {
             display: flex;
             align-items: center;
             gap: 8px;
-            font-size: 11.5px;
+            font-size: 12px;
+            line-height: 1.35;
             font-weight: 600;
-            color: rgba(255,255,255,.86);
-            margin-top: 2px;
+            color: rgba(255, 255, 255, .86);
+            margin-top: 3px;
+            width: 100%;
         }
 
         .stat-featured-dot {
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            background: #BBF7D0;
-            box-shadow: 0 0 0 4px rgba(187,245,208,.22);
+            background: #A7F3D0;
+            box-shadow: 0 0 0 4px rgba(167, 243, 208, .25);
             animation: statDotPulse 1.9s ease-in-out infinite;
             flex-shrink: 0;
             display: inline-block;
         }
 
         @keyframes statDotPulse {
-            0%,100% { opacity: 1; transform: scale(1); }
+            0%, 100% { opacity: 1; transform: scale(1); }
             50% { opacity: .5; transform: scale(.8); }
         }
 
         .notification-summary-card .stat-go {
             position: absolute;
-            right: 16px;
-            bottom: 16px;
-            z-index: 2;
-            width: 28px;
-            height: 28px;
+            right: 9px;
+            bottom: 9px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
-            background: rgba(255,255,255,.2);
-            border: 1px solid rgba(255,255,255,.35);
+            background: rgba(255, 255, 255, .2);
+            border: 1px solid rgba(255, 255, 255, .35);
             color: #ffffff;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 13px;
+            font-size: 10px;
             transition: .2s ease;
+            z-index: 2;
         }
 
         .notification-summary-card:hover .stat-go {
-            background: rgba(255,255,255,.35);
+            background: rgba(255, 255, 255, .35);
             transform: translateX(2px);
         }
 
@@ -1911,24 +1922,6 @@ foreach ($notifications as $notification) {
         |--------------------------------------------------------------------------
         */
 
-        @media (max-width: 1100px) {
-
-            .notification-summary {
-
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-        }
-
-        @media (max-width: 900px) {
-
-            .notification-summary {
-
-                grid-template-columns: 1fr;
-            }
-
-        }
-
 
         @media (max-width: 650px) {
 
@@ -2120,7 +2113,7 @@ include __DIR__ . '/dentist_sidebar.php';
                  SUMMARY
             ================================================== -->
 
-            <div class="notification-summary">
+            <div class="cards notification-summary" id="statsGrid">
 
                 <!-- ALL -->
                 <a href="notifications.php?filter=All<?= $notifNoSidebarSuffix ?>" class="card stat-clickable stat-featured notification-summary-card <?= $filter === 'All' ? 'active-card' : '' ?>" role="button" tabindex="0" aria-label="View all notifications" title="View all notifications">
@@ -2142,7 +2135,7 @@ include __DIR__ . '/dentist_sidebar.php';
                 <a href="notifications.php?filter=Upcoming<?= $notifNoSidebarSuffix ?>" class="card stat-clickable stat-featured notification-summary-card <?= $filter === 'Upcoming' ? 'active-card' : '' ?>" role="button" tabindex="0" aria-label="View upcoming appointments" title="View upcoming appointments">
                     <div class="stat-featured-head">
                         <span class="stat-featured-icon"><i class="bi bi-alarm-fill"></i></span>
-                        <h3>Upcoming</h3>
+                        <h3>Upcoming Appointments</h3>
                     </div>
                     <div class="number">
                         <?= $upcomingCount ?>
@@ -2174,7 +2167,7 @@ include __DIR__ . '/dentist_sidebar.php';
                 <a href="notifications.php?filter=Cancelled<?= $notifNoSidebarSuffix ?>" class="card stat-clickable stat-featured notification-summary-card <?= $filter === 'Cancelled' ? 'active-card' : '' ?>" role="button" tabindex="0" aria-label="View cancelled appointments" title="View cancelled appointments">
                     <div class="stat-featured-head">
                         <span class="stat-featured-icon"><i class="bi bi-x-circle-fill"></i></span>
-                        <h3>Cancelled</h3>
+                        <h3>Cancelled Appointments</h3>
                     </div>
                     <div class="number">
                         <?= $cancelledCount ?>
