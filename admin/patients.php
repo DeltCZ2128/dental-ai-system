@@ -110,8 +110,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $search = trim($_GET['search'] ?? '');
 $searchLike = '%' . $search . '%';
 
-/* Scroll slide — buong listahan ang kinukuha, 10 ang kita sa scroll box. */
+/* Pagination: 10 patients kada page */
+$perPage = 10;
 $page = max(1, (int) ($_GET['page'] ?? 1));
+
+/* Count total matching patients */
+$countStmt = $pdo->prepare("
+    SELECT COUNT(*)
+    FROM patients p
+    LEFT JOIN users u ON u.id = p.user_id
+    WHERE (u.id IS NULL OR u.role = 'patient')
+      AND LOWER(TRIM(CONCAT(p.first_name,' ',p.last_name))) != 'admin admin'
+      AND LOWER(TRIM(p.first_name)) != 'admin'
+      AND (
+        CONCAT(p.first_name, ' ', p.last_name) LIKE ?
+        OR p.contact_number LIKE ?
+        OR p.email LIKE ?
+      )
+");
+$countStmt->execute([$searchLike, $searchLike, $searchLike]);
+$totalPatients = (int) $countStmt->fetchColumn();
+
+$totalPages = max(1, (int) ceil($totalPatients / $perPage));
+if ($page > $totalPages) {
+    $page = $totalPages;
+}
+$offset = ($page - 1) * $perPage;
 
 $stmt = $pdo->prepare("
     SELECT p.*
@@ -126,6 +150,7 @@ $stmt = $pdo->prepare("
         OR p.email LIKE ?
       )
     ORDER BY p.id ASC
+    LIMIT " . (int) $perPage . " OFFSET " . (int) $offset . "
 ");
 $stmt->execute([$searchLike, $searchLike, $searchLike]);
 $patients = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -332,6 +357,67 @@ function patientPageEscape($value)
             background: linear-gradient(135deg, #0E6B5E, #0A4A41) !important;
         }
         @media (max-width: 991px) { .patients-page { padding: 25px 16px 40px !important; } .patient-panel { margin-left: 0 !important; margin-right: 0 !important; } }
+
+        /* Pagination Styling */
+        .history-pagination {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 22px;
+            background: #F6FBF8;
+            border-top: 1px solid #E6F2EC;
+            border-bottom-left-radius: 16px;
+            border-bottom-right-radius: 16px;
+        }
+        .pagination-info {
+            font-size: 13px;
+            color: #3F525B;
+            font-family: "Inter", system-ui, sans-serif;
+            font-weight: 600;
+        }
+        .page-notation {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .page-link-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 34px;
+            height: 34px;
+            padding: 0 10px;
+            border-radius: 9px;
+            border: 1px solid #D1E7DD;
+            background: #fff;
+            color: #0E6B5E !important;
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none;
+            font-family: "Inter", system-ui, sans-serif;
+            transition: all .2s ease;
+        }
+        .page-link-btn:hover:not(.disabled) {
+            background: #EAF7F0;
+            border-color: #0E6B5E;
+            color: #0E6B5E !important;
+        }
+        .page-link-btn.active {
+            background: linear-gradient(135deg, #0E6B5E, #0A4A41) !important;
+            border-color: #0A4A41 !important;
+            color: #ffffff !important;
+            box-shadow: 0 3px 8px rgba(14,107,94,.25);
+        }
+        .page-link-btn.disabled,
+        .page-link-btn:disabled {
+            opacity: .45;
+            pointer-events: none;
+            background: #f1f5f9;
+            border-color: #e2e8f0;
+            color: #94a3b8 !important;
+        }
     </style>
 </head>
 <body>
@@ -420,7 +506,7 @@ function patientPageEscape($value)
                 <?php else: ?>
                     <?php foreach ($patients as $idx => $patient): ?>
                         <tr>
-                            <td><?= ($idx + 1) ?></td>
+                            <td><?= ($offset + $idx + 1) ?></td>
                             <td><?= patientPageEscape($patient['patient_number'] ?? $patient['id']) ?></td>
                             <td class="patient-name"><?= patientPageEscape($patient['first_name'] . ' ' . $patient['last_name']) ?></td>
                             <td><?= patientPageEscape($patient['email'] !== '' ? $patient['email'] : '—') ?></td>
@@ -444,6 +530,34 @@ function patientPageEscape($value)
                 </tbody>
             </table>
         </div>
+
+        <?php if ($totalPages > 1): ?>
+        <?php
+        $pFrom = $totalPatients > 0 ? $offset + 1 : 0;
+        $pTo = min($offset + $perPage, $totalPatients);
+        $pStart = max(1, min($page - 3, $totalPages - 6));
+        $pEnd = min($totalPages, $pStart + 6);
+        $pStart = max(1, $pEnd - 6);
+        ?>
+        <div class="history-pagination">
+            <span class="pagination-info">Showing <strong><?= (int) $pFrom ?></strong>—<strong><?= (int) $pTo ?></strong> of <strong><?= (int) $totalPatients ?></strong> patient<?= $totalPatients === 1 ? '' : 's' ?></span>
+            <nav class="page-notation" aria-label="Patient list pages">
+                <?php if ($page > 1): ?>
+                    <a href="<?= patientPageEscape(patientPageUrl($page - 1, $search)) ?>" class="page-link-btn" aria-label="Previous page"><i class="bi bi-chevron-left"></i></a>
+                <?php endif; ?>
+                <?php for ($p = $pStart; $p <= $pEnd; $p++): ?>
+                    <a href="<?= patientPageEscape(patientPageUrl($p, $search)) ?>" class="page-link-btn <?= $p === $page ? 'active' : '' ?>"><?= (int) $p ?></a>
+                <?php endfor; ?>
+                <?php if ($page < $totalPages): ?>
+                    <a href="<?= patientPageEscape(patientPageUrl($page + 1, $search)) ?>" class="page-link-btn" aria-label="Next page"><i class="bi bi-chevron-right"></i></a>
+                <?php endif; ?>
+            </nav>
+        </div>
+        <?php elseif ($totalPatients > 0): ?>
+        <div class="history-pagination">
+            <span class="pagination-info">Showing 1—<?= (int) $totalPatients ?> of <?= (int) $totalPatients ?> patient<?= $totalPatients === 1 ? '' : 's' ?></span>
+        </div>
+        <?php endif; ?>
     </div>
 </div>
 
