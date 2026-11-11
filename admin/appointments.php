@@ -13,10 +13,10 @@ requireLogin();
 | session before any handler of this page runs. A submission that carries
 | no token, or a token that does not match, is refused.
 */
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     requireCsrf();
 }
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     $action = $_POST['action'] ?? '';
 
@@ -169,6 +169,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         /* Block approving/confirming an appointment that is outside operating hours or already past/closing */
         if ($status === 'Confirmed') {
+            /* Block if assigned doctor is absent, on leave, or on rest day */
+            $dentistCheckStmt = $pdo->prepare("
+                SELECT a.dentist_id, a.appointment_date, d.dentist_name, d.status as dentist_status, d.rest_day,
+                       ddo.id as dayoff_id, ddo.reason as dayoff_reason
+                FROM appointments a
+                JOIN dentists d ON d.id = a.dentist_id
+                LEFT JOIN dentist_day_offs ddo 
+                    ON ddo.dentist_id = a.dentist_id 
+                    AND ddo.off_date = a.appointment_date
+                WHERE a.id = ?
+                LIMIT 1
+            ");
+            $dentistCheckStmt->execute([$id]);
+            $dCheck = $dentistCheckStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($dCheck) {
+                $isAbsent = !empty($dCheck['dayoff_id']);
+                $isInactive = ($dCheck['dentist_status'] ?? 'Active') === 'Inactive';
+                $isRestDay = false;
+                if (isset($dCheck['rest_day']) && $dCheck['rest_day'] !== null && $dCheck['rest_day'] !== '' && !empty($dCheck['appointment_date'])) {
+                    $aptW = (int) date('w', strtotime($dCheck['appointment_date']));
+                    if ($aptW === (int) $dCheck['rest_day']) {
+                        $isRestDay = true;
+                    }
+                }
+
+                if ($isAbsent || $isInactive || $isRestDay) {
+                    $cleanDocName = preg_replace('/^Dr\.?\s+/i', '', $dCheck['dentist_name']);
+                    $reasonTxt = $isAbsent ? (!empty($dCheck['dayoff_reason']) ? " ({$dCheck['dayoff_reason']})" : " (Doctor is marked ABSENT)") : ($isRestDay ? " (Doctor Weekly Rest Day)" : " (Doctor Inactive)");
+                    flash("Cannot confirm appointment: Assigned doctor Dr. {$cleanDocName} is unavailable on " . date('M d, Y', strtotime($dCheck['appointment_date'])) . "{$reasonTxt}. Please reassign this appointment to an available doctor first.", "danger");
+                    redirect("appointments.php#" . $postTab);
+                }
+            }
+
             if ($apptDate < $nowDate) {
                 flash("Cannot confirm an appointment on a past date. Please reschedule the appointment instead.", "danger");
                 redirect("appointments.php#" . $postTab);
@@ -495,11 +529,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect("appointments.php" . $reAnchor);
         }
 
-        $newStatusSql = in_array(($appointment['status'] ?? ''), ['No-Show', 'Cancelled'], true) ? ", status = 'Confirmed', confirmed_at = NOW()" : "";
-
         $stmt = $pdo->prepare("
             UPDATE appointments
-            SET appointment_date = ?, start_time = ?, end_time = ?, rescheduled_at = NOW(){$newStatusSql}
+            SET appointment_date = ?, start_time = ?, end_time = ?, rescheduled_at = NOW(), status = 'Pending', confirmed_at = NULL
             WHERE id = ?
         ");
         $stmt->execute([$date, $start, $end, $id]);
@@ -513,7 +545,108 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         );
 
         flash("Appointment rescheduled successfully.");
-        redirect("appointments.php" . ($date === date('Y-m-d') ? '#today' : '#upcoming'));
+        if ($date === date('Y-m-d')) {
+            redirect("appointments.php?view=" . $id . "#today");
+        } else {
+            redirect("appointments.php?udate=" . urlencode($date) . "&view=" . $id . "#upcoming");
+        }
+    }
+
+    if ($action === 'reassign_dentist') {
+        $id = (int) ($_POST['id'] ?? 0);
+        $newDentistId = (int) ($_POST['new_dentist_id'] ?? 0);
+        $reassignReason = trim($_POST['reassign_reason'] ?? 'Dentist Emergency Leave / Absence');
+        if ($reassignReason === '') {
+            $reassignReason = 'Dentist Emergency Leave / Absence';
+        }
+        $tab = in_array(($_POST['tab'] ?? ''), ['today', 'upcoming'], true) ? '#' . $_POST['tab'] : '#today';
+
+        $appointmentStmt = $pdo->prepare("
+            SELECT a.*, p.first_name, p.last_name, p.user_id as patient_user_id, d.dentist_name as old_dentist_name
+            FROM appointments a
+            JOIN patients p ON p.id = a.patient_id
+            LEFT JOIN dentists d ON d.id = a.dentist_id
+            WHERE a.id = ?
+            LIMIT 1
+        ");
+        $appointmentStmt->execute([$id]);
+        $appointment = $appointmentStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$appointment) {
+            flash("Appointment record not found.", "danger");
+            redirect("appointments.php" . $tab);
+        }
+
+        if ($newDentistId <= 0 || $newDentistId === (int)$appointment['dentist_id']) {
+            flash("Please choose a different attending dentist to reassign this appointment.", "danger");
+            redirect("appointments.php" . $tab);
+        }
+
+        $newDStmt = $pdo->prepare("SELECT id, dentist_name, user_id FROM dentists WHERE id = ? AND status = 'Active' LIMIT 1");
+        $newDStmt->execute([$newDentistId]);
+        $newDentist = $newDStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$newDentist) {
+            flash("The selected dentist practitioner is currently inactive or not found.", "danger");
+            redirect("appointments.php" . $tab);
+        }
+
+        $aptDate = $appointment['appointment_date'];
+        $aptDayOfWeek = (int)date('w', strtotime($aptDate));
+        $cleanNewName = preg_replace('/^Dr\.?\s+/i', '', (string)($newDentist['dentist_name'] ?? ''));
+        $cleanOldName = preg_replace('/^Dr\.?\s+/i', '', (string)($appointment['old_dentist_name'] ?? ''));
+        $dispNewDoctor = 'Dr. ' . $cleanNewName;
+        $dispOldDoctor = $cleanOldName !== '' ? 'Dr. ' . $cleanOldName : 'previous dentist';
+
+        $newRestDay = function_exists('getDentistRestDay') ? getDentistRestDay($newDentistId) : null;
+        if ($newRestDay !== null && $aptDayOfWeek === (int)$newRestDay) {
+            $restName = function_exists('dentistRestDayName') ? dentistRestDayName($newRestDay) : date('l', strtotime($aptDate));
+            flash("{$dispNewDoctor} is on rest day every {$restName}. Please select another dentist.", "danger");
+            redirect("appointments.php" . $tab);
+        }
+        if (function_exists('isDentistDayOff') && isDentistDayOff($newDentistId, $aptDate)) {
+            flash("{$dispNewDoctor} is on scheduled leave on " . date('M d, Y', strtotime($aptDate)) . ". Please select another dentist.", "danger");
+            redirect("appointments.php" . $tab);
+        }
+
+        $conflict = appointmentConflict($newDentistId, $aptDate, $appointment['start_time'], $appointment['end_time'], $id);
+        if ($conflict) {
+            flash("Conflict detected: {$dispNewDoctor} already has an active appointment at this time slot.", "danger");
+            redirect("appointments.php" . $tab);
+        }
+
+        $noteAppend = " [Reassigned to {$dispNewDoctor} by Admin. Reason: " . $reassignReason . "]";
+        $updateStmt = $pdo->prepare("
+            UPDATE appointments
+            SET dentist_id = ?,
+                notes = CONCAT(COALESCE(notes, ''), ?)
+            WHERE id = ?
+        ");
+        $updateStmt->execute([$newDentistId, $noteAppend, $id]);
+
+        $patientNotifId = !empty($appointment['patient_id']) ? (int)$appointment['patient_id'] : (int)($appointment['patient_user_id'] ?? 0);
+        if ($patientNotifId > 0 && function_exists('createNotification')) {
+            $notifMsg = "Your dental appointment on " . date('M d, Y', strtotime($aptDate)) . " at " . date('h:i A', strtotime($appointment['start_time'])) . " has been reassigned to {$dispNewDoctor} due to " . $reassignReason . ". Your scheduled time remains unchanged.";
+            try {
+                createNotification(
+                    $patientNotifId,
+                    (int) $id,
+                    'Appointment Reassigned',
+                    $notifMsg,
+                    'Appointment'
+                );
+            } catch (Throwable $e) {}
+        }
+
+        if (!empty($newDentist['id'])) {
+            $dentMsg = "Reassigned Patient: " . $appointment['first_name'] . " " . $appointment['last_name'] . " (" . $appointment['service_type'] . ") at " . date('h:i A', strtotime($appointment['start_time'])) . " on " . date('M d, Y', strtotime($aptDate)) . " (Transferred from {$dispOldDoctor}).";
+            try {
+                $pdo->prepare("INSERT INTO dentist_notifications (dentist_id, message, created_at) VALUES (?, ?, NOW())")->execute([$newDentist['id'], $dentMsg]);
+            } catch (Throwable $e) {}
+        }
+
+        flash("Appointment successfully reassigned to {$dispNewDoctor}! Patient and dentist notifications sent.", "success");
+        redirect("appointments.php" . $tab);
     }
 }
 
@@ -524,35 +657,38 @@ $patients = $pdo->query("
 ")->fetchAll();
 
 $dentists = $pdo->query("
-    SELECT id, dentist_name
+    SELECT id, dentist_name, rest_day
     FROM dentists
     WHERE status = 'Active'
     ORDER BY dentist_name
 ")->fetchAll();
 
+try {
+    $allDentistDayOffs = $pdo->query("
+        SELECT id, dentist_id, off_date, reason
+        FROM dentist_day_offs
+    ")->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {
+    $allDentistDayOffs = [];
+}
+
 /* Isang page, dalawang section: Pending sa taas, Appointment History sa ilalim (may pagination). */
-$historyStatuses = ['Confirmed', 'Completed', 'Cancelled', 'No-Show', 'Checked In', 'Late', 'Serving'];
+$historyStatuses = ['Completed', 'No-Show', 'Cancelled'];
 
 $search = trim($_GET['search'] ?? '');
 $historyStatus = trim($_GET['hstatus'] ?? '');
 if (!in_array($historyStatus, $historyStatuses, true)) {
     $historyStatus = '';
 }
-$todayStatuses = ['Pending', 'Confirmed', 'Completed', 'Cancelled', 'No-Show', 'Checked In', 'Late'];
+$todayStatuses = ['Pending', 'Confirmed', 'Checked In', 'Late', 'Serving'];
 $todayStatus = trim($_GET['tstatus'] ?? '');
 if (!in_array($todayStatus, $todayStatuses, true)) {
     $todayStatus = '';
 }
-/* Upcoming date filter: isang araw sa loob ng next 7 days (bukod sa today). */
+/* Upcoming date filter: isang araw mula bukas pataas. */
 $upcomingDateFilter = trim($_GET['udate'] ?? '');
-if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $upcomingDateFilter)) {
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $upcomingDateFilter) || $upcomingDateFilter < date('Y-m-d', strtotime('+1 day'))) {
     $upcomingDateFilter = '';
-} else {
-    $minUdate = date('Y-m-d', strtotime('+1 day'));
-    $maxUdate = date('Y-m-d', strtotime('+7 days'));
-    if ($upcomingDateFilter < $minUdate || $upcomingDateFilter > $maxUdate) {
-        $upcomingDateFilter = '';
-    }
 }
 /* Upcoming status filter: ibalik katabi ng date filter (Pending/Confirmed/Approved lang ang laman ng Upcoming). */
 $upcomingStatuses = ['Pending', 'Confirmed', 'Approved'];
@@ -577,9 +713,10 @@ if ($search !== '') {
         CONCAT(p.first_name, ' ', p.last_name) LIKE ?
         OR p.patient_number LIKE ?
         OR a.service_type LIKE ?
+        OR d.dentist_name LIKE ?
     )";
     $searchLike = '%' . $search . '%';
-    array_push($baseParams, $searchLike, $searchLike, $searchLike);
+    array_push($baseParams, $searchLike, $searchLike, $searchLike, $searchLike);
 }
 
 if ($dentistFilter > 0) {
@@ -589,20 +726,13 @@ if ($dentistFilter > 0) {
 
 $baseSql = empty($baseWhere) ? '' : ' AND ' . implode(' AND ', $baseWhere);
 
-/* AUTO NO-SHOW: today's Pending/Confirmed whose end_time passed by 30+ mins. */
+/* AUTO NO-SHOW & RESTORE: unified through markClosedAppointmentsAsNoShow() */
 try {
     date_default_timezone_set('Asia/Manila');
-    $autoToday = date('Y-m-d');
-    $autoCutoff = date('H:i:s', time() - 1800);
-    $autoStmt = $pdo->prepare("
-        UPDATE appointments
-        SET status = 'No-Show'
-        WHERE appointment_date = ?
-        AND status IN ('Confirmed', 'Approved')
-        AND end_time <= ?
-    ");
-    $autoStmt->execute([$autoToday, $autoCutoff]);
-} catch (PDOException $e) {
+    if (function_exists('markClosedAppointmentsAsNoShow')) {
+        markClosedAppointmentsAsNoShow();
+    }
+} catch (Throwable $e) {
 }
 
 /* AUTO-ALIGN: queue Serving/Completed · appointment status (active lang). */
@@ -627,11 +757,37 @@ $listSelect = "
         a.*,
         CONCAT(p.first_name, ' ', p.last_name) AS patient_name,
         p.patient_number,
-        d.dentist_name
+        d.dentist_name,
+        d.status AS dentist_status,
+        d.rest_day,
+        ddo.id AS dayoff_id,
+        ddo.reason AS dayoff_reason
     FROM appointments a
     JOIN patients p ON p.id = a.patient_id
     JOIN dentists d ON d.id = a.dentist_id
+    LEFT JOIN dentist_day_offs ddo
+        ON ddo.dentist_id = a.dentist_id
+        AND ddo.off_date = a.appointment_date
 ";
+
+if (!function_exists('isApptDentistAbsent')) {
+    function isApptDentistAbsent($apptRow)
+    {
+        if (!empty($apptRow['dayoff_id'])) {
+            return true;
+        }
+        if (($apptRow['dentist_status'] ?? 'Active') === 'Inactive') {
+            return true;
+        }
+        if (isset($apptRow['rest_day']) && $apptRow['rest_day'] !== null && $apptRow['rest_day'] !== '' && !empty($apptRow['appointment_date'])) {
+            $aptW = (int) date('w', strtotime($apptRow['appointment_date']));
+            if ($aptW === (int) $apptRow['rest_day']) {
+                return true;
+            }
+        }
+        return false;
+    }
+}
 
 $countJoin = "
     FROM appointments a
@@ -639,9 +795,9 @@ $countJoin = "
     JOIN dentists d ON d.id = a.dentist_id
 ";
 
-/* PENDING (taas): Pending lang. */
+/* PENDING (taas): Active Pending appointments (today & future). Ang mga lumagpas sa araw ay napupunta sa Appointment History. */
 try {
-    $countStmt = $pdo->prepare("SELECT COUNT(*) $countJoin WHERE a.status = 'Pending' $baseSql");
+    $countStmt = $pdo->prepare("SELECT COUNT(*) $countJoin WHERE a.status = 'Pending' AND a.appointment_date >= CURDATE() $baseSql");
     $countStmt->execute($baseParams);
     $pendingCount = (int) $countStmt->fetchColumn();
 } catch (PDOException $e) {
@@ -651,7 +807,7 @@ try {
 try {
     $pendingStmt = $pdo->prepare("
         $listSelect
-        WHERE a.status = 'Pending' $baseSql
+        WHERE a.status = 'Pending' AND a.appointment_date >= CURDATE() $baseSql
         ORDER BY a.appointment_date ASC, a.start_time ASC
         LIMIT 200
     ");
@@ -670,16 +826,18 @@ try {
     $upcomingStmt = $pdo->prepare("
         $listSelect
         WHERE (
-            a.appointment_date = CURDATE()
+            (
+                a.appointment_date = CURDATE()
+                AND a.status NOT IN ('No-Show', 'Completed', 'Cancelled', 'Canceled')
+            )
             OR (
                 a.appointment_date > CURDATE()
-                AND a.appointment_date <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)
                 AND a.status IN ('Pending', 'Confirmed', 'Approved')
             )
         )
         $baseSql
         ORDER BY a.appointment_date ASC, a.start_time ASC
-        LIMIT 200
+        LIMIT 500
     ");
     $upcomingStmt->execute($baseParams);
 
@@ -698,14 +856,13 @@ try {
     $upcomingTotal = 0;
 }
 
-/* SUMMARY CARDS: Today's / Upcoming (7 days) / Pending / Completed.
+/* SUMMARY CARDS: Today's / Upcoming / Pending / Completed.
    Sumusunod sa search + dentist filters para tumutugma sa sections. */
 $todayKeySummary = date('Y-m-d');
-$weekEndKeySummary = date('Y-m-d', strtotime('+7 days'));
 $summaryToday = count($upcomingGroups[$todayKeySummary] ?? []);
 $summaryUpcoming = 0;
 foreach ($upcomingGroups as $sumDay => $sumRows) {
-    if ($sumDay !== $todayKeySummary && $sumDay <= $weekEndKeySummary) { $summaryUpcoming += count($sumRows); }
+    if ($sumDay !== $todayKeySummary) { $summaryUpcoming += count($sumRows); }
 }
 try {
     $completedStmt = $pdo->prepare("SELECT COUNT(*) $countJoin WHERE a.status = 'Completed' $baseSql");
@@ -740,14 +897,14 @@ function upcomingDaySub($dateStr)
 /* HISTORY (ilalim): finished or past appointments only (do not duplicate active upcoming Confirmed appointments). */
 $historyNameSearch = trim($_GET['hsearch'] ?? '');
 if ($historyStatus !== '') {
-    if ($historyStatus === 'Confirmed') {
+    if ($historyStatus === 'Confirmed' || $historyStatus === 'Pending') {
         $historyWhere = "a.status = ? AND a.appointment_date < CURDATE()";
     } else {
         $historyWhere = 'a.status = ?';
     }
     $historyParams = [$historyStatus];
 } else {
-    $historyWhere = "(a.status IN ('Completed', 'Cancelled', 'No-Show') OR (a.appointment_date < CURDATE() AND a.status IN ('Confirmed', 'Checked In', 'Late', 'Serving')))";
+    $historyWhere = "(a.status IN ('Completed', 'Cancelled', 'No-Show') OR (a.appointment_date < CURDATE() AND a.status IN ('Pending', 'Confirmed', 'Checked In', 'Late', 'Serving')))";
     $historyParams = [];
 }
 if ($historyNameSearch !== '') {
@@ -762,6 +919,26 @@ try {
     $historyTotal = (int) $totalStmt->fetchColumn();
 } catch (PDOException $e) {
     $historyTotal = 0;
+}
+
+$historyCounts = [];
+try {
+    $hcStmt = $pdo->prepare("
+        SELECT 
+            SUM(CASE WHEN a.status = 'Completed' THEN 1 ELSE 0 END) AS count_completed,
+            SUM(CASE WHEN a.status = 'No-Show' THEN 1 ELSE 0 END) AS count_noshow,
+            SUM(CASE WHEN a.status IN ('Cancelled', 'Canceled') THEN 1 ELSE 0 END) AS count_cancelled,
+            SUM(CASE WHEN a.status = 'Pending' AND a.appointment_date < CURDATE() THEN 1 ELSE 0 END) AS count_pending,
+            SUM(CASE WHEN a.status IN ('Confirmed', 'Approved') AND a.appointment_date < CURDATE() THEN 1 ELSE 0 END) AS count_confirmed,
+            COUNT(*) AS count_all
+        $countJoin
+        WHERE (a.status IN ('Completed', 'Cancelled', 'Canceled', 'No-Show') OR (a.appointment_date < CURDATE() AND a.status IN ('Pending', 'Confirmed', 'Approved', 'Checked In', 'Late', 'Serving')))
+        $baseSql
+    ");
+    $hcStmt->execute($baseParams);
+    $historyCounts = $hcStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+} catch (PDOException $e) {
+    $historyCounts = [];
 }
 
 $historyTotalPages = max(1, (int) ceil($historyTotal / $historyPerPage));
@@ -889,14 +1066,11 @@ rel="stylesheet">
 /* Admin Appointments — katulad sa Patients page ng admin (full-width panel) */
 body { background: linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22) !important; background-size: 300% 300% !important; animation: adminApptBg 8s ease infinite !important; background-attachment: fixed !important; }
 @keyframes adminApptBg { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-.shared-sidebar { display: none !important; }
-/* Maliit na topbar: logo ng teeth + pangalan ng clinic, saka page title.
-   Scoped sa Appointments page lang — hindi napepekeha ang iba pang page
-   na gumagamit ng includes.php. */
+/* Topbar para sa Appointments page */
 .shared-topbar {
-    left: 0 !important;
+    left: 280px !important;
     right: 0 !important;
-    height: 60px;
+    height: 75px;
     padding: 0 22px;
     gap: 14px;
     box-shadow: 0 4px 14px rgba(14,107,94,.10);
@@ -941,12 +1115,17 @@ body { background: linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c2
 }
 .appt-topbar-left + .page-title h1 { font-size: 18px !important; }
 .appt-topbar-left + .page-title p { display: none; }
+@media (max-width: 991px) {
+    .shared-topbar { left: 0 !important; padding: 0 14px; }
+}
 @media (max-width: 767px) {
     .appt-topbar-left + .page-title { display: none !important; }
-    .shared-topbar { padding: 0 14px; }
     .appt-topbar-clinic span { display: none; }
 }
-.main { background: transparent !important; margin-left: 0 !important; width: 100% !important; padding: 92px 24px 40px !important; display: block !important; box-sizing: border-box !important; min-height: 100vh; }
+.main { background: transparent !important; margin-left: 280px !important; width: calc(100% - 280px) !important; padding: 92px 24px 40px !important; display: block !important; box-sizing: border-box !important; min-height: 100vh; }
+@media (max-width: 991px) {
+    .main { margin-left: 0 !important; width: 100% !important; padding: 92px 16px 40px !important; }
+}
 .main > a.btn[href*="dashboard.php"] { margin-left: 14px !important; margin-right: 14px !important; margin-bottom: 16px !important; }
 .main > .alert { margin-left: 14px !important; margin-right: 14px !important; box-sizing: border-box !important; font-size: 13.5px !important; border-radius: 12px !important; }
 .appointments-page-head { margin: 0 14px 16px 14px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
@@ -1018,13 +1197,22 @@ body { background: linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c2
 .appointments-filter-bar .form-select {
     border-radius: 10px !important;
     border: 1px solid #D1E7DD !important;
-    background: #F6FBF8 !important;
+    background-color: #F6FBF8 !important;
+    font-size: 14px !important;
+}
+.appointments-filter-bar .form-select {
+    cursor: pointer !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%230E6B5E' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 14px center !important;
+    background-size: 14px 10px !important;
+    padding-right: 36px !important;
 }
 .appointments-filter-bar .form-control:focus,
 .appointments-filter-bar .form-select:focus {
     border-color: #0E6B5E !important;
     box-shadow: 0 0 0 3px rgba(14,107,94,.12) !important;
-    background: #fff !important;
+    background-color: #ffffff !important;
 }
 .main .table { margin-bottom: 0 !important; width: 100%; border-collapse: separate; border-spacing: 0; }
 .main .table thead tr { background: linear-gradient(135deg, #0E6B5E, #0A4A41) !important; }
@@ -1266,7 +1454,7 @@ a.appt-summary-card:focus-visible { outline: 2px solid #ffffff; outline-offset: 
 
 <?php showFlash(); ?>
 
-<div class="d-flex gap-2 flex-wrap mb-3">
+<div class="d-flex gap-2 flex-wrap mb-3" style="margin-left:14px;margin-right:14px;">
 <?php if (($_GET['from'] ?? '') === 'notifications'): ?>
 <a href="notifications.php" class="btn mb-0" data-tip="Back to Notifications">
 <i class="bi bi-arrow-left-circle-fill me-1"></i>Back to Notifications
@@ -1377,7 +1565,8 @@ $todayPaginatedAppts = array_slice($todayAppts, $todayOffset, $todayPerPage);
 <div id="collapse-today" class="collapse show appt-card-collapse">
 <div class="appt-card-body">
 <div class="appointments-filter-bar">
-<form method="GET" action="appointments.php#today" class="row g-2 mb-0">
+<form method="GET" action="appointments.php#today" class="row g-2 mb-0" onsubmit="this.action='appointments.php?tab=today#today';">
+    <input type="hidden" name="tab" value="today">
     <?php if ($search !== ''): ?><input type="hidden" name="search" value="<?= e($search) ?>"><?php endif; ?>
     <?php if ($dentistFilter > 0): ?><input type="hidden" name="dentist_id" value="<?= (int) $dentistFilter ?>"><?php endif; ?>
     <?php if ($historyStatus !== ''): ?><input type="hidden" name="hstatus" value="<?= e($historyStatus) ?>"><?php endif; ?>
@@ -1474,6 +1663,7 @@ class="btn btn-sm btn-outline-primary history-view-btn"
 data-tip="View Details"
 data-patient="<?= e(trim(($a['patient_name'] ?? '') . '')) ?>"
 data-dentist="<?= e($a['dentist_name'] ?? '') ?>"
+data-dentist-id="<?= (int)($a['dentist_id'] ?? 0) ?>"
 data-date="<?= e($a['appointment_date'] ?? '') ?>"
 data-start="<?= e(substr($a['start_time'] ?? '', 0, 5)) ?>"
 data-end="<?= e(substr($a['end_time'] ?? '', 0, 5)) ?>"
@@ -1481,7 +1671,7 @@ data-service="<?= e($a['service_type'] ?? '') ?>"
 data-booked="<?= e(!empty($a['created_at']) ? date('M d, Y h:i A', strtotime($a['created_at'])) : '-') ?>"
 data-status="<?= e($a['status'] ?? '') ?>"
 data-confirmed="<?= e(!empty($a['confirmed_at']) ? date('M d, Y h:i A', strtotime($a['confirmed_at'])) : '') ?>"
-data-cancelled="<?= e(!empty($a['cancelled_at']) ? date('M d, Y h:i A', strtotime($a['cancelled_at'])) : '') ?>"
+data-cancelled="<?= e(!empty($a['cancelled_at']) ? date('M d, Y h:i A', strtotime($a['cancelled_at'])) : ($a['status'] === 'Cancelled' && !empty($a['created_at']) ? date('M d, Y h:i A', strtotime($a['created_at'])) : '')) ?>"
 data-checkedin="<?= e(!empty($a['checked_in_at']) ? date('M d, Y h:i A', strtotime($a['checked_in_at'])) : '') ?>"
 data-serving="<?= e(!empty($a['serving_at']) ? date('M d, Y h:i A', strtotime($a['serving_at'])) : '') ?>"
 data-completed="<?= e(!empty($a['completed_at']) ? date('M d, Y h:i A', strtotime($a['completed_at'])) : '') ?>"
@@ -1499,11 +1689,15 @@ data-tip="Change Status"
 data-appt-id="<?= (int) $a['id'] ?>"
 data-patient="<?= e(trim(($a['patient_name'] ?? '') . ' (' . ($a['patient_number'] ?? '') . ')')) ?>"
 data-dentist="<?= e($a['dentist_name'] ?? '') ?>"
+data-dentist-id="<?= (int)($a['dentist_id'] ?? 0) ?>"
 data-service="<?= e($a['service_type'] ?? '') ?>"
 data-status="<?= e($a['status'] ?? '') ?>"
+data-rescheduled="<?= !empty($a['rescheduled_at']) ? '1' : '0' ?>"
 data-date="<?= e(substr($a['appointment_date'] ?? '', 0, 10)) ?>"
 data-start="<?= e(substr($a['start_time'] ?? '', 0, 5)) ?>"
 data-end="<?= e(substr($a['end_time'] ?? '', 0, 5)) ?>"
+data-dentist-absent="<?= isApptDentistAbsent($a) ? '1' : '0' ?>"
+data-absent-reason="<?= e(!empty($a['dayoff_reason']) ? $a['dayoff_reason'] : ((isset($a['rest_day']) && (int)date('w', strtotime($a['appointment_date'])) === (int)$a['rest_day']) ? 'Weekly Rest Day' : '')) ?>"
 data-tab="today"
 title="Change status"
 style="cursor:pointer;">
@@ -1561,10 +1755,9 @@ $tdStart = max(1, $tdEnd - 6);
 <div class="card patient-card appt-card" id="upcoming" style="scroll-margin-top: 110px;<?= ($initialTab !== 'upcoming' && $initialTab !== 'all') ? ' display: none;' : '' ?>">
 <?php
 $todayKeyUp = date('Y-m-d');
-$weekEndKey = date('Y-m-d', strtotime('+7 days'));
 $futureGroups = [];
 foreach ($upcomingGroups as $ugDay => $ugRows) {
-    if ($ugDay !== $todayKeyUp && $ugDay <= $weekEndKey) { $futureGroups[$ugDay] = $ugRows; }
+    if ($ugDay !== $todayKeyUp) { $futureGroups[$ugDay] = $ugRows; }
 }
 ksort($futureGroups);
 /* Status filter muna (ibinalik), tapos date options + date filter — para magsama ang dalawa. */
@@ -1580,11 +1773,10 @@ if ($upcomingStatus !== '') {
         }
     }
 }
-/* Date options para sa 7-day filter — kasama pati araw na walang appointment para hindi nakakalito. */
+/* Date options para sa filter — kukunin mula sa mga available na araw na may upcoming appointments */
 $upcomingDateOptions = [];
-for ($d = 1; $d <= 7; $d++) {
-    $optDay = date('Y-m-d', strtotime('+' . $d . ' days'));
-    $upcomingDateOptions[$optDay] = count($futureGroups[$optDay] ?? []);
+foreach ($futureGroups as $optDay => $optRows) {
+    $upcomingDateOptions[$optDay] = count($optRows);
 }
 /* I-filter sa piniling araw kung may udate. */
 if ($upcomingDateFilter !== '') {
@@ -1623,9 +1815,9 @@ foreach ($upcomingPaginatedAppts as $ugR) {
     <span class="appt-acc-head">
         <span>
             <span class="appt-acc-title"><i class="bi bi-calendar2-week-fill"></i> Upcoming Appointments <span class="appt-count-badge"><?= (int) $futureTotal ?></span></span>
-            <span class="appt-acc-sub"><?= $upcomingDateFilter !== '' ? 'Showing ' . e(upcomingDayLabel($upcomingDateFilter)) . ' · ' . e(upcomingDaySub($upcomingDateFilter)) : "Next 7 days — today's appointments are in Today's Appointment above" ?></span>
+            <span class="appt-acc-sub"><?= $upcomingDateFilter !== '' ? 'Showing ' . e(upcomingDayLabel($upcomingDateFilter)) . ' · ' . e(upcomingDaySub($upcomingDateFilter)) : "Upcoming scheduled dental appointments — today's appointments are in Today's Appointment above" ?></span>
         </span>
-        <span style="margin:0 auto;display:inline-flex;align-items:center;gap:8px;background:#EAF7F0;border:1px solid #C9E9DA;color:#0E6B5E;font-weight:800;font-size:13.5px;border-radius:999px;padding:8px 18px;white-space:nowrap;"><i class="bi bi-calendar-event"></i><?= e(date('F d, Y', strtotime($todayKeyUp . ' +1 day'))) ?> — <?= e(date('F d, Y', strtotime($weekEndKey))) ?></span>
+        <span style="margin:0 auto;display:inline-flex;align-items:center;gap:8px;background:#EAF7F0;border:1px solid #C9E9DA;color:#0E6B5E;font-weight:800;font-size:13.5px;border-radius:999px;padding:8px 18px;white-space:nowrap;"><i class="bi bi-calendar-event"></i>Upcoming Schedule</span>
         <i class="bi bi-chevron-down appt-acc-chevron"></i>
     </span>
 </button>
@@ -1633,14 +1825,15 @@ foreach ($upcomingPaginatedAppts as $ugR) {
 <div id="collapse-upcoming" class="collapse<?= $initialTab === 'upcoming' ? ' show' : '' ?> appt-card-collapse">
 <div class="appt-card-body">
 <div class="appointments-filter-bar">
-<form method="GET" action="appointments.php#upcoming" class="row g-2 mb-0">
+<form method="GET" action="appointments.php#upcoming" class="row g-2 mb-0" onsubmit="this.action='appointments.php?tab=upcoming#upcoming';">
+    <input type="hidden" name="tab" value="upcoming">
     <?php if ($search !== ''): ?><input type="hidden" name="search" value="<?= e($search) ?>"><?php endif; ?>
     <?php if ($dentistFilter > 0): ?><input type="hidden" name="dentist_id" value="<?= (int) $dentistFilter ?>"><?php endif; ?>
     <?php if ($historyStatus !== ''): ?><input type="hidden" name="hstatus" value="<?= e($historyStatus) ?>"><?php endif; ?>
     <?php if ($todayStatus !== ''): ?><input type="hidden" name="tstatus" value="<?= e($todayStatus) ?>"><?php endif; ?>
     <div class="col-md-4">
         <select name="udate" class="form-select" onchange="this.form.submit()">
-            <option value="">All dates (next 7 days)</option>
+            <option value="">All upcoming dates</option>
             <?php foreach ($upcomingDateOptions as $optDay => $optCount): ?>
             <option value="<?= e($optDay) ?>" <?= $upcomingDateFilter === $optDay ? 'selected' : '' ?>>
                 <?= e(upcomingDayLabel($optDay)) ?> · <?= e(upcomingDaySub($optDay)) ?> (<?= (int) $optCount ?>)
@@ -1758,6 +1951,7 @@ data-tip="View Details"
 data-patient="<?= e(trim(($a['patient_name'] ?? ''))) ?>"
 data-service="<?= e($a['service_type'] ?? '') ?>"
 data-dentist="<?= e($a['dentist_name'] ?? '') ?>"
+data-dentist-id="<?= (int)($a['dentist_id'] ?? 0) ?>"
 data-time="<?= e(date('M d, Y', strtotime($a['appointment_date'])) . ' ' . date('h:i A', strtotime($a['start_time'])) . ' - ' . date('h:i A', strtotime($a['end_time']))) ?>"
 data-booked="<?= e(!empty($a['created_at']) ? date('M d, Y h:i A', strtotime($a['created_at'])) : '—') ?>"
 title="View details">
@@ -1770,11 +1964,15 @@ data-tip="Change Status"
 data-appt-id="<?= (int) $a['id'] ?>"
 data-patient="<?= e(trim(($a['patient_name'] ?? '') . ' (' . ($a['patient_number'] ?? '') . ')')) ?>"
 data-dentist="<?= e($a['dentist_name'] ?? '') ?>"
+data-dentist-id="<?= (int)($a['dentist_id'] ?? 0) ?>"
 data-service="<?= e($a['service_type'] ?? '') ?>"
 data-status="<?= e($a['status'] ?? '') ?>"
+data-rescheduled="<?= !empty($a['rescheduled_at']) ? '1' : '0' ?>"
 data-date="<?= e(substr($a['appointment_date'] ?? '', 0, 10)) ?>"
 data-start="<?= e(substr($a['start_time'] ?? '', 0, 5)) ?>"
 data-end="<?= e(substr($a['end_time'] ?? '', 0, 5)) ?>"
+data-dentist-absent="<?= isApptDentistAbsent($a) ? '1' : '0' ?>"
+data-absent-reason="<?= e(!empty($a['dayoff_reason']) ? $a['dayoff_reason'] : ((isset($a['rest_day']) && (int)date('w', strtotime($a['appointment_date'])) === (int)$a['rest_day']) ? 'Weekly Rest Day' : '')) ?>"
 data-tab="upcoming"
 title="Change status"
 style="cursor:pointer;">
@@ -2054,6 +2252,7 @@ class="btn btn-sm btn-outline-primary">
 </button>
 </form>
 
+<?php if (empty($a['rescheduled_at'])): ?>
 <button
 type="button"
 class="btn btn-sm btn-outline-secondary reschedule-button"
@@ -2067,6 +2266,11 @@ data-bs-toggle="modal"
 data-bs-target="#rescheduleAppointment">
     <i class="bi bi-calendar2-week"></i>
 </button>
+<?php else: ?>
+<span class="badge bg-warning text-dark" data-tip="Already rescheduled on <?= e(date('M d, Y h:i A', strtotime($a['rescheduled_at']))) ?>" style="font-size:11px;font-weight:700;padding:6px 10px;border-radius:8px;">
+    <i class="bi bi-calendar2-week me-1"></i>Rescheduled
+</span>
+<?php endif; ?>
 
 <a
 href="no_show.php?appointment_id=<?= (int) $a['id'] ?>"
@@ -2107,7 +2311,7 @@ No-Show
     <span class="appt-acc-head">
         <span>
             <span class="appt-acc-title"><i class="bi bi-clock-history"></i> Appointment History <span class="appt-count-badge"><?= (int) $historyTotal ?></span></span>
-            <span class="appt-acc-sub">Finished appointments (Confirmed, Completed, Cancelled, No-Show)</span>
+            <span class="appt-acc-sub">Past &amp; finished appointments (Completed, No-Show, Cancelled)</span>
         </span>
         <i class="bi bi-chevron-down appt-acc-chevron"></i>
     </span>
@@ -2116,44 +2320,59 @@ No-Show
 <div id="collapse-history" class="collapse<?= $initialTab === 'history' ? ' show' : '' ?> appt-card-collapse">
 <div class="appt-card-body">
 <div class="appointments-filter-bar">
-<form method="GET" action="appointments.php#history" class="row g-2 mb-0">
-
-    <?php if ($search !== ''): ?>
-    <input type="hidden" name="search" value="<?= e($search) ?>">
-    <?php endif; ?>
-
-    <?php if ($dentistFilter > 0): ?>
-    <input type="hidden" name="dentist_id" value="<?= (int) $dentistFilter ?>">
-    <?php endif; ?>
-
-    <div class="col-md-4">
-        <input type="search" name="hsearch" value="<?= e($historyNameSearch) ?>" class="form-control" placeholder="Search patient name">
+    <!-- Quick Status Filter Pills -->
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <span class="small fw-bold text-muted me-1"><i class="bi bi-funnel me-1"></i>Status:</span>
+        <a href="appointments.php?<?= http_build_query(array_filter(['search' => $search !== '' ? $search : null, 'dentist_id' => $dentistFilter > 0 ? $dentistFilter : null, 'hsearch' => $historyNameSearch !== '' ? $historyNameSearch : null, 'tab' => 'history'])) ?>#history" 
+           class="btn btn-sm <?= $historyStatus === '' ? 'btn-primary' : 'btn-outline-secondary' ?>" 
+           style="border-radius:20px;font-weight:700;padding:5px 13px;<?= $historyStatus === '' ? 'background:linear-gradient(135deg,#149A72,#0A4A41) !important;color:#fff !important;border:none !important;' : 'background:#fff;border-color:#D1E7DD;color:#0E6B5E;' ?>">
+            All <span class="badge ms-1" style="background:<?= $historyStatus === '' ? 'rgba(255,255,255,.25)' : '#EAF7F0' ?>;color:<?= $historyStatus === '' ? '#fff' : '#0E6B5E' ?>;border-radius:10px;font-size:11px;"><?= (int)($historyCounts['count_all'] ?? $historyTotal) ?></span>
+        </a>
+        <a href="appointments.php?<?= http_build_query(array_filter(['search' => $search !== '' ? $search : null, 'dentist_id' => $dentistFilter > 0 ? $dentistFilter : null, 'hsearch' => $historyNameSearch !== '' ? $historyNameSearch : null, 'hstatus' => 'Completed', 'tab' => 'history'])) ?>#history" 
+           class="btn btn-sm <?= $historyStatus === 'Completed' ? 'btn-primary' : 'btn-outline-secondary' ?>" 
+           style="border-radius:20px;font-weight:700;padding:5px 13px;<?= $historyStatus === 'Completed' ? 'background:linear-gradient(135deg,#149A72,#0A4A41) !important;color:#fff !important;border:none !important;' : 'background:#fff;border-color:#D1E7DD;color:#157ca0;' ?>">
+            <i class="bi bi-check-circle-fill me-1" style="color:<?= $historyStatus === 'Completed' ? '#A7F3D0' : '#157ca0' ?>;"></i>Completed <span class="badge ms-1" style="background:<?= $historyStatus === 'Completed' ? 'rgba(255,255,255,.25)' : '#e6f4fb' ?>;color:<?= $historyStatus === 'Completed' ? '#fff' : '#157ca0' ?>;border-radius:10px;font-size:11px;"><?= (int)($historyCounts['count_completed'] ?? 0) ?></span>
+        </a>
+        <a href="appointments.php?<?= http_build_query(array_filter(['search' => $search !== '' ? $search : null, 'dentist_id' => $dentistFilter > 0 ? $dentistFilter : null, 'hsearch' => $historyNameSearch !== '' ? $historyNameSearch : null, 'hstatus' => 'No-Show', 'tab' => 'history'])) ?>#history" 
+           class="btn btn-sm <?= $historyStatus === 'No-Show' ? 'btn-primary' : 'btn-outline-secondary' ?>" 
+           style="border-radius:20px;font-weight:700;padding:5px 13px;<?= $historyStatus === 'No-Show' ? 'background:linear-gradient(135deg,#149A72,#0A4A41) !important;color:#fff !important;border:none !important;' : 'background:#fff;border-color:#D1E7DD;color:#8b4141;' ?>">
+            <i class="bi bi-person-x-fill me-1" style="color:<?= $historyStatus === 'No-Show' ? '#fca5a5' : '#8b4141' ?>;"></i>No-Show <span class="badge ms-1" style="background:<?= $historyStatus === 'No-Show' ? 'rgba(255,255,255,.25)' : '#f1e8e8' ?>;color:<?= $historyStatus === 'No-Show' ? '#fff' : '#8b4141' ?>;border-radius:10px;font-size:11px;"><?= (int)($historyCounts['count_noshow'] ?? 0) ?></span>
+        </a>
+        <a href="appointments.php?<?= http_build_query(array_filter(['search' => $search !== '' ? $search : null, 'dentist_id' => $dentistFilter > 0 ? $dentistFilter : null, 'hsearch' => $historyNameSearch !== '' ? $historyNameSearch : null, 'hstatus' => 'Cancelled', 'tab' => 'history'])) ?>#history" 
+           class="btn btn-sm <?= $historyStatus === 'Cancelled' ? 'btn-primary' : 'btn-outline-secondary' ?>" 
+           style="border-radius:20px;font-weight:700;padding:5px 13px;<?= $historyStatus === 'Cancelled' ? 'background:linear-gradient(135deg,#149A72,#0A4A41) !important;color:#fff !important;border:none !important;' : 'background:#fff;border-color:#D1E7DD;color:#b43b3b;' ?>">
+            <i class="bi bi-x-circle-fill me-1" style="color:<?= $historyStatus === 'Cancelled' ? '#fca5a5' : '#b43b3b' ?>;"></i>Cancelled <span class="badge ms-1" style="background:<?= $historyStatus === 'Cancelled' ? 'rgba(255,255,255,.25)' : '#fdecec' ?>;color:<?= $historyStatus === 'Cancelled' ? '#fff' : '#b43b3b' ?>;border-radius:10px;font-size:11px;"><?= (int)($historyCounts['count_cancelled'] ?? 0) ?></span>
+        </a>
     </div>
 
-    <div class="col-md-4">
-        <select name="hstatus" class="form-select" onchange="this.form.submit()">
-            <option value="">All History Statuses</option>
-            <?php foreach ($historyStatuses as $filterStatus): ?>
-                <option value="<?= e($filterStatus) ?>" <?= $historyStatus === $filterStatus ? 'selected' : '' ?>>
-                    <?= e($filterStatus) ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
-    </div>
+    <form method="GET" action="appointments.php#history" class="row g-2 mb-0" onsubmit="this.action='appointments.php?tab=history#history';">
+        <?php if ($search !== ''): ?>
+        <input type="hidden" name="search" value="<?= e($search) ?>">
+        <?php endif; ?>
 
-    <div class="col-auto">
-<button class="btn btn-outline-primary" data-tip="Filter">
-    <i class="bi bi-funnel"></i> Filter
-</button>
-    </div>
+        <?php if ($dentistFilter > 0): ?>
+        <input type="hidden" name="dentist_id" value="<?= (int) $dentistFilter ?>">
+        <?php endif; ?>
 
-    <?php if ($historyStatus !== '' || $historyNameSearch !== ''): ?>
-        <div class="col-auto">
-            <a href="appointments.php?<?= http_build_query(array_filter(['search' => $search, 'dentist_id' => $dentistFilter ?: null])) ?>#history" class="btn btn-light">Clear</a>
+        <?php if ($historyStatus !== ''): ?>
+        <input type="hidden" name="hstatus" value="<?= e($historyStatus) ?>">
+        <?php endif; ?>
+
+        <input type="hidden" name="tab" value="history">
+
+        <div class="col-md-6 col-lg-5">
+            <div class="input-group">
+                <span class="input-group-text" style="background:#F6FBF8;border:1px solid #D1E7DD;border-right:none;border-radius:10px 0 0 10px;color:#0E6B5E;"><i class="bi bi-search"></i></span>
+                <input type="search" name="hsearch" value="<?= e($historyNameSearch) ?>" class="form-control" placeholder="Search patient name..." style="border-left:none;border-radius:0 10px 10px 0 !important;">
+            </div>
         </div>
-    <?php endif; ?>
 
-</form>
+        <?php if ($historyNameSearch !== ''): ?>
+            <div class="col-auto">
+                <a href="appointments.php?<?= http_build_query(array_filter(['search' => $search !== '' ? $search : null, 'dentist_id' => $dentistFilter > 0 ? $dentistFilter : null, 'hstatus' => $historyStatus !== '' ? $historyStatus : null, 'tab' => 'history'])) ?>#history" class="btn btn-light" style="border:1px solid #D1E7DD;border-radius:10px;font-weight:600;color:#57727d;padding:9px 16px;"><i class="bi bi-x-circle me-1"></i>Clear Search</a>
+            </div>
+        <?php endif; ?>
+    </form>
 </div>
 
 <div class="card-body" style="padding:0;">
@@ -2253,6 +2472,7 @@ class="btn btn-sm btn-outline-primary history-view-btn"
 data-tip="View Details"
 data-patient="<?= e(trim(($a['patient_name'] ?? '') . '')) ?>"
 data-dentist="<?= e($a['dentist_name'] ?? '') ?>"
+data-dentist-id="<?= (int)($a['dentist_id'] ?? 0) ?>"
 data-date="<?= e($a['appointment_date'] ?? '') ?>"
 data-start="<?= e(substr($a['start_time'] ?? '', 0, 5)) ?>"
 data-end="<?= e(substr($a['end_time'] ?? '', 0, 5)) ?>"
@@ -2260,7 +2480,7 @@ data-service="<?= e($a['service_type'] ?? '') ?>"
 data-booked="<?= e(!empty($a['created_at']) ? date('M d, Y h:i A', strtotime($a['created_at'])) : '-') ?>"
 data-status="<?= e($a['status'] ?? '') ?>"
 data-confirmed="<?= e(!empty($a['confirmed_at']) ? date('M d, Y h:i A', strtotime($a['confirmed_at'])) : '') ?>"
-data-cancelled="<?= e(!empty($a['cancelled_at']) ? date('M d, Y h:i A', strtotime($a['cancelled_at'])) : '') ?>"
+data-cancelled="<?= e(!empty($a['cancelled_at']) ? date('M d, Y h:i A', strtotime($a['cancelled_at'])) : ($a['status'] === 'Cancelled' && !empty($a['created_at']) ? date('M d, Y h:i A', strtotime($a['created_at'])) : '')) ?>"
 data-checkedin="<?= e(!empty($a['checked_in_at']) ? date('M d, Y h:i A', strtotime($a['checked_in_at'])) : '') ?>"
 data-serving="<?= e(!empty($a['serving_at']) ? date('M d, Y h:i A', strtotime($a['serving_at'])) : '') ?>"
 data-completed="<?= e(!empty($a['completed_at']) ? date('M d, Y h:i A', strtotime($a['completed_at'])) : '') ?>"
@@ -2268,6 +2488,22 @@ data-rescheduled="<?= e(!empty($a['rescheduled_at']) ? date('M d, Y h:i A', strt
 title="View details">
     <i class="bi bi-eye me-1"></i> View
 </button>
+<?php if ($a['status'] === 'Pending' && empty($a['rescheduled_at'])): ?>
+<button
+type="button"
+class="btn btn-sm btn-outline-warning reschedule-button ms-1"
+data-bs-toggle="modal"
+data-bs-target="#rescheduleModal"
+data-id="<?= (int)$a['id'] ?>"
+data-date="<?= e($a['appointment_date']) ?>"
+data-start="<?= e(substr($a['start_time'], 0, 5)) ?>"
+data-end="<?= e(substr($a['end_time'], 0, 5)) ?>"
+data-section="history"
+data-tip="Reschedule"
+title="Reschedule appointment">
+    <i class="bi bi-calendar2-week me-1"></i> Reschedule
+</button>
+<?php endif; ?>
 
 </td>
 
@@ -2540,6 +2776,7 @@ document.querySelectorAll('.history-view-btn').forEach(function(btn){
         document.getElementById('historyViewBooked').textContent = btn.dataset.booked || '—';
         document.getElementById('historyViewService').textContent = btn.dataset.service || '—';
         var tl = [
+            ['bi-clock-fill', 'Booked (Pending)', btn.dataset.booked !== '-' ? btn.dataset.booked : ''],
             ['bi-check2-all', 'Confirmed', btn.dataset.confirmed],
             ['bi-x-circle-fill', 'Cancelled', btn.dataset.cancelled],
             ['bi-box-arrow-in-right', 'Checked In', btn.dataset.checkedin],
@@ -2643,6 +2880,7 @@ tabindex="-1">
             <button type="submit" class="sa-btn sa-complete" data-tip="Complete appointment"><i class="bi bi-check-circle-fill"></i>COMPLETE</button>
         </form>
         <button type="button" class="sa-btn sa-resched" id="statusActionReschedBtn" data-tip="Reschedule appointment"><i class="bi bi-calendar2-week-fill"></i>RESCHEDULE</button>
+        <button type="button" class="sa-btn sa-reassign" id="statusActionReassignBtn" data-tip="Reassign to another available dentist" style="display:none;background:linear-gradient(135deg,#0E6B5E,#0A4A41);"><i class="bi bi-arrow-left-right"></i>REASSIGN DENTIST</button>
         <form method="POST" id="statusActionCancelWrap">
             <?= csrfField() ?>
             <input type="hidden" name="action" value="status">
@@ -2658,6 +2896,36 @@ tabindex="-1">
 
 </div>
 
+</div>
+
+<!-- DENTIST ABSENT WARNING POPUP -->
+<div class="modal fade" id="dentistAbsentWarningModal" tabindex="-1" style="z-index: 10600;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content text-center p-4" style="border-radius:18px; border:none; box-shadow:0 15px 40px rgba(0,0,0,0.25);">
+            <div class="mb-3">
+                <div style="width:72px; height:72px; margin:0 auto; background:#FEF3C7; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#D97706; font-size:36px;">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                </div>
+            </div>
+            <h4 class="fw-bold mb-2 text-dark">Cannot Confirm Appointment</h4>
+            <div class="p-3 my-3 text-start" style="background:#FFFBEB; border:1px solid #FDE68A; border-radius:12px; font-size:13.5px; color:#92400E;">
+                <div class="mb-1"><strong>Doctor:</strong> <span id="warnAbsentDoctorName">—</span> <span class="badge bg-danger ms-1">ABSENT / ON LEAVE</span></div>
+                <div class="mb-1"><strong>Reason:</strong> <span id="warnAbsentReason">Emergency Leave / Absence</span></div>
+                <div><strong>Patient:</strong> <span id="warnAbsentPatientName">—</span></div>
+            </div>
+            <p class="text-muted mb-4" style="font-size:14px; line-height:1.5;">
+                This appointment cannot be confirmed while the attending doctor is absent or on leave. Please <strong>reassign the appointment</strong> to an available duty dentist first.
+            </p>
+            <div class="d-flex flex-column gap-2">
+                <button type="button" class="btn text-white py-2 px-3 fw-bold" id="btnReassignFromAbsentWarning" style="background:linear-gradient(135deg,#0E6B5E,#0A4A41); border:none; border-radius:10px; box-shadow:0 4px 12px rgba(14,107,94,.25);">
+                    <i class="bi bi-arrow-left-right me-1"></i> Reassign Duty Dentist Now
+                </button>
+                <button type="button" class="btn btn-light py-2" data-bs-dismiss="modal" style="border-radius:10px;">
+                    Cancel / Keep Pending
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- RESCHEDULE POPUP -->
@@ -2704,8 +2972,149 @@ tabindex="-1">
 
 </div>
 
+<!-- REASSIGN DENTIST POPUP -->
+<div class="modal fade" id="reassignPopupModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:16px;overflow:visible;">
+            <div class="modal-header" style="background:linear-gradient(135deg,#0E6B5E,#0A4A41) !important;border-bottom:none !important;">
+                <h5 class="modal-title" style="color:#ffffff !important;font-weight:800;"><i class="bi bi-arrow-left-right me-1"></i> Reassign Dentist</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" data-tip="Close"></button>
+            </div>
+            <div class="modal-body" style="padding:22px;">
+                <form method="POST" id="statusActionReassignForm">
+                    <?= csrfField() ?>
+                    <input type="hidden" name="action" value="reassign_dentist">
+                    <input type="hidden" name="tab" value="today" class="status-action-tab">
+                    <input type="hidden" name="id" class="status-action-id" value="">
+                    
+                    <div class="resched-old mb-3">
+                        <div class="resched-old-title"><i class="bi bi-person-fill"></i> Appointment Summary</div>
+                        <div class="resched-old-patient" id="reassignPatientName">—</div>
+                        <div class="resched-old-datetime" id="reassignDateTime">—</div>
+                        <div class="resched-old-datetime" id="reassignOldDentist">—</div>
+                        <div class="resched-old-datetime" id="reassignService">—</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">SELECT NEW ATTENDING DENTIST</label>
+                        <select name="new_dentist_id" id="reassignDentistSelect" class="form-select" required>
+                            <option value="">— Select an available dentist —</option>
+                            <?php foreach ($dentists as $d): ?>
+                                <option value="<?= (int)$d['id'] ?>">Dr. <?= e(preg_replace('/^Dr\.?\s+/i', '', $d['dentist_name'])) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div id="reassignDentistHelp" class="mt-1">
+                            <small class="text-muted" style="font-size:11.5px;">The system automatically verifies that the selected doctor is on-duty and conflict-free.</small>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">REASSIGNMENT REASON (INCLUDED IN PATIENT NOTIFICATION)</label>
+                        <input type="text" name="reassign_reason" class="form-control" value="emergency medical leave of original dentist" placeholder="e.g. Doctor emergency leave, schedule adjustment">
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" id="reassignSubmitBtn" class="btn text-white fw-bold" style="background:linear-gradient(135deg,#0E6B5E,#0A4A41); border:none; padding:8px 20px; border-radius:8px; box-shadow:0 4px 12px rgba(14,107,94,.25);">
+                            <i class="bi bi-check2-circle me-1"></i>Confirm Reassignment
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+var DENTIST_ROSTER = <?= json_encode(array_values(array_map(function($d) {
+    return [
+        'id' => (int)$d['id'],
+        'dentist_name' => (string)$d['dentist_name'],
+        'rest_day' => ($d['rest_day'] !== null && $d['rest_day'] !== '') ? (int)$d['rest_day'] : null
+    ];
+}, $dentists)), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+
+var DENTIST_DAY_OFFS = <?= json_encode(array_values(array_map(function($o) {
+    return [
+        'dentist_id' => (int)$o['dentist_id'],
+        'off_date' => (string)$o['off_date'],
+        'reason' => (string)($o['reason'] ?? '')
+    ];
+}, $allDentistDayOffs)), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+
+function updateReassignDentistOptions(apptDate, curDentistId) {
+    var selectEl = document.getElementById('reassignDentistSelect');
+    var helpEl = document.getElementById('reassignDentistHelp');
+    var submitBtn = document.getElementById('reassignSubmitBtn');
+    if (!selectEl) return;
+
+    selectEl.innerHTML = '';
+
+    var dayOfWeek = -1;
+    if (apptDate && /^\d{4}-\d{2}-\d{2}$/.test(apptDate)) {
+        var parts = apptDate.split('-');
+        var dt = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        dayOfWeek = dt.getDay();
+    }
+
+    var available = [];
+
+    (DENTIST_ROSTER || []).forEach(function(d){
+        var dId = parseInt(d.id, 10);
+        // Exclude current dentist
+        if (curDentistId && dId === curDentistId) {
+            return;
+        }
+        // Exclude dentist if regular weekly rest day matches appointment date
+        if (d.rest_day !== null && d.rest_day !== undefined && d.rest_day === dayOfWeek) {
+            return;
+        }
+        // Exclude dentist if marked absent / on leave in dentist_day_offs for this date
+        var isAbsent = (DENTIST_DAY_OFFS || []).some(function(doff){
+            return parseInt(doff.dentist_id, 10) === dId && doff.off_date === apptDate;
+        });
+        if (isAbsent) {
+            return;
+        }
+
+        available.push(d);
+    });
+
+    if (available.length > 0) {
+        var defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = '— Select an available dentist (' + available.length + ' on-duty) —';
+        selectEl.appendChild(defaultOpt);
+
+        available.forEach(function(d){
+            var opt = document.createElement('option');
+            opt.value = d.id;
+            var cleanName = (d.dentist_name || '').replace(/^Dr\.?\s+/i, '');
+            opt.textContent = 'Dr. ' + cleanName;
+            selectEl.appendChild(opt);
+        });
+
+        if (submitBtn) submitBtn.disabled = false;
+        if (helpEl) {
+            var dateFmt = fmtOldApptDate(apptDate);
+            helpEl.innerHTML = '<small class="text-muted" style="font-size:11.5px;"><i class="bi bi-shield-check text-success me-1"></i>Showing ' + available.length + ' on-duty doctor(s) on <strong>' + (dateFmt || apptDate) + '</strong> (doctors on rest day or absent have been excluded).</small>';
+        }
+    } else {
+        var noOpt = document.createElement('option');
+        noOpt.value = '';
+        noOpt.textContent = '— No available dentists on this date —';
+        selectEl.appendChild(noOpt);
+
+        if (submitBtn) submitBtn.disabled = true;
+        if (helpEl) {
+            var dateFmt = fmtOldApptDate(apptDate);
+            helpEl.innerHTML = '<div class="alert alert-warning py-2 px-3 small mt-1 mb-0 border-0" style="background:#fff3cd;color:#856404;border-radius:6px;"><i class="bi bi-exclamation-triangle-fill me-1"></i> No other dentists are on duty on <strong>' + (dateFmt || apptDate) + '</strong> (all other doctors are either off-duty, absent, or on rest day). Please reschedule the appointment instead.</div>';
+        }
+    }
+}
+
 /* Status action popup: show only contextually valid buttons for current status & clinic hours */
+var activeStatusActionBtn = null;
 function fmtOldApptDate(ds) {
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ds || '');
     if (!m) return (ds || '—');
@@ -2722,11 +3131,18 @@ function fmtOldApptTime(t) {
 }
 document.querySelectorAll('.status-action-btn').forEach(function(btn){
     btn.addEventListener('click', function(){
+        activeStatusActionBtn = btn;
         var rawStatus = (btn.dataset.status || 'Pending').trim();
         var st = rawStatus.toLowerCase();
         var apptDate = (btn.dataset.date || '').trim();
         var apptStart = (btn.dataset.start || '').trim();
         var apptEnd = (btn.dataset.end || apptStart).trim();
+
+        var reModalEl = document.getElementById('reassignPopupModal');
+        if (reModalEl) {
+            reModalEl.dataset.apptDate = apptDate;
+            reModalEl.dataset.dentistId = btn.dataset.dentistId || '0';
+        }
 
         document.getElementById('statusActionPatient').textContent = btn.dataset.patient || '';
         var curStEl = document.getElementById('statusActionCurrentStatus');
@@ -2762,6 +3178,7 @@ document.querySelectorAll('.status-action-btn').forEach(function(btn){
         var checkinWrap = document.getElementById('statusActionCheckinWrap');
         var completeWrap = document.getElementById('statusActionCompleteWrap');
         var reschedBtn = document.getElementById('statusActionReschedBtn');
+        var reassignBtn = document.getElementById('statusActionReassignBtn');
         var cancelWrap = document.getElementById('statusActionCancelWrap');
         var noticeEl = document.getElementById('statusActionNotice');
 
@@ -2770,6 +3187,8 @@ document.querySelectorAll('.status-action-btn').forEach(function(btn){
         var showComplete = false;
         var showResched = false;
         var showCancel = false;
+        var isDentistAbsent = (btn.dataset.dentistAbsent === '1');
+        var showReassign = isDentistAbsent && (st === 'pending' || st === 'confirmed' || st === 'approved');
         var noticeMsg = '';
 
         if (st === 'pending') {
@@ -2796,20 +3215,40 @@ document.querySelectorAll('.status-action-btn').forEach(function(btn){
             showResched = true;
         }
 
+        if (btn.dataset.rescheduled === '1') {
+            showResched = false;
+        }
+
+        if (isDentistAbsent && (st === 'pending' || st === 'confirmed' || st === 'approved')) {
+            var absentReason = (btn.dataset.absentReason || '').trim();
+            var absentAlert = '⚠️ Assigned dentist is marked ABSENT on this date' + (absentReason !== '' ? ' (' + absentReason + ')' : '') + '. Please reassign this appointment to an available doctor.';
+            noticeMsg = noticeMsg !== '' ? noticeMsg + ' ' + absentAlert : absentAlert;
+        }
+
         if (confirmWrap) confirmWrap.style.display = showConfirm ? '' : 'none';
         if (checkinWrap) checkinWrap.style.display = showCheckin ? '' : 'none';
         if (completeWrap) completeWrap.style.display = showComplete ? '' : 'none';
         if (reschedBtn) reschedBtn.style.display = showResched ? '' : 'none';
+        if (reassignBtn) reassignBtn.style.display = showReassign ? '' : 'none';
         if (cancelWrap) cancelWrap.style.display = showCancel ? '' : 'none';
         if (noticeEl) {
-            noticeEl.textContent = noticeMsg;
+            noticeEl.innerHTML = noticeMsg;
             noticeEl.style.display = noticeMsg !== '' ? '' : 'none';
         }
 
         var d = document.getElementById('statusActionDate');
         var s = document.getElementById('statusActionStart');
         var e2 = document.getElementById('statusActionEnd');
-        if (d && apptDate) d.value = apptDate >= todayStr ? apptDate : todayStr;
+        if (d) {
+            if (apptDate && apptDate > todayStr) {
+                d.value = apptDate;
+            } else {
+                var tmrw = new Date();
+                tmrw.setDate(tmrw.getDate() + 1);
+                var tmrwStr = tmrw.getFullYear() + '-' + String(tmrw.getMonth() + 1).padStart(2, '0') + '-' + String(tmrw.getDate()).padStart(2, '0');
+                d.value = tmrwStr;
+            }
+        }
         if (s && apptStart) s.value = apptStart;
         if (e2 && apptEnd) e2.value = apptEnd;
         new bootstrap.Modal(document.getElementById('statusActionModal')).show();
@@ -2822,6 +3261,84 @@ document.getElementById('statusActionReschedBtn').addEventListener('click', func
     var reschedModalEl = document.getElementById('reschedPopupModal');
     if (reschedModalEl) new bootstrap.Modal(reschedModalEl).show();
 });
+var reassignActionBtn = document.getElementById('statusActionReassignBtn');
+if (reassignActionBtn) {
+    reassignActionBtn.addEventListener('click', function(){
+        var statusModalEl = document.getElementById('statusActionModal');
+        var statusModal = bootstrap.Modal.getInstance(statusModalEl);
+        if (statusModal) statusModal.hide();
+        var reModalEl = document.getElementById('reassignPopupModal');
+        if (reModalEl) {
+            var patName = document.getElementById('statusActionPatient') ? document.getElementById('statusActionPatient').textContent : '—';
+            var oldDent = document.getElementById('statusActionOldDentist') ? document.getElementById('statusActionOldDentist').textContent : '—';
+            var oldDate = document.getElementById('statusActionOldDateTime') ? document.getElementById('statusActionOldDateTime').textContent : '—';
+            var oldSvc = document.getElementById('statusActionOldService') ? document.getElementById('statusActionOldService').textContent : '—';
+
+            var rp = document.getElementById('reassignPatientName');
+            var rd = document.getElementById('reassignDateTime');
+            var ro = document.getElementById('reassignOldDentist');
+            var rs = document.getElementById('reassignService');
+
+            if (rp) rp.textContent = patName;
+            if (rd) rd.textContent = oldDate;
+            if (ro) ro.textContent = oldDent;
+            if (rs) rs.textContent = oldSvc;
+
+            var targetDate = (reModalEl.dataset.apptDate || '').trim();
+            var targetDentId = parseInt(reModalEl.dataset.dentistId || '0', 10);
+            updateReassignDentistOptions(targetDate, targetDentId);
+
+            new bootstrap.Modal(reModalEl).show();
+        }
+    });
+}
+
+var statusConfirmForm = document.getElementById('statusActionConfirmWrap');
+if (statusConfirmForm) {
+    statusConfirmForm.addEventListener('submit', function(e) {
+        if (activeStatusActionBtn && activeStatusActionBtn.dataset.dentistAbsent === '1') {
+            e.preventDefault();
+
+            // Hide statusActionModal
+            var statusModalEl = document.getElementById('statusActionModal');
+            var statusModal = bootstrap.Modal.getInstance(statusModalEl);
+            if (statusModal) statusModal.hide();
+
+            // Populate warning modal
+            var docName = activeStatusActionBtn.dataset.dentist || 'Assigned Doctor';
+            docName = docName.replace(/^Dr\.?\s+/i, '');
+            var absReason = (activeStatusActionBtn.dataset.absentReason || 'Emergency Leave / Absence').trim();
+            var patName = activeStatusActionBtn.dataset.patient || 'Patient';
+
+            var warnDoc = document.getElementById('warnAbsentDoctorName');
+            if (warnDoc) warnDoc.textContent = 'Dr. ' + docName;
+            var warnRsn = document.getElementById('warnAbsentReason');
+            if (warnRsn) warnRsn.textContent = absReason;
+            var warnPat = document.getElementById('warnAbsentPatientName');
+            if (warnPat) warnPat.textContent = patName;
+
+            var warnModalEl = document.getElementById('dentistAbsentWarningModal');
+            if (warnModalEl) {
+                new bootstrap.Modal(warnModalEl).show();
+            }
+            return false;
+        }
+    });
+}
+
+var btnReassignWarning = document.getElementById('btnReassignFromAbsentWarning');
+if (btnReassignWarning) {
+    btnReassignWarning.addEventListener('click', function() {
+        var warnModalEl = document.getElementById('dentistAbsentWarningModal');
+        var warnModal = bootstrap.Modal.getInstance(warnModalEl);
+        if (warnModal) warnModal.hide();
+
+        var reassignBtn = document.getElementById('statusActionReassignBtn');
+        if (reassignBtn) {
+            reassignBtn.click();
+        }
+    });
+}
 </script>
 
 <!-- ADD APPOINTMENT -->
@@ -3121,10 +3638,31 @@ function selectAdminApptCategory(cat, scroll) {
 
     function syncFromHash() {
         var rawHash = (window.location.hash || '').replace(/^#/, '');
+        var params = new URLSearchParams(window.location.search);
+        var qTab = params.get('tab');
+
+        if (!rawHash) {
+            if (qTab && validTabs.indexOf(qTab) !== -1) {
+                rawHash = qTab;
+            } else if (params.has('hstatus') || params.has('hsearch') || params.has('hpage')) {
+                rawHash = 'history';
+            } else if (params.has('tstatus') || params.has('tpage')) {
+                rawHash = 'today';
+            } else if (params.has('ustatus') || params.has('udate') || params.has('upage')) {
+                rawHash = 'upcoming';
+            }
+        }
+
         if (!rawHash) return;
 
         if (validTabs.indexOf(rawHash) !== -1) {
             selectAdminApptCategory(rawHash, false);
+            var cardEl = document.getElementById(rawHash);
+            if (cardEl && (params.has('hstatus') || params.has('hsearch') || params.has('hpage') || window.location.hash === '#' + rawHash)) {
+                setTimeout(function() {
+                    try { cardEl.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(e){}
+                }, 120);
+            }
             return;
         }
 
@@ -3146,7 +3684,7 @@ function selectAdminApptCategory(cat, scroll) {
     }
 
     window.addEventListener('hashchange', syncFromHash);
-    if (window.location.hash) {
+    if (window.location.hash || window.location.search) {
         syncFromHash();
     }
 })();

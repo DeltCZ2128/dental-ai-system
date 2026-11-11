@@ -110,7 +110,7 @@ body { font-family: "Inter","DM Sans",system-ui,sans-serif; background:#0A3B34; 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
         <h2 class="mb-1" style="color:#ffffff;"><i class="bi bi-person-x-fill" style="color:#d65b5b;"></i> No-Show</h2>
-        <p class="mb-0" style="font-size:14px; color:#9CC4B6;">Makikita dito ang pasyente na ilang beses hindi naka-attend — icoconsider ni admin na No-Show.</p>
+        <p class="mb-0" style="font-size:14px; color:#9CC4B6;">View patients who missed their scheduled appointments and record them as No-Show.</p>
     </div>
     <a href="appointments.php" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Back to Appointments</a>
 </div>
@@ -128,10 +128,10 @@ body { font-family: "Inter","DM Sans",system-ui,sans-serif; background:#0A3B34; 
 <input type="hidden" name="action" value="mark_no_show">
 <input type="hidden" name="appointment_id" value="<?= (int)$appointmentId ?>">
 <button class="btn btn-dark btn-sm" style="font-size:13.5px; padding:8px 16px;"><i class="bi bi-person-x-fill"></i> Mark as No-Show (Admin)</button>
-<small class="text-muted ms-2" style="font-size:12.5px;">Di na nakapunta kahit niresched — magnonotif sa patient.</small>
+<small class="text-muted ms-2" style="font-size:12.5px;">Patient did not attend — this will notify the patient.</small>
 </form>
 <?php else: ?>
-<div class="alert alert-warning mt-3 mb-0" style="font-size:14px;"><i class="bi bi-check-circle-fill"></i> Naka No-Show na ito. Na-notify na ang pasyente sa kanyang dashboard/notifications.</div>
+<div class="alert alert-warning mt-3 mb-0" style="font-size:14px;"><i class="bi bi-check-circle-fill"></i> This appointment has been marked as No-Show. The patient has been notified on their dashboard and notifications.</div>
 <?php endif; ?>
 </div>
 </div>
@@ -139,7 +139,7 @@ body { font-family: "Inter","DM Sans",system-ui,sans-serif; background:#0A3B34; 
 
 <div class="card">
 <div class="card-body">
-<p class="text-muted mb-0" style="font-size:14px;"><i class="bi bi-info-circle" style="color:#0E6B5E;"></i> Kapag ilang araw nang hindi naka-attend ang pasyente sa mismong appointment at na-consider ni admin na No-Show, automatic na magnonotif ito sa <strong>dashboard at notifications ng pasyente</strong>.</p>
+<p class="text-muted mb-0" style="font-size:14px;"><i class="bi bi-info-circle" style="color:#0E6B5E;"></i> When an appointment has passed without the patient attending and is marked as No-Show by admin, an automated notification is sent to the <strong>patient dashboard and notifications</strong>.</p>
 </div>
 </div>
 

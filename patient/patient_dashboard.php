@@ -103,11 +103,7 @@ if (!$patient) {
         $firstName = 'Patient';
     }
 
-    $patientNumber =
-        'PAT-' .
-        date('Ymd') .
-        '-' .
-        strtoupper(substr(md5(uniqid('', true)), 0, 5));
+    $patientNumber = generateShortPatientNumber($pdo);
 
     try {
 
@@ -198,31 +194,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $patientId > 0) {
             $dashboardCancelError = 'Invalid appointment.';
         } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $prefDate) || $prefDate < date('Y-m-d')) {
             $dashboardCancelError = 'Preferred date must be today or later.';
+        } elseif ((int)date('N', strtotime($prefDate)) === 7) {
+            $dashboardCancelError = 'The clinic is closed on Sundays. Please select Monday to Saturday.';
         } elseif (!preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $prefTime)) {
             $dashboardCancelError = 'Preferred time is invalid.';
+        } elseif (substr($prefTime, 0, 5) < '08:00' || substr($prefTime, 0, 5) > '17:30') {
+            $dashboardCancelError = 'Preferred time must be within clinic operating hours (8:00 AM to 5:30 PM).';
+        } elseif ($prefDate === date('Y-m-d') && substr($prefTime, 0, 5) <= date('H:i')) {
+            $dashboardCancelError = 'Preferred time has already passed today. Please choose a later time or another date.';
         } elseif (mb_strlen($reschedReason) > 500) {
             $dashboardCancelError = 'Reason must not exceed 500 characters.';
         } else {
             try {
-                $stmt = $pdo->prepare("SELECT id, appointment_date, start_time, status FROM appointments WHERE id = ? AND patient_id = ? LIMIT 1");
+                $stmt = $pdo->prepare("SELECT id, appointment_date, start_time, end_time, status, rescheduled_at, dentist_id FROM appointments WHERE id = ? AND patient_id = ? LIMIT 1");
                 $stmt->execute([$reschedId, $patientId]);
                 $toResched = $stmt->fetch(PDO::FETCH_ASSOC);
                 if (!$toResched) {
                     $dashboardCancelError = 'Appointment not found.';
+                } elseif (!empty($toResched['rescheduled_at'])) {
+                    $dashboardCancelError = 'This appointment has already been rescheduled and cannot be rescheduled again.';
                 } elseif (!in_array($toResched['status'], ['Pending', 'Confirmed'], true)) {
                     $dashboardCancelError = 'Only Pending or Confirmed appointments can be rescheduled.';
                 } elseif ($toResched['appointment_date'] < date('Y-m-d')) {
                     $dashboardCancelError = 'Past appointments cannot be rescheduled.';
                 } else {
+                    $origDuration = 3600;
+                    if (!empty($toResched['start_time']) && !empty($toResched['end_time'])) {
+                        $calcDur = strtotime($toResched['end_time']) - strtotime($toResched['start_time']);
+                        if ($calcDur > 0) $origDuration = $calcDur;
+                    }
                     $prefTimeShort = substr($prefTime, 0, 5);
-                    $insStmt = $pdo->prepare("INSERT INTO appointment_concerns (appointment_id, patient_id, reason, message, status) VALUES (?, ?, ?, ?, 'New')");
-                    $insStmt->execute([
-                        $reschedId,
-                        $patientId,
-                        'Reschedule Request',
-                        'Patient requests reschedule of appointment on ' . $toResched['appointment_date'] . ' at ' . date('h:i A', strtotime($toResched['start_time'])) . ' to ' . $prefDate . ' at ' . date('h:i A', strtotime($prefTimeShort)) . '.' . ($reschedReason !== '' ? ' Reason: ' . $reschedReason : '')
-                    ]);
-                    $dashboardCancelSuccess = 'Reschedule request sent. It is now visible in the admin system.';
+                    $newStartTime = $prefTimeShort . ':00';
+                    $newEndTime = date('H:i:s', strtotime($newStartTime) + $origDuration);
+                    if ($newEndTime > '18:00:00') $newEndTime = '18:00:00';
+
+                    require_once __DIR__ . '/../functions.php';
+                    if (function_exists('appointmentConflict') && appointmentConflict((int)$toResched['dentist_id'], $prefDate, $newStartTime, $newEndTime, $reschedId)) {
+                        $dashboardCancelError = 'The selected date and time has a conflict with an existing appointment. Please choose a different schedule.';
+                    } else {
+                        $oldDateFmt = date('M d, Y', strtotime($toResched['appointment_date']));
+                        $oldTimeFmt = date('h:i A', strtotime($toResched['start_time']));
+                        $newDateFmt = date('M d, Y', strtotime($prefDate));
+                        $newTimeFmt = date('h:i A', strtotime($newStartTime));
+
+                        $notesEntry = "\n[Rescheduled by patient on " . date('Y-m-d H:i:s') . " from {$oldDateFmt} {$oldTimeFmt} to {$newDateFmt} {$newTimeFmt}" . ($reschedReason !== '' ? " - Reason: {$reschedReason}" : "") . "]";
+
+                        $upd = $pdo->prepare("
+                            UPDATE appointments
+                            SET appointment_date = ?,
+                                start_time = ?,
+                                end_time = ?,
+                                status = 'Pending',
+                                confirmed_at = NULL,
+                                rescheduled_at = NOW(),
+                                notes = CONCAT(COALESCE(notes, ''), ?)
+                            WHERE id = ? AND patient_id = ?
+                        ");
+                        $upd->execute([$prefDate, $newStartTime, $newEndTime, $notesEntry, $reschedId, $patientId]);
+
+                        try {
+                            $notif = $pdo->prepare("
+                                INSERT INTO notifications (patient_id, appointment_id, title, message, type)
+                                VALUES (?, ?, ?, ?, 'Appointment')
+                            ");
+                            $notif->execute([
+                                $patientId,
+                                $reschedId,
+                                'Appointment Rescheduled',
+                                'Your appointment has been successfully rescheduled to ' . $newDateFmt . ' at ' . $newTimeFmt . '.'
+                            ]);
+                        } catch (Throwable $e) {}
+
+                        try {
+                            $insStmt = $pdo->prepare("INSERT INTO appointment_concerns (appointment_id, patient_id, reason, message, status) VALUES (?, ?, ?, ?, 'Resolved')");
+                            $insStmt->execute([
+                                $reschedId,
+                                $patientId,
+                                'Reschedule Request',
+                                'Patient rescheduled appointment on ' . $toResched['appointment_date'] . ' at ' . $oldTimeFmt . ' to ' . $prefDate . ' at ' . $newTimeFmt . '.' . ($reschedReason !== '' ? ' Reason: ' . $reschedReason : '')
+                            ]);
+                        } catch (Throwable $e) {}
+
+                        $dashboardCancelSuccess = 'Your appointment has been rescheduled to ' . $newDateFmt . ' at ' . $newTimeFmt . '.';
+                    }
                 }
             } catch (Throwable $e) {
                 $dashboardCancelError = 'Unable to send reschedule request. Please try again.';
@@ -277,7 +331,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $patientId > 0) {
                         $prefix = $newNotes !== '' ? $newNotes . "\n" : '';
                         $newNotes = $prefix . 'Cancelled by patient (no reason given).';
                     }
-                    $stmt = $pdo->prepare("UPDATE appointments SET status = 'Cancelled', notes = ? WHERE id = ? AND patient_id = ? AND status IN ('Pending','Confirmed')");
+                    $stmt = $pdo->prepare("UPDATE appointments SET status = 'Cancelled', notes = ?, cancelled_at = NOW() WHERE id = ? AND patient_id = ? AND status IN ('Pending','Confirmed')");
                     $stmt->execute([$newNotes, $appointmentId, $patientId]);
                     if ($stmt->rowCount() > 0) {
                         try {

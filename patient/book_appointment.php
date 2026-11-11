@@ -325,17 +325,7 @@ if (!$patient) {
 
     try {
 
-        $patientNumber =
-            'PAT-' .
-            date('Ymd') .
-            '-' .
-            strtoupper(
-                substr(
-                    md5(uniqid('', true)),
-                    0,
-                    5
-                )
-            );
+        $patientNumber = generateShortPatientNumber($pdo);
 
 
         $insertColumns = [
@@ -1070,6 +1060,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $cEnd = date('h:i A', strtotime($conflict['end_time']));
                     $dLabel = trim($dentist['dentist_name'] ?? 'The selected dentist');
                     $errorMessage = "Schedule Conflict: {$dLabel} is already booked from {$cStart} to {$cEnd} on this date. Please choose another available time slot or another dentist.";
+                }
+            }
+
+            /* 3) Check patient daily limit: maximum 2 appointments per day */
+            if (empty($errorMessage)) {
+                $dailyStmt = $pdo->prepare("
+                    SELECT COUNT(*) FROM appointments
+                    WHERE patient_id = ?
+                      AND appointment_date = ?
+                      AND status NOT IN ('Cancelled', 'Canceled', 'No-Show')
+                ");
+                $dailyStmt->execute([$patientId, $selectedDate]);
+                if ((int)$dailyStmt->fetchColumn() >= 2) {
+                    $errorMessage = 'Appointment Limit Reached: You already have 2 appointments scheduled on ' . date('M d, Y', strtotime($selectedDate)) . '. Each patient is limited to a maximum of 2 appointments per day.';
                 }
             }
         }

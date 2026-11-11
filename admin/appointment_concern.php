@@ -442,14 +442,16 @@ body {
 
 @keyframes concernBgAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
-/* TOPBAR — kapag Patients page: puti, title + subtitle sa kaliwa,
+/* TOPBAR — kapag Concerns page: puti, title + subtitle sa kaliwa,
    date + clinic time + admin info sa kanan. */
-.shared-sidebar { display: none !important; }
 .shared-topbar {
-    left: 0 !important;
+    left: 280px !important;
     right: 0 !important;
     background: #ffffff !important;
     border-bottom: 1px solid #e8eef2 !important;
+}
+@media (max-width: 991px) {
+    .shared-topbar { left: 0 !important; }
 }
 .shared-topbar .admin-area { display: flex !important; align-items: center !important; gap: 16px !important; }
 .admin-topbar-today { display: flex; align-items: center; gap: 10px; color: #244f60; }
@@ -463,11 +465,20 @@ body {
 
 .concern-wrapper {
     padding: 110px 24px 40px !important;
-    max-width: 100% !important;
-    width: 100% !important;
-    margin: 0 !important;
+    max-width: calc(100% - 280px) !important;
+    width: calc(100% - 280px) !important;
+    margin-left: 280px !important;
     min-height: 100vh;
     background: transparent !important;
+    box-sizing: border-box !important;
+}
+@media (max-width: 991px) {
+    .concern-wrapper {
+        margin-left: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 110px 16px 40px !important;
+    }
 }
 
 .concern-wrapper > a.btn[href*="dashboard.php"] {
@@ -892,13 +903,10 @@ a.btn[href*="dashboard.php"]:hover {
                                 </span>
                                 <button
                                     type="button"
-                                    class="btn btn-sm js-concern-email-btn"
+                                    class="btn btn-sm js-concern-resend-btn"
                                     style="background:#ffffff; color:#0E6B5E; border:1.5px solid #A8D5C4; border-radius:8px; padding:6px 12px; font-size:12px; font-weight:700;"
                                     data-notification-id="<?= (int)$notification['id'] ?>"
-                                    data-to="<?= e($concernMail) ?>"
-                                    data-subject="<?= e(buildConcernEmailSubject()) ?>"
-                                    data-body="<?= e(buildConcernEmailBody($notification)) ?>"
-                                    data-tip="Send this email again"
+                                    data-tip="Resend email automatically"
                                     title="Resend email to patient">
                                     <i class="bi bi-arrow-repeat"></i> Resend
                                 </button>
@@ -1194,13 +1202,13 @@ a.btn[href*="dashboard.php"]:hover {
             <div style="display:flex; gap:14px; align-items:flex-start; background:#FDECEC; border:1px solid #F5C6C6; border-radius:12px; padding:14px 16px; margin-bottom:18px;">
                 <i class="bi bi-info-circle-fill" style="color:#C0392B; font-size:19px; flex-shrink:0;"></i>
                 <p style="color:#7A2B24; font-size:13.5px; line-height:1.6; font-weight:600; margin:0;">
-                    Basahin muna ang buong mensahe bago ito ipadala. Itatanong sa patient kung
-                    <strong> gusto pa mag-reschedule</strong> o <strong>mag-cancel</strong> na lang.
+                    Please review the complete message before sending. The patient will be asked whether they
+                    <strong> still wish to reschedule</strong> or <strong>cancel</strong> the appointment.
                 </p>
             </div>
 
             <div style="margin-bottom:14px;">
-                <label style="display:block; font-size:11px; font-weight:800; color:#57727d; letter-spacing:.04em; text-transform:uppercase; margin-bottom:5px;">Papelintuluyin (To)</label>
+                <label style="display:block; font-size:11px; font-weight:800; color:#57727d; letter-spacing:.04em; text-transform:uppercase; margin-bottom:5px;">Recipient (To)</label>
                 <div id="concernEmailTo" style="font-weight:800; color:#143f51; font-size:14px; background:#F7FDFB; border:1px solid #E6F2EC; border-radius:10px; padding:11px 14px; word-break:break-all;"></div>
             </div>
 
@@ -1211,19 +1219,19 @@ a.btn[href*="dashboard.php"]:hover {
 
             <div style="margin-bottom:14px;">
                 <label style="display:block; font-size:11px; font-weight:800; color:#57727d; letter-spacing:.04em; text-transform:uppercase; margin-bottom:5px;">
-                    Saan Magre-reply <span style="font-weight:600; color:#8aa0a8; text-transform:none; letter-spacing:0;">(Reply-To)</span>
+                    Reply-To Address
                 </label>
                 <div style="display:flex; align-items:center; gap:10px; background:#EAF7F0; border:1px solid #C9E9DA; border-radius:10px; padding:11px 14px;">
                     <i class="bi bi-reply-all-fill" style="color:#0E6B5E; font-size:16px; flex-shrink:0;"></i>
                     <div>
                         <div id="concernEmailReplyTo" style="font-weight:800; color:#0A4A41; font-size:13.5px; word-break:break-all;"><?= e(CLINIC_SMTP_FROM_NAME . ' <' . CLINIC_SMTP_USER . '>') ?></div>
-                        <div style="color:#4d6873; font-size:12px; font-weight:600; margin-top:2px;">Dito papasok ang sagot ng patient kapag ni-reply niya ang email.</div>
+                        <div style="color:#4d6873; font-size:12px; font-weight:600; margin-top:2px;">The patient's reply will be sent here when they reply to the email.</div>
                     </div>
                 </div>
             </div>
 
             <div>
-                <label style="display:block; font-size:11px; font-weight:800; color:#57727d; letter-spacing:.04em; text-transform:uppercase; margin-bottom:5px;">Laman ng Mensahe (Message)</label>
+                <label style="display:block; font-size:11px; font-weight:800; color:#57727d; letter-spacing:.04em; text-transform:uppercase; margin-bottom:5px;">Message Content</label>
                 <pre id="concernEmailBody" style="font-family:'Inter','DM Sans',system-ui,sans-serif; font-size:13px; line-height:1.65; color:#3B4F58; font-weight:500; background:#F7FDFB; border:1px solid #E6F2EC; border-radius:12px; padding:16px 18px; max-height:280px; overflow:auto; margin:0; white-space:pre-wrap; word-break:break-word;"></pre>
             </div>
         </div>
@@ -1308,6 +1316,26 @@ a.btn[href*="dashboard.php"]:hover {
                     send.innerHTML = '<i class="bi bi-send me-1"></i>Send Email';
                     send.focus();
                 }
+            });
+        });
+
+        document.querySelectorAll(".js-concern-resend-btn").forEach(function(btn)
+        {
+            btn.addEventListener("click", function(e)
+            {
+                e.preventDefault();
+                e.stopPropagation();
+
+                var nId = this.dataset.notificationId || "";
+                if (!form || !notifEl || nId === "") return;
+
+                notifEl.value = nId;
+                this.disabled = true;
+                this.style.pointerEvents = "none";
+                this.style.opacity = "0.75";
+                this.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Sending…';
+
+                form.submit();
             });
         });
 

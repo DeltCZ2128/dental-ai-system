@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ABALOS DENTAL CLINIC - COMPREHENSIVE SYSTEM OPERATIONAL USER MANUAL</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; background: #F8FAFC; color: #1E293B; line-height: 1.65; padding: 25px 0; font-size: 13.5px; }
+    .manual-box { max-width: 980px; margin: 0 auto; background: #ffffff; padding: 45px 55px; border-radius: 16px; border: 1px solid #E2E8F0; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+    h1 { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; color: #0E6B5E; font-size: 24px; text-align: center; margin-bottom: 4px; }
+    .subtitle { text-align: center; font-size: 15px; color: #0A4A41; font-weight: 700; margin-bottom: 12px; }
+    .control-tbl { width: 100%; border-collapse: collapse; margin-bottom: 22px; font-size: 11.5px; }
+    .control-tbl th { background: #F1F5F9; color: #475569; padding: 6px 12px; border: 1px solid #CBD5E1; width: 25%; font-weight: 600; }
+    .control-tbl td { background: #FFFFFF; color: #1E293B; padding: 6px 12px; border: 1px solid #CBD5E1; }
+    .toc-card { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 18px 22px; margin-bottom: 25px; }
+    .toc-title { font-weight: 700; color: #0E6B5E; margin-bottom: 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .toc-section { font-weight: 700; color: #0A4A41; margin-top: 8px; font-size: 12.5px; }
+    .toc-list { list-style: none; padding-left: 15px; margin-bottom: 6px; font-size: 12px; }
+    .toc-list li { margin-bottom: 3px; color: #334155; }
+    h2.section-header { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 16px; font-weight: 800; color: #ffffff; background: linear-gradient(135deg, #0E6B5E, #0A4A41); padding: 9px 16px; border-radius: 8px; margin-top: 35px; margin-bottom: 14px; }
+    h3.chapter-header { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14.5px; font-weight: 700; color: #0E6B5E; margin-top: 22px; margin-bottom: 8px; border-bottom: 1.5px solid #E2E8F0; padding-bottom: 4px; }
+    .doc-img { max-width: 100%; height: auto; border-radius: 6px; border: 1.5px solid #CBD5E1; box-shadow: 0 4px 15px rgba(0,0,0,0.06); margin: 8px 0; }
+    .caption { font-size: 11px; color: #64748B; font-style: italic; text-align: center; margin-bottom: 15px; }
+    .callout { padding: 10px 16px; border-radius: 6px; font-size: 12.5px; margin: 12px 0; }
+    .callout-warn { background: #FFFBEB; border: 1.5px solid #FDE68A; color: #92400E; }
+    .callout-info { background: #F0FDF4; border: 1.5px solid #BBF7D0; color: #166534; }
+    .sig-table { width: 100%; margin-top: 35px; border-collapse: collapse; font-size: 12px; }
+    .sig-table td { width: 50%; text-align: center; padding: 20px 15px 5px 15px; }
+    .sig-line { width: 80%; margin: 0 auto; border-top: 1.5px solid #000; padding-top: 4px; font-weight: 700; }
+    .print-bar { position: fixed; bottom: 20px; right: 25px; z-index: 9999; }
+    .print-btn { background: linear-gradient(135deg,#10B981,#0E6B5E); color: #fff; border: none; border-radius: 50px; padding: 9px 20px; font-weight: 700; box-shadow: 0 4px 15px rgba(16,185,129,0.35); cursor: pointer; font-size: 13px; }
+    @media print { .print-bar { display: none !important; } body { background: #fff; padding: 0; } .manual-box { border: none; box-shadow: none; padding: 0; } }
+</style>
+</head>
+<body>
+<div class="print-bar"><button class="print-btn" onclick="window.print()">Print / Save PDF (Ctrl + P)</button></div>
+<div class="manual-box">
+<h1>ABALOS DENTAL CLINIC</h1>
+<div class="subtitle">Comprehensive System Operational User Manual</div>
+<table class="control-tbl">
+<tr><th>Project Title:</th><td>An AI-Based Intelligent Dental Appointment Scheduling System Using Machine Learning for Optimized Clinic Management</td></tr>
+<tr><th>Institution:</th><td>Global Reciprocal Colleges, Caloocan City</td></tr>
+<tr><th>Target Location:</th><td>Abalos Dental Clinic, Malolos Avenue, Bagong Barrio, Caloocan City</td></tr>
+<tr><th>Operating Schedule:</th><td>Monday – Saturday | 8:00 AM – 6:00 PM (Lunch Break: 12:00 PM – 1:00 PM)</td></tr>
+</table>
+<div class="toc-card">
+<div class="toc-title">Table of Contents</div>
+<div class="toc-section">SECTION 1: PATIENT PORTAL USER MANUAL</div>
+<ul class="toc-list">
+<li>• Chapter 1: Overview & Access</li>
+<li>• Chapter 2: Account Registration & Email Verification</li>
+<li>• Chapter 2.1: Email One-Time Password (OTP) Verification</li>
+<li>• Chapter 3: Account Sign In</li>
+<li>• Chapter 4: Patient Dashboard</li>
+<li>• Chapter 5: Appointment Booking Rules & Step-by-Step Procedure</li>
+<li>• Chapter 6: Managing Bookings & Queue Monitoring</li>
+</ul>
+<div class="toc-section">SECTION 2: DENTIST PORTAL USER MANUAL</div>
+<ul class="toc-list">
+<li>• Chapter 1: Overview</li>
+<li>• Chapter 2: Dentist Dashboard & Daily Workload</li>
+<li>• Chapter 3: Daily Patient Schedule & History Access</li>
+<li>• Chapter 4: Live Queue Management & Consultation Charting</li>
+<li>• Chapter 5: Rest Days & Leave Protocol</li>
+</ul>
+<div class="toc-section">SECTION 3: ADMINISTRATOR PORTAL USER MANUAL</div>
+<ul class="toc-list">
+<li>• Chapter 1: Master Administrative Control Overview</li>
+<li>• Chapter 2: Executive Dashboard & Operational Analytics</li>
+<li>• Chapter 2.1: 7-Day Machine Learning Demand Forecast</li>
+<li>• Chapter 3: Appointment Approvals & Status Control</li>
+<li>• Chapter 4: Emergency Patient Reassignment Protocol (Absent Dentist Handling)</li>
+<li>• Chapter 5: Dentist Roster, Flexible Rest Days & Attendance</li>
+<li>• Chapter 6: Patient Records Management & Real-Time Search</li>
+<li>• Chapter 7: Official Clinic Reports & Letterhead Printing</li>
+</ul>
+</div>
+<h2 class="section-header">SECTION 1: PATIENT PORTAL USER MANUAL</h2>
+<h3 class="chapter-header">Chapter 1: Overview & Access</h3>
+<p>The <strong>Patient Portal</strong> enables patients to self-register, manage their personal profile, view doctor availability, book appointments, and monitor their queue status online without requiring physical visits to the clinic.</p>
+<h3 class="chapter-header">Chapter 2: Account Registration & Email Verification</h3>
+<p>Open your web browser and navigate to the clinic registration page (<strong>register.php</strong>).</p>
+<p>• <strong>Full Name & Contact Number</strong>: Enter your complete legal name and active 11-digit mobile number (e.g., 09171234567).</p>
+<p>• <strong>Email Address</strong>: Input a valid email address. This will be used for account authentication and notification delivery.</p>
+<p>• <strong>Password Security</strong>: Create a password containing at least 8 alphanumeric characters and confirm it.</p>
+<p>• Click <strong>[Create Account]</strong>.</p>
+<p>• <strong>OTP Verification</strong>: Retrieve the 6-digit One-Time Password (OTP) sent to your registered email address and enter it on the verification screen to activate your account.</p>
+<p>Upon successful verification, your unique Patient ID (e.g., <strong>PAT-2026-0001</strong>) will be assigned.</p>
+<ol class="ps-3 mb-2">
+<li class="mb-1"><strong>Personal Information Fields [Arrow 1 - Red]</strong>: Enter your First Name, Last Name, and active 11-digit mobile phone number.</li>
+<li class="mb-1"><strong>Email Address Field [Arrow 2 - Blue]</strong>: Provide your valid personal email for account activation and OTP dispatch.</li>
+<li class="mb-1"><strong>Contact Number Field [Arrow 3 - Purple]</strong>: Confirm your primary mobile contact number for schedule alerts.</li>
+<li class="mb-1"><strong>Password Setup [Arrow 4 - Green]</strong>: Enter and confirm a strong password with at least 8 characters, then submit.</li>
+</ol>
+<div class="text-center"><img src="clean_arrows/pat_02_register.png" class="doc-img"></div>
+<div class="caption">Figure 1: Patient Account Registration Form with Step-by-Step Highlights</div>
+<h3 class="chapter-header">Chapter 2.1: Email One-Time Password (OTP) Verification</h3>
+<p>To protect patient accounts from automated submissions, the system requires <strong>Email OTP Verification</strong> before granting system access. A 6-digit code is dispatched immediately to your email address.</p>
+<ol class="ps-3 mb-2">
+<li class="mb-1"><strong>6-Digit Numeric Input [Arrow 1 - Red]</strong>: Type the 6-digit code received in your email inbox.</li>
+<li class="mb-1"><strong>Verify Account Button [Arrow 2 - Green]</strong>: Click to authenticate your credentials and generate your unique Patient ID (e.g., PAT-2026-0001).</li>
+<li class="mb-1"><strong>Resend Verification Code [Arrow 3 - Blue]</strong>: If code is not received within 60 seconds, click to issue a fresh OTP code.</li>
+</ol>
+<div class="callout callout-info"><strong>[OTP EXPIRATION]</strong> Verification codes remain valid for 10 minutes. If not found in your inbox, check your Spam or Promotions folder.</div>
+<div class="text-center"><img src="clean_arrows/pat_06_verify_otp.png" class="doc-img"></div>
+<div class="caption">Figure 1.1: 6-Digit Email OTP Account Verification Screen</div>
+<h3 class="chapter-header">Chapter 3: Account Sign In</h3>
+<p>Navigate to the login page (<strong>login.php</strong>).</p>
+<p>1. Enter your registered Email Address.</p>
+<p>2. Enter your secure Password.</p>
+<p>3. Click <strong>[Sign In]</strong> to access your dashboard.</p>
+<ol class="ps-3 mb-2">
+<li class="mb-1"><strong>Registered Email Field [Arrow 1 - Red]</strong>: Input your verified email address.</li>
+<li class="mb-1"><strong>Password Field [Arrow 2 - Blue]</strong>: Type your confidential account password.</li>
+<li class="mb-1"><strong>Sign In Button [Arrow 3 - Green]</strong>: Click to access the Patient Dashboard.</li>
+<li class="mb-1"><strong>Create Account Link [Arrow 4 - Purple]</strong>: Shortcut for new patients to navigate to register.php.</li>
+</ol>
+<div class="text-center"><img src="clean_arrows/pat_01_login.png" class="doc-img"></div>
+<div class="caption">Figure 2: Patient Account Sign In Interface</div>
+<h3 class="chapter-header">Chapter 4: Patient Dashboard</h3>
+<p>Upon logging in, the central dashboard displays:</p>
+<p>• <strong>Upcoming Appointment Card</strong>: Details of your next scheduled visit (Date, Time, Assigned Dentist, Procedure, Status).</p>
+<p>• <strong>Book Appointment Button</strong>: Direct shortcut to launch the interactive scheduling module.</p>
+<p>• <strong>Navigation Menu</strong>: Access to Calendar, Appointment History, Profile Settings, and Notifications.</p>
+<ol class="ps-3 mb-2">
+<li class="mb-1"><strong>Upcoming Appointment Card [Arrow 1 - Blue]</strong>: View scheduled date, time, procedure, attending doctor, and active status.</li>
+<li class="mb-1"><strong>Book Appointment Shortcut [Arrow 2 - Green]</strong>: Direct button to launch appointment scheduling.</li>
+<li class="mb-1"><strong>Portal Navigation Sidebar [Arrow 3 - Purple]</strong>: Switch between Dashboard, Calendar, Appointments History, and Profile.</li>
+</ol>
+<div class="text-center"><img src="clean_arrows/pat_03_dashboard.png" class="doc-img"></div>
+<div class="caption">Figure 3: Patient Home Dashboard Overview</div>
+<h3 class="chapter-header">Chapter 5: Appointment Booking Rules & Step-by-Step Procedure</h3>
+<p><strong>Operational Constraints & Safety Rules:</strong></p>
+<p>• <strong>Daily Booking Limit</strong>: A maximum of two (2) appointments per day per patient account is enforced to prevent slot-hoarding and protect patient safety (avoiding procedure fatigue/anesthesia over-exposure).</p>
+<p>• <strong>Lunch Break Exclusion</strong>: The 12:00 PM – 1:00 PM slot is automatically blocked across all scheduling calendars.</p>
+<p>• <strong>Clinic Hours</strong>: Appointments can only be booked between 8:00 AM and 6:00 PM (Monday to Saturday).</p>
+<p><strong>Booking Steps:</strong></p>
+<p>1. Click <strong>[Book Appointment]</strong> on the dashboard.</p>
+<p>2. <strong>Select Date</strong>: Click an open date on the calendar (Sundays and full-capacity days are disabled).</p>
+<p>3. <strong>Select Attending Dentist</strong>: Choose your preferred licensed practitioner from the dropdown list.</p>
+<p>4. <strong>Select Dental Service</strong>: Select the required procedure (e.g., Dental Extraction, Cleaning, Consultation, Fillings/Pasta, Ortho Checkup).</p>
+<p>5. <strong>Select Available Time Slot</strong>: Choose an open time slot generated dynamically based on estimated procedure duration.</p>
+<p>6. Click <strong>[Confirm Booking]</strong>. Your booking request status will set to <strong>Pending Approval</strong>.</p>
+<ol class="ps-3 mb-2">
+<li class="mb-1"><strong>Calendar Date Picker [Arrow 1 - Green]</strong>: Select an available working date (Sundays and closed days disabled).</li>
+<li class="mb-1"><strong>Attending Dentist Selector [Arrow 2 - Blue]</strong>: Choose your preferred doctor from the active clinical staff roster.</li>
+<li class="mb-1"><strong>Dental Service Selection [Arrow 3 - Purple]</strong>: Select the specific procedure (Extraction, Cleaning, Restoration, etc.).</li>
+<li class="mb-1"><strong>Time Slot & Confirm [Arrow 4 - Red]</strong>: Select an open operating hour (excluding 12 PM - 1 PM lunch break) and confirm.</li>
+</ol>
+<div class="callout callout-warn"><strong>[SAFETY CONSTRAINTS]</strong> The system automatically blocks 12:00 PM – 1:00 PM lunch breaks and caps active appointments to 2 per day per patient.</div>
+<div class="text-center"><img src="clean_arrows/pat_04_booking_calendar.png" class="doc-img"></div>
+<div class="caption">Figure 4: Dynamic Calendar Booking Interface</div>
+<h3 class="chapter-header">Chapter 6: Managing Bookings & Queue Monitoring</h3>
+<p>Navigate to <strong>[My Appointments]</strong> to view past and active bookings.</p>
+<p><strong>Status Indicators:</strong></p>
+<p>• <strong>Pending</strong>: Under review by clinic administration.</p>
+<p>• <strong>Confirmed</strong>: Approved and scheduled.</p>
+<p>• <strong>Checked-In / Serving</strong>: Patient has arrived at the clinic and is currently queued or receiving treatment.</p>
+<p>• <strong>Completed</strong>: Session finished; consultation records saved.</p>
+<p>• <strong>Cancelled / No-Show</strong>: Booking cancelled or marked unattended after the 30-minute grace period.</p>
+<p><strong>Contactless Reception Walk-In QR:</strong> Patients visiting without an appointment can scan the clinic desk QR code using a smartphone to receive an automated queue number (e.g., #Q-005) and monitor their turn in the lobby.</p>
+<ol class="ps-3 mb-2">
+<li class="mb-1"><strong>Active Appointment Card [Arrow 1 - Blue]</strong>: Review appointment details, assigned dentist, procedure, and time.</li>
+<li class="mb-1"><strong>Status Indicator Badge [Arrow 2 - Green]</strong>: Displays live status (Pending, Confirmed, Checked-In / Serving, Completed, Cancelled / No-Show).</li>
+</ol>
+<div class="text-center"><img src="clean_arrows/pat_05_my_appointments.png" class="doc-img"></div>
+<div class="caption">Figure 5: My Appointments Tracking & Status Management</div>
+<h2 class="section-header">SECTION 2: DENTIST PORTAL USER MANUAL</h2>
+<h3 class="chapter-header">Chapter 1: Overview</h3>
+<p>The <strong>Dentist Portal</strong> provides attending dental practitioners with tools to review daily patient schedules, manage live treatment queues, access medical histories, and input clinical treatment notes.</p>
+<h3 class="chapter-header">Chapter 2: Dentist Dashboard & Daily Workload</h3>
+<p>Upon logging into the doctor account:</p>
+<p>• <strong>Today's Patient Count</strong>: Displays total assigned appointments for the day.</p>
+<p>• <strong>Active Waiting Queue</strong>: Real-time counter of patients checked in and waiting in the clinic lobby.</p>
+<p>• <strong>Schedule Summary</strong>: Visual timeline of assigned procedures from 8:00 AM to 6:00 PM.</p>
+<ol class="ps-3 mb-2">
+<li class="mb-1"><strong>Today's Patient Count [Arrow 1 - Blue]</strong>: Aggregates total booked appointments assigned to the doctor for today.</li>
+<li class="mb-1"><strong>Active Waiting Queue Counter [Arrow 2 - Green]</strong>: Real-time counter of patients checked in and waiting in the lobby.</li>
+<li class="mb-1"><strong>Clinical Navigation Sidebar [Arrow 3 - Purple]</strong>: Quick access to Daily Schedule, Live Queue, and Rest Day Settings.</li>
+</ol>
+<div class="text-center"><img src="clean_arrows/den_01_dashboard.png" class="doc-img"></div>
+<div class="caption">Figure 6: Dentist Clinical Dashboard Overview</div>
+<h3 class="chapter-header">Chapter 3: Daily Patient Schedule & History Access</h3>
+<p>Navigate to <strong>[Daily Schedule]</strong>.</p>
+<p>Click <strong>[View Details]</strong> next to any assigned patient to open their comprehensive medical background, previous treatment history, and chief complaint.</p>
+<ol class="ps-3 mb-2">
+<li class="mb-1"><strong>Daily Schedule Table [Arrow 1 - Blue]</strong>: Displays chronological schedule of booked patients from 8:00 AM to 6:00 PM.</li>
+<li class="mb-1"><strong>Patient Information [Arrow 2 - Green]</strong>: Displays patient name, contact number, and booked dental procedure.</li>
+<li class="mb-1"><strong>View Details & Action Menu [Arrow 3 - Orange]</strong>: Open medical records, chief complaints, and historical treatment notes.</li>
+</ol>
+<div class="text-center"><img src="clean_arrows/den_02_schedule.png" class="doc-img"></div>
+<div class="caption">Figure 7: Daily Patient Schedule & Treatment Roster</div>
+<h3 class="chapter-header">Chapter 4: Live Queue Management & Consultation Charting</h3>
+<p>Select <strong>[Live Queue]</strong> to manage active clinic visits.</p>
+<p>1. Click <strong>[Call / Serving]</strong> when ready to admit the next checked-in patient into the dental operatory chair.</p>
+<p>2. During or immediately following treatment:</p>
+<p>   • Record clinical diagnosis, treatment performed, and prescribed medication.</p>
+<p>   • Input follow-up recommendations if applicable.</p>
+<p>3. Click <strong>[Complete Session]</strong> to update the appointment status to Completed and release the queue slot.</p>
+<ol class="ps-3 mb-2">
+<li class="mb-1"><strong>Waiting Queue List [Arrow 1 - Blue]</strong>: Real-time sequence of checked-in lobby patients awaiting operatory admission.</li>
+<li class="mb-1"><strong>Current Serving Chair [Arrow 2 - Orange]</strong>: Patient currently in chair with active session timer and diagnosis notes.</li>
+<li class="mb-1"><strong>Consultation Charting [Arrow 3 - Green]</strong>: Enter diagnosis, procedure notes, and click Complete Session.</li>
+</ol>
+<div class="text-center"><img src="clean_arrows/den_03_queue.png" class="doc-img"></div>
+<div class="caption">Figure 8: Operatory Live Queue Management & Consultation Charting</div>
+<h3 class="chapter-header">Chapter 5: Rest Days & Leave Protocol</h3>
+<p>Dentists must coordinate planned time-off or emergency leave with the Clinic Administrator.</p>
+<p>When marked as <strong>Absent</strong> or <strong>On Leave</strong> in the system, dynamic conflict-checking automatically prevents new bookings for that dentist and prompts administrative reassignment for existing bookings.</p>
+<ol class="ps-3 mb-2">
+<li class="mb-1"><strong>Recurring Rest Day Selector [Arrow 1 - Blue]</strong>: Select recurring weekly off-day to automatically block booking availability.</li>
+<li class="mb-1"><strong>Scheduled Clinical Leave [Arrow 2 - Green]</strong>: Log planned conference or personal leave dates coordinated with administration.</li>
+</ol>
+<div class="text-center"><img src="clean_arrows/den_04_settings_restday.png" class="doc-img"></div>
+<div class="caption">Figure 9: Rest Days & Clinical Leave Protocol Settings</div>
+<h2 class="section-header">SECTION 3: ADMINISTRATOR PORTAL USER MANUAL</h2>
+<h3 class="chapter-header">Chapter 1: Master Administrative Control Overview</h3>
+<p>The <strong>Administrator Portal</strong> provides master control over clinic operations, including appointment approvals, dentist schedule/absence management, emergency patient reassignments, QR code check-ins, medical record printing, machine learning demand forecasting, and system backups.</p>
+<h3 class="chapter-header">Chapter 2: Executive Dashboard & Operational Analytics</h3>
+<p><strong>Operational Counters</strong>: Real-time metrics for Today's Appointments, Pending Approvals, Active Dentists, and Registered Patients.</p>
+<p><strong>Machine Learning Demand Forecasting Module</strong>:</p>
+<p>• Uses a <strong>Linear Regression model</strong> evaluating historical 90-day booking data.</p>
+<p>• Displays forecasted demand levels (<strong>Low, Medium, High</strong>) for upcoming operational days.</p>
+<p>• Provides AI-based rescheduling suggestions to distribute patient traffic away from high-demand days.</p>
+<ol class="ps-3 mb-2">
+<li class="mb-1"><strong>Master Operational Metrics [Arrow 1 - Blue]</strong>: Monitor Today's Appointments, Pending Approvals, Active Dentists, and Patients.</li>
+<li class="mb-1"><strong>Demand Distribution Analytics [Arrow 2 - Green]</strong>: Procedure utilization breakdown and workload balance overview.</li>
+<li class="mb-1"><strong>Administrative Navigation [Arrow 3 - Purple]</strong>: Master access to Appointments, Dentists, Patients, Reports, and Backup.</li>
+</ol>
+<div class="text-center"><img src="clean_arrows/adm_01_dashboard.png" class="doc-img"></div>
+<div class="caption">Figure 10: Executive Dashboard & Master Operational Counters</div>
+<h3 class="chapter-header">Chapter 2.1: 7-Day Machine Learning Demand Forecast</h3>
+<p>The integrated machine learning module applies a <strong>Linear Regression Algorithm</strong> ($y = mx + b$) trained on 90 days of historical booking data. It forecasts appointment volume for the next 7 operational days, classifying days into <strong>Low</strong>, <strong>Medium</strong>, or <strong>High</strong> demand.</p>
+<p>The system generates <strong>Smart Reschedule Recommendations</strong>, allowing administrators to guide walk-in patients or reschedule non-urgent visits to low-demand days to optimize clinic throughput.</p>
+<ol class="ps-3 mb-2">
+<li class="mb-1"><strong>7-Day Forecast Table [Arrow 1 - Blue]</strong>: Review projected patient volumes, actual bookings, and demand levels (Low, Medium, High).</li>
+<li class="mb-1"><strong>Smart Reschedule Suggestions [Arrow 2 - Green]</strong>: Actionable recommendations routing flexible appointments to low-demand days.</li>
+</ol>
+<div class="text-center"><img src="clean_arrows/adm_07_demand_forecast.png" class="doc-img"></div>
+<div class="caption">Figure 10.1: 7-Day Linear Regression Demand Forecast & Workload Optimizer</div>
+<h3 class="chapter-header">Chapter 3: Appointment Approvals & Status Control</h3>
+<p>Go to <strong>[Master Appointments]</strong> (<strong>admin/appointments.php</strong>).</p>
+<p>Filter lists using sub-tabs: <strong>Today</strong>, <strong>Pending Approvals</strong>, <strong>Upcoming</strong>, and <strong>History</strong>.</p>
+<p>Click <strong>[Change Status]</strong> on any record to:</p>
+<p>• <strong>Approve (Confirm)</strong>: Validates booking and sends confirmation email/notification to patient.</p>
+<p>• <strong>Check-In</strong>: Updates status when a patient physically arrives at the clinic lobby.</p>
+<p>• <strong>Reschedule</strong>: Modifies date/time while performing automated conflict checking.</p>
+<p>• <strong>Cancel / No-Show</strong>: Triggers when a patient misses their slot beyond the 30-minute grace period.</p>
+<ol class="ps-3 mb-2">
+<li class="mb-1"><strong>Operational Sub-Tabs [Arrow 1 - Blue]</strong>: Filter between Today, Pending Approvals, Upcoming, and Complete History.</li>
+<li class="mb-1"><strong>Change Status Control [Arrow 2 - Red]</strong>: Action button to Approve, Check-In, Reschedule, or Cancel/No-Show (30-min grace period).</li>
+</ol>
+<div class="text-center"><img src="clean_arrows/adm_02_appointments.png" class="doc-img"></div>
+<div class="caption">Figure 11: Master Appointments Management & Multi-Status Filter Tabs</div>
+<h3 class="chapter-header">Chapter 4: Emergency Patient Reassignment Protocol (Absent Dentist Handling)</h3>
+<p>When an attending dentist is marked as <strong>Absent</strong> or takes emergency leave on a date with scheduled appointments:</p>
+<p>1. Open the affected appointment in <strong>[Master Appointments]</strong>.</p>
+<p>2. The system automatically detects doctor absence and displays a prominent <strong>[REASSIGN DENTIST]</strong> action alert.</p>
+<p>3. Click <strong>[REASSIGN DENTIST]</strong> to open the dynamic reassignment modal.</p>
+<p>4. Select an active, available dentist from the dropdown menu.</p>
+<p>5. The system automatically executes real-time conflict-checking to ensure the target dentist:</p>
+<p>   • Is on duty on that day.</p>
+<p>   • Has no overlapping appointments or time conflicts.</p>
+<p>6. Confirm reassignment. Notification emails/alerts are dispatched to both the newly assigned dentist and the patient.</p>
+<ol class="ps-3 mb-2">
+<li class="mb-1"><strong>Doctor Absence Warning [Arrow 1 - Red]</strong>: Highlights that the assigned dentist is marked Absent on the appointment date.</li>
+<li class="mb-1"><strong>REASSIGN DENTIST Action Alert [Arrow 2 - Orange]</strong>: Prominent button displayed exclusively when assigned doctor is absent.</li>
+<li class="mb-1"><strong>Substitute Dentist Dropdown [Arrow 3 - Blue]</strong>: Select an available doctor verified free of schedule conflicts.</li>
+</ol>
+<div class="text-center"><img src="clean_arrows/adm_03_reassign_modal.png" class="doc-img"></div>
+<div class="caption">Figure 12: Emergency Doctor Absence & Dynamic Patient Reassignment Modal</div>
+<h3 class="chapter-header">Chapter 5: Dentist Roster, Flexible Rest Days & Attendance</h3>
+<p>Navigate to <strong>[Dentist Management]</strong> (<strong>admin/dentists.php</strong>).</p>
+<p>• <strong>Add Rest Day</strong>: Click <strong>[Add Rest Day]</strong> to set recurring or flexible off-days for doctors.</p>
+<p>• <strong>Mark as Absent</strong>: Click <strong>[Mark as Absent]</strong> for emergency sick leave or unscheduled absences.</p>
+<p>• <strong>Remove Leave/Rest Day</strong>: Click the red Trash Icon next to any record to clear the entry after confirming on the modal dialogue.</p>
+<ol class="ps-3 mb-2">
+<li class="mb-1"><strong>Dentist Roster Table [Arrow 1 - Blue]</strong>: Directory of all licensed practitioners, specialties, and schedule status.</li>
+<li class="mb-1"><strong>Add Rest Day Button [Arrow 2 - Green]</strong>: Set recurring weekly off-days or flexible rest days.</li>
+<li class="mb-1"><strong>Mark as Absent Action [Arrow 3 - Red]</strong>: Declare emergency leave to trigger automated booking conflict alerts.</li>
+</ol>
+<div class="text-center"><img src="clean_arrows/adm_04_dentists.png" class="doc-img"></div>
+<div class="caption">Figure 13: Dentist Roster, Rest Day Settings & Attendance Management</div>
+<h3 class="chapter-header">Chapter 6: Patient Records Management & Real-Time Search</h3>
+<p>Access <strong>[Patient Directory]</strong> (<strong>admin/patients.php</strong>).</p>
+<p>1. Use the <strong>Real-Time Search Bar</strong> to search by Patient Full Name or Patient ID (e.g., <strong>PAT-2026-0001</strong>).</p>
+<p>2. Click <strong>[Print Record]</strong> to generate a clean, official medical/dental history document featuring official letterhead and doctor signature lines.</p>
+<ol class="ps-3 mb-2">
+<li class="mb-1"><strong>Real-Time Search Bar [Arrow 1 - Blue]</strong>: Search dynamically by Patient ID (e.g., PAT-2026-0001) or full legal name.</li>
+<li class="mb-1"><strong>Print Record Action [Arrow 2 - Green]</strong>: Generate official printable dental record with clinic header and signature lines.</li>
+</ol>
+<div class="text-center"><img src="clean_arrows/adm_05_patients_search.png" class="doc-img"></div>
+<div class="caption">Figure 14: Patient Records Directory & Instant Search Interface</div>
+<h3 class="chapter-header">Chapter 7: Official Clinic Reports & Letterhead Printing</h3>
+<p>Go to <strong>[Reports Module]</strong> (<strong>admin/reports.php</strong>).</p>
+<p>Select report category:</p>
+<p>• <strong>Appointment Summary Report</strong></p>
+<p>• <strong>Patient Demographics Report</strong></p>
+<p>• <strong>Treatment Breakdown & Revenue Report</strong></p>
+<p>Click <strong>[Print Report]</strong>. The system applies a CSS print-scope stylesheet hiding sidebars, navigation bars, and buttons, generating a formatted printout with official Abalos Dental Clinic header and dual approval signature lines (Administrator & Head Dentist).</p>
+<ol class="ps-3 mb-2">
+<li class="mb-1"><strong>Report Category Selector [Arrow 1 - Blue]</strong>: Choose between Appointment Summary, Patient Demographics, or Treatment Breakdown & Revenue.</li>
+<li class="mb-1"><strong>Print Report with Letterhead [Arrow 2 - Green]</strong>: Trigger clean CSS-formatted printout featuring dual approval signature lines.</li>
+</ol>
+<div class="text-center"><img src="clean_arrows/adm_06_reports.png" class="doc-img"></div>
+<div class="caption">Figure 15: Official Clinic Reports Module with Printable Scope</div>
+<table class="sig-table">
+<tr>
+<td><div class="sig-line">CLINIC ADMINISTRATOR</div><small class="text-muted">Operations & Facilities Management<br>Abalos Dental Clinic</small><br><small>Date: October 2026 | Approved</small></td>
+<td><div class="sig-line">HEAD DENTIST / MEDICAL DIRECTOR</div><small class="text-muted">Clinical Quality & Practice Governance<br>Abalos Dental Clinic</small><br><small>Date: October 2026 | Approved</small></td>
+</tr>
+</table>
+</div>
+</body>
+</html>

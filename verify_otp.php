@@ -225,7 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $newUserId = (int)$pdo->lastInsertId();
 
                         // 2. Insert into patients
-                        $pNum = 'PAT-' . date('Ymd') . '-' . strtoupper(substr(md5($newUserId . uniqid('', true)), 0, 5));
+                        $pNum = generateShortPatientNumber($pdo);
                         $pStmt = $pdo->prepare("
                             INSERT INTO patients
                             (user_id, patient_number, first_name, last_name, contact_number, email)

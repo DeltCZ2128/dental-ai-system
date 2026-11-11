@@ -52,11 +52,7 @@ if (!$patient) {
         ? implode(' ', array_slice($parts, 1))
         : '';
 
-    $patientNumber =
-        'PAT-' .
-        date('Ymd') .
-        '-' .
-        strtoupper(substr(md5(uniqid('', true)), 0, 5));
+    $patientNumber = generateShortPatientNumber($pdo);
 
     $stmt = $pdo->prepare("
         INSERT INTO patients
@@ -317,11 +313,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 } else {
 
-                    try {
+                    // Check patient daily limit: maximum 2 appointments per day
+                    $dailyLimitStmt = $pdo->prepare("
+                        SELECT COUNT(*) FROM appointments
+                        WHERE patient_id = ?
+                          AND appointment_date = ?
+                          AND status NOT IN ('Cancelled', 'Canceled', 'No-Show')
+                    ");
+                    $dailyLimitStmt->execute([$patientId, $date]);
+                    if ((int)$dailyLimitStmt->fetchColumn() >= 2) {
+                        $error = 'Appointment Limit Reached: You already have 2 appointments scheduled on ' . date('M d, Y', strtotime($date)) . '. Each patient is limited to a maximum of 2 appointments per day.';
+                    } else {
 
-                        $stmt = $pdo->prepare("
-                            INSERT INTO appointments
-                            (
+                        try {
+
+                            $stmt = $pdo->prepare("
+                                INSERT INTO appointments
+                                (
                                 patient_id,
                                 dentist_id,
                                 appointment_date,
@@ -352,6 +360,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         $error =
                             'Unable to save your schedule.';
+                    }
                     }
                 }
                 } // end if ($error === '') - rest day passed

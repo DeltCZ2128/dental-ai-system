@@ -124,6 +124,32 @@ try {
         PDO::FETCH_COLUMN
     );
 
+    if (!empty($dentistColumns)) {
+        $hasAnyContact = false;
+        foreach (['contact_number', 'contact', 'phone', 'phone_number', 'mobile_number'] as $cCol) {
+            if (in_array($cCol, $dentistColumns, true)) {
+                $hasAnyContact = true;
+                break;
+            }
+        }
+        if (!$hasAnyContact) {
+            $pdo->exec("ALTER TABLE dentists ADD COLUMN contact_number VARCHAR(50) DEFAULT NULL");
+            $dentistColumns[] = 'contact_number';
+        }
+
+        $hasAnySpec = false;
+        foreach (['specialization', 'specialty'] as $sCol) {
+            if (in_array($sCol, $dentistColumns, true)) {
+                $hasAnySpec = true;
+                break;
+            }
+        }
+        if (!$hasAnySpec) {
+            $pdo->exec("ALTER TABLE dentists ADD COLUMN specialization VARCHAR(120) DEFAULT 'General Dentistry'");
+            $dentistColumns[] = 'specialization';
+        }
+    }
+
 } catch (PDOException $e) {
 
     $dentistColumns = [];
@@ -891,6 +917,34 @@ if (
 
 $profilePhotoUrl = dentistProfilePhotoUrl($userId);
 
+/* Clinical Snapshot Stats for Dentist Profile */
+$statTotalAppts = 0;
+$statCompletedAppts = 0;
+$statUpcomingAppts = 0;
+$statTodayAppts = 0;
+
+if ($dentistId > 0) {
+    try {
+        $statStmt = $pdo->prepare("
+            SELECT
+                COUNT(*) AS total_all,
+                SUM(CASE WHEN LOWER(status) = 'completed' THEN 1 ELSE 0 END) AS total_completed,
+                SUM(CASE WHEN appointment_date >= CURDATE() AND LOWER(status) IN ('pending', 'confirmed') THEN 1 ELSE 0 END) AS total_upcoming,
+                SUM(CASE WHEN appointment_date = CURDATE() AND LOWER(status) IN ('pending', 'confirmed') THEN 1 ELSE 0 END) AS total_today
+            FROM appointments
+            WHERE dentist_id = ?
+        ");
+        $statStmt->execute([$dentistId]);
+        $statRow = $statStmt->fetch(PDO::FETCH_ASSOC);
+        if ($statRow) {
+            $statTotalAppts = (int) ($statRow['total_all'] ?? 0);
+            $statCompletedAppts = (int) ($statRow['total_completed'] ?? 0);
+            $statUpcomingAppts = (int) ($statRow['total_upcoming'] ?? 0);
+            $statTodayAppts = (int) ($statRow['total_today'] ?? 0);
+        }
+    } catch (Throwable $e) {}
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -944,496 +998,195 @@ $profilePhotoUrl = dentistProfilePhotoUrl($userId);
 
 
     <style>
-
-        /*
-        |--------------------------------------------------------------------------
-        | PROFILE PAGE
-        |--------------------------------------------------------------------------
-        */
-
-        .profile-layout {
-
-            display: grid;
-
-            grid-template-columns:
-                minmax(0, 1fr);
-
-            gap: 20px;
-
-            align-items: start;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | FORM
-        |--------------------------------------------------------------------------
-        */
-
-        .profile-form {
-
-            max-width: 100%;
-        }
-
-
-        .profile-form-row {
-
-            display: grid;
-
-            grid-template-columns:
-                1fr 1fr;
-
-            gap: 16px;
-
-            align-items: start;
-        }
-
-
-        .profile-3col {
-
-            display: grid;
-
-            grid-template-columns:
-                1fr 1fr 1fr;
-
-            gap: 20px;
-
-            align-items: start;
-
-            margin-bottom: 6px;
-        }
-
-
-        .account-overview {
-
-            margin-top: 0;
-
-            margin-bottom: 0;
-
-            padding: 16px;
-
-            border: 1px solid #e8eef2;
-
-            border-radius: 10px;
-
-            background: #f8fafc;
-        }
-
-
-        .account-overview-title {
-
-            margin-bottom: 14px;
-
-            font-size: 14px;
-
-            font-weight: 800;
-
-            color: #293b4a;
-        }
-
-
-        .overview-badge {
-
-            display: inline-block;
-
-            padding: 6px 14px;
-
-            border-radius: 20px;
-
-            font-size: 12px;
-
-            font-weight: 700;
-
-            background: #e8f7ee;
-
-            border: 1px solid #c7ead4;
-
-            color: #247443;
-        }
-
-
-        .overview-badge.role {
-
-            background: #eaf5ff;
-
-            border-color: #c9e2f5;
-
-            color: #2675b9;
-
-            text-transform: capitalize;
-        }
-
-
-        .profile-form-group {
-
-            margin-bottom: 18px;
-        }
-
-
-        .profile-form-label {
-
-            display: block;
-
-            margin-bottom: 7px;
-
-            font-size: 13px;
-
-            font-weight: 700;
-
-            color: #334554;
-        }
-
-
-        .profile-form-label i {
-
-            color: #0E6B5E;
-
-            margin-right: 6px;
-        }
-
-
-        .profile-form-input {
-
-            width: 100%;
-
-            padding: 11px 13px;
-
-            border: 1px solid #d9e3ea;
-
-            border-radius: 8px;
-
-            background: #ffffff;
-
-            color: #263746;
-
-            font-family: inherit;
-
-            font-size: 14px;
-
-            outline: none;
-
-            transition: border-color 0.2s ease,
-                        box-shadow 0.2s ease;
-        }
-
-
-        .profile-form-input:focus {
-
-            border-color: #5b9bd5;
-
-            box-shadow:
-                0 0 0 3px
-                rgba(91, 155, 213, 0.12);
-        }
-
-
-        .profile-form-input:disabled {
-
-            background: #f3f6f8;
-
-            color: #788694;
-
-            cursor: not-allowed;
-        }
-
-
-        .profile-help {
-
-            margin-top: 5px;
-
-            font-size: 11px;
-
-            color: #8a98a5;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | PASSWORD
-        |--------------------------------------------------------------------------
-        */
-
-        .password-section {
-
-            margin-top: 25px;
-
-            padding-top: 22px;
-
-            border-top: 1px solid #e8eef2;
-        }
-
-
-        .password-title {
-
-            margin-bottom: 15px;
-
-            font-size: 15px;
-
-            font-weight: 800;
-
-            color: #293b4a;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | BUTTON
-        |--------------------------------------------------------------------------
-        */
-
-        .profile-save-button {
-
-            border: none;
-
-            padding: 11px 18px;
-
-            border-radius: 8px;
-
-            background: #3b82c4;
-
-            color: #ffffff;
-
-            font-family: inherit;
-
-            font-size: 13px;
-
-            font-weight: 700;
-
-            cursor: pointer;
-        }
-
-
-        .profile-save-button:hover {
-
-            background: #2f72ad;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | SUCCESS MESSAGE
-        |--------------------------------------------------------------------------
-        */
-
-        .profile-message {
-
-            padding: 11px 14px;
-
-            margin-bottom: 18px;
-
-            border-radius: 8px;
-
-            background: #e8f7ee;
-
-            border: 1px solid #c7ead4;
-
-            color: #247443;
-
-            font-size: 13px;
-
-            font-weight: 600;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | ERROR MESSAGE
-        |--------------------------------------------------------------------------
-        */
-
-        .profile-error {
-
-            padding: 11px 14px;
-
-            margin-bottom: 18px;
-
-            border-radius: 8px;
-
-            background: #fdecec;
-
-            border: 1px solid #f3cccc;
-
-            color: #a72a2a;
-
-            font-size: 13px;
-
-            font-weight: 600;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | PROFILE SUMMARY
-        |--------------------------------------------------------------------------
-        */
-
-        .profile-summary {
-
-            background: #ffffff;
-
-            border: 1px solid #e2e9ee;
-
-            border-radius: 12px;
-
-            padding: 22px;
-
-            text-align: center;
-        }
-
-
-        .profile-avatar {
-
-            width: 70px;
-
-            height: 70px;
-
-            margin: 0 auto 12px;
-
-            border-radius: 50%;
-
-            background: #eaf5ff;
-
-            color: #2675b9;
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            font-size: 29px;
-        }
-
-
-        .profile-summary-name {
-
-            font-size: 16px;
-
-            font-weight: 800;
-
-            color: #263746;
-
-            margin-bottom: 4px;
-        }
-
-
-        .profile-summary-role {
-
-            font-size: 11px;
-
-            color: #7b8997;
-
-            text-transform: uppercase;
-
-            letter-spacing: 0.5px;
-        }
-
-
-        /* Header card + avatar — gaya ng patient profile-header-card */
-        .profile-header-card {
-            background: linear-gradient(135deg, #0E6B5E, #0A4A41);
-            border-radius: 18px;
-            padding: 27px 30px;
-            color: #ffffff;
-            margin: 0 24px 20px;
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            box-shadow: 0 8px 24px rgba(14,107,94,.18);
-        }
-        .profile-layout {
-            margin: 0 24px;
-        }
-        .large-profile-circle {
-            width: 75px;
-            height: 75px;
-            border-radius: 50%;
-            background: #ffffff;
-            color: #0E6B5E;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 27px;
-            font-weight: 800;
-            flex-shrink: 0;
-            overflow: hidden;
+        /* ======================================================
+           DENTIST PROFILE — HERO BANNER & 2-COLUMN WORKSPACE
+        ======================================================= */
+        .dentist-hero-card {
             position: relative;
+            overflow: hidden;
+            background: linear-gradient(135deg, #0E6B5E 0%, #059669 58%, #0A4A41 100%);
+            border: 1px solid rgba(255, 255, 255, 0.26);
+            border-radius: 20px;
+            padding: 26px 30px;
+            color: #ffffff;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            box-shadow: 0 18px 40px rgba(6, 59, 49, 0.24);
         }
+
+        .dentist-hero-card::before,
+        .dentist-hero-card::after {
+            content: "";
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .dentist-hero-card::before {
+            width: 240px;
+            height: 240px;
+            top: -110px;
+            right: -60px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 70%);
+        }
+
+        .dentist-hero-card::after {
+            width: 180px;
+            height: 180px;
+            bottom: -90px;
+            left: 15%;
+            background: radial-gradient(circle, rgba(201, 162, 39, 0.18), rgba(255, 255, 255, 0) 70%);
+        }
+
+        .dentist-hero-card > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .profile-photo-wrap {
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .large-profile-circle {
+            width: 92px;
+            height: 92px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ffffff, #EAF7F0);
+            color: #0E6B5E;
+            border: 3px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.22);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            font-weight: 800;
+            overflow: hidden;
+        }
+
         .large-profile-circle img {
             width: 100%;
             height: 100%;
             object-fit: cover;
             display: block;
         }
-        .profile-photo-wrap {
-            position: relative;
-            flex-shrink: 0;
-        }
+
         .profile-edit-photo-btn {
             position: absolute;
-            right: -6px;
-            bottom: -6px;
-            width: 38px;
-            height: 38px;
+            right: -4px;
+            bottom: -4px;
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
-            border: 2px solid #ffffff;
-            background: #C9A227;
-            color: #0A4A41;
+            border: 2.5px solid #ffffff;
+            background: linear-gradient(135deg, #F59E0B, #C9A227);
+            color: #0A3B34;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 17px;
+            font-size: 15px;
             cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0,0,0,.25);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
             padding: 0;
+            transition: transform 0.18s ease, filter 0.18s ease;
         }
+
         .profile-edit-photo-btn:hover {
-            filter: brightness(.92);
+            transform: scale(1.06);
+            filter: brightness(1.05);
         }
-        .profile-photo-actions {
+
+        .hero-identity {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .hero-name-row {
             display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+
+        .profile-info-name {
+            font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+            font-size: 23px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: #ffffff;
+            margin: 0;
+            line-height: 1.2;
+        }
+
+        .hero-status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 11px;
+            border-radius: 999px;
+            background: rgba(16, 185, 129, 0.25);
+            border: 1px solid rgba(167, 243, 208, 0.55);
+            color: #ECFDF5;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+        }
+
+        .hero-status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #A7F3D0;
+            box-shadow: 0 0 0 3px rgba(167, 243, 208, 0.28);
+        }
+
+        .hero-sub-meta {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px 16px;
+            font-size: 13px;
+            color: #D9F2E6;
+            font-weight: 500;
+            margin-bottom: 12px;
+        }
+
+        .hero-sub-meta span {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .hero-badges-row {
+            display: flex;
+            align-items: center;
             flex-wrap: wrap;
             gap: 8px;
-            margin-top: 10px;
         }
-        .profile-photo-edit-text {
-            border: 1px solid rgba(255,255,255,.45);
-            background: rgba(255,255,255,.15);
-            color: #ffffff;
-            font-size: 13px;
-            font-weight: 700;
-            padding: 10px 18px;
-            border-radius: 20px;
-            cursor: pointer;
+
+        .hero-chip {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            font-family: inherit;
-        }
-        .profile-photo-edit-text:hover {
-            background: rgba(255,255,255,.28);
-        }
-        .profile-photo-remove {
-            border: 1px solid rgba(255,255,255,.55);
-            background: #ffffff;
-            color: #b42318;
-            font-size: 13px;
+            gap: 6px;
+            font-size: 11.5px;
             font-weight: 700;
-            cursor: pointer;
-            font-family: inherit;
-            padding: 10px 18px;
-            border-radius: 20px;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: .2s ease;
-            box-shadow: 0 4px 12px rgba(0,0,0,.12);
-        }
-        .profile-photo-remove:hover {
-            background: #b42318;
-            border-color: #b42318;
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
             color: #ffffff;
+            padding: 5px 12px;
+            border-radius: 999px;
         }
+
+        .hero-chip.gold {
+            background: linear-gradient(135deg, rgba(253, 230, 138, 0.24), rgba(201, 162, 39, 0.28));
+            border-color: rgba(253, 230, 138, 0.55);
+            color: #FEF3C7;
+        }
+
         .profile-header-right {
             margin-left: auto;
             display: flex;
@@ -1442,105 +1195,447 @@ $profilePhotoUrl = dentistProfilePhotoUrl($userId);
             gap: 8px;
             flex-shrink: 0;
         }
-        @media (max-width: 600px) {
-            .profile-header-card {
-                flex-wrap: wrap;
+
+        .profile-photo-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .profile-photo-edit-text {
+            border: 1px solid rgba(255, 255, 255, 0.45);
+            background: rgba(255, 255, 255, 0.16);
+            color: #ffffff;
+            font-size: 12.5px;
+            font-weight: 800;
+            padding: 9px 16px;
+            border-radius: 999px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            font-family: inherit;
+            transition: all 0.18s ease;
+        }
+
+        .profile-photo-edit-text:hover {
+            background: #ffffff;
+            color: #0E6B5E;
+            border-color: #ffffff;
+        }
+
+        .profile-photo-remove {
+            border: 1px solid rgba(254, 202, 202, 0.7);
+            background: #ffffff;
+            color: #B91C1C;
+            font-size: 12.5px;
+            font-weight: 800;
+            cursor: pointer;
+            font-family: inherit;
+            padding: 9px 16px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            transition: all 0.18s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        }
+
+        .profile-photo-remove:hover {
+            background: #DC2626;
+            border-color: #DC2626;
+            color: #ffffff;
+        }
+
+        .photo-hint-note {
+            font-size: 11px;
+            color: rgba(217, 242, 230, 0.85);
+            font-weight: 500;
+        }
+
+        /* 2-Column Workspace Grid */
+        .profile-workspace-grid {
+            display: grid;
+            grid-template-columns: 350px minmax(0, 1fr);
+            gap: 20px;
+            align-items: start;
+        }
+
+        .profile-panel-card {
+            background: #ffffff;
+            border: 1px solid #C9E9DA;
+            border-radius: 18px;
+            box-shadow: 0 12px 30px rgba(6, 59, 49, 0.10);
+            overflow: hidden;
+        }
+
+        .profile-panel-head {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 22px;
+            background: linear-gradient(135deg, #D9F2E6 0%, #EAF7F0 100%);
+            border-bottom: 1px solid #C9E9DA;
+        }
+
+        .panel-head-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 11px;
+            background: linear-gradient(135deg, #0E6B5E, #0A4A41);
+            color: #ffffff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 17px;
+            flex-shrink: 0;
+            box-shadow: 0 4px 10px rgba(14, 107, 94, 0.22);
+        }
+
+        .profile-panel-head h2 {
+            margin: 0;
+            font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+            font-size: 16px;
+            font-weight: 800;
+            color: #143f51;
+            line-height: 1.2;
+        }
+
+        .profile-panel-head p {
+            margin: 2px 0 0;
+            font-size: 12px;
+            color: #5b747e;
+            font-weight: 500;
+        }
+
+        .profile-panel-body {
+            padding: 20px 22px 22px;
+        }
+
+        /* Left Column: Overview Info List & Clinical Stats */
+        .overview-info-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .overview-info-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 11px 14px;
+            border-radius: 12px;
+            background: #F6FBF8;
+            border: 1px solid #E2ECE7;
+        }
+
+        .overview-item-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12.5px;
+            font-weight: 700;
+            color: #4b6570;
+        }
+
+        .overview-item-label i {
+            color: #0E6B5E;
+            font-size: 14px;
+        }
+
+        .overview-item-val {
+            font-size: 13px;
+            font-weight: 800;
+            color: #143f51;
+            text-align: right;
+            word-break: break-word;
+        }
+
+        .overview-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 11px;
+            border-radius: 999px;
+            font-size: 11.5px;
+            font-weight: 800;
+            background: #D1FAE5;
+            border: 1px solid #A7F3D0;
+            color: #047857;
+        }
+
+        .overview-badge.role {
+            background: #E0F2FE;
+            border-color: #BAE6FD;
+            color: #0369A1;
+            text-transform: capitalize;
+        }
+
+        .clinical-stats-title {
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #5b747e;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .clinical-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .clinical-stat-box {
+            padding: 13px 14px;
+            border-radius: 13px;
+            background: linear-gradient(135deg, #047857 0%, #059669 60%, #10B981 100%);
+            color: #ffffff;
+            box-shadow: 0 8px 18px rgba(5, 150, 105, 0.22);
+        }
+
+        .clinical-stat-box .stat-num {
+            font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+            font-size: 24px;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 3px;
+        }
+
+        .clinical-stat-box .stat-lbl {
+            font-size: 11.5px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* Right Column: Form Styles */
+        .profile-form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .profile-form-group {
+            margin-bottom: 4px;
+        }
+
+        .profile-form-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 7px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #1e3a47;
+        }
+
+        .profile-form-label span i {
+            color: #0E6B5E;
+            margin-right: 6px;
+        }
+
+        .readonly-tag {
+            font-size: 10.5px;
+            font-weight: 700;
+            color: #64748B;
+            background: #F1F5F9;
+            border: 1px solid #CBD5E1;
+            border-radius: 999px;
+            padding: 1px 8px;
+        }
+
+        .input-icon-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .profile-form-input {
+            width: 100%;
+            padding: 11px 14px;
+            border: 1.5px solid #CFE3DA;
+            border-radius: 11px;
+            background: #ffffff;
+            color: #143f51;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            outline: none;
+            transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+        }
+
+        .profile-form-input:focus {
+            border-color: #0E6B5E !important;
+            box-shadow: 0 0 0 3.5px rgba(14, 107, 94, 0.13) !important;
+        }
+
+        .profile-form-input:disabled {
+            background: #F4F8F6;
+            border-color: #DCE8E2;
+            color: #647d87;
+            cursor: not-allowed;
+        }
+
+        .pw-toggle-btn {
+            position: absolute;
+            right: 10px;
+            background: transparent;
+            border: none;
+            color: #5b747e;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pw-toggle-btn:hover {
+            color: #0E6B5E;
+            background: #EAF7F0;
+        }
+
+        .profile-help {
+            margin-top: 5px;
+            font-size: 11.5px;
+            color: #6c858d;
+            font-weight: 500;
+        }
+
+        /* Password Box */
+        .password-section {
+            margin-top: 22px;
+            padding: 18px 18px 16px;
+            border-radius: 14px;
+            background: #F8FCFA;
+            border: 1px solid #D9EFE4;
+        }
+
+        .password-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .password-title {
+            font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+            font-size: 14.5px;
+            font-weight: 800;
+            color: #143f51;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+        }
+
+        .password-title i {
+            color: #0E6B5E;
+            font-size: 16px;
+        }
+
+        .optional-pill {
+            font-size: 11px;
+            font-weight: 700;
+            color: #0E6B5E;
+            background: #EAF7F0;
+            border: 1px solid #C9E9DA;
+            padding: 3px 10px;
+            border-radius: 999px;
+        }
+
+        /* Form Actions Footer */
+        .profile-form-footer {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid #E6F2EC;
+        }
+
+        .profile-save-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 999px !important;
+            background: linear-gradient(135deg, #149A72, #0A4A41) !important;
+            color: #ffffff;
+            font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+            font-size: 13.5px;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(14, 107, 94, 0.26);
+            transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
+        }
+
+        .profile-save-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 24px rgba(14, 107, 94, 0.34);
+            filter: brightness(1.04);
+        }
+
+        /* Alerts */
+        .profile-message,
+        .profile-error {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            margin-bottom: 18px;
+            border-radius: 12px;
+            font-size: 13.5px;
+            font-weight: 700;
+        }
+
+        .profile-message {
+            background: #ECFDF5;
+            border: 1px solid #A7F3D0;
+            color: #047857;
+        }
+
+        .profile-error {
+            background: #FEF2F2;
+            border: 1px solid #FECACA;
+            color: #B91C1C;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .profile-workspace-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 720px) {
+            .dentist-hero-card {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 22px 20px;
             }
             .profile-header-right {
                 margin-left: 0;
                 width: 100%;
                 align-items: flex-start;
             }
-        }
-        .profile-info-name {
-            font-family: "Plus Jakarta Sans", sans-serif;
-            font-size: 20px;
-            font-weight: 800;
-        }
-        .profile-info-email {
-            font-size: 12px;
-            opacity: 0.85;
-            margin-top: 3px;
-        }
-        .profile-info-role {
-            display: inline-block;
-            margin-top: 8px;
-            font-size: 10px;
-            font-weight: 800;
-            letter-spacing: 1px;
-            background: rgba(255,255,255,.18);
-            border: 1px solid rgba(255,255,255,.35);
-            padding: 4px 12px;
-            border-radius: 20px;
-        }
-        section.portal-card {
-            border: 1px solid #C9E9DA !important;
-            border-radius: 16px !important;
-            box-shadow: 0 8px 24px rgba(14,107,94,.08) !important;
-        }
-        .profile-form-input:focus {
-            border-color: #0E6B5E !important;
-            box-shadow: 0 0 0 3px rgba(14,107,94,.12) !important;
-        }
-        .profile-save-button {
-            background: linear-gradient(135deg, #149A72, #0A4A41) !important;
-            border-radius: 10px !important;
-            box-shadow: 0 6px 14px rgba(14,107,94,.22);
-        }
-        .profile-save-button:hover {
-            filter: brightness(.93);
-        }
-        .profile-avatar {
-            background: #EAF7F0 !important;
-            color: #0E6B5E !important;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | RESPONSIVE
-        |--------------------------------------------------------------------------
-        */
-
-        @media (max-width: 850px) {
-
-            .profile-layout {
-
+            .profile-form-grid {
                 grid-template-columns: 1fr;
             }
-
-
-            .profile-summary {
-
-                max-width: 700px;
-            }
-
-
-            .profile-3col {
-
-                grid-template-columns:
-                    1fr;
-            }
-
         }
-
-        @media (max-width: 600px) {
-
-            .profile-header-card,
-            .profile-layout {
-
-                margin-left: 12px;
-                margin-right: 12px;
-            }
-
-
-            .profile-form-row {
-
-                grid-template-columns:
-                    1fr;
-            }
-
-        }
-
     </style>
 
 
@@ -1704,7 +1799,20 @@ include __DIR__ . '/dentist_sidebar.php';
 
         <div class="portal-content">
 
-            <div class="profile-header-card">
+            <?php
+            $displaySpec = trim((string) ($dentist['specialization'] ?? ''));
+            if ($displaySpec === '') {
+                $displaySpec = 'General Dentistry';
+            }
+            $displayContact = trim((string) ($dentist['contact_number'] ?? ''));
+            $displayStatus = trim((string) ($dentist['status'] ?? 'Active')) ?: 'Active';
+            $dentistBadgeCode = $dentistId > 0 ? sprintf('DENT-%03d', $dentistId) : ('USR-' . $userId);
+            ?>
+
+            <!-- =================================================
+                 HERO PROFILE BANNER
+            ================================================== -->
+            <div class="dentist-hero-card">
                 <div class="profile-photo-wrap">
                     <div class="large-profile-circle" id="dentistPhotoPreviewCircle">
                         <?php if ($profilePhotoUrl !== ''): ?>
@@ -1721,30 +1829,64 @@ include __DIR__ . '/dentist_sidebar.php';
                         type="button"
                         class="profile-edit-photo-btn"
                         id="dentistEditPhotoBtn"
-                        title="Edit photo"
-                        aria-label="Edit profile photo"
+                        title="Change profile photo"
+                        aria-label="Change profile photo"
                     >
                         <i class="bi bi-camera-fill"></i>
                     </button>
                 </div>
-                <div style="flex:1;min-width:0;">
-                    <div class="profile-info-name"><?= dentistProfileEscape($user['full_name']) ?></div>
-                    <div class="profile-info-email"><?= dentistProfileEscape($user['username']) ?></div>
-                    <span class="profile-info-role">DENTIST</span>
+
+                <div class="hero-identity">
+                    <div class="hero-name-row">
+                        <h1 class="profile-info-name"><?= dentistProfileEscape($user['full_name']) ?></h1>
+                        <span class="hero-status-pill">
+                            <span class="hero-status-dot"></span>
+                            <?= dentistProfileEscape($displayStatus) ?>
+                        </span>
+                    </div>
+
+                    <div class="hero-sub-meta">
+                        <span>
+                            <i class="bi bi-envelope-fill"></i>
+                            <?= dentistProfileEscape($user['username']) ?>
+                        </span>
+                        <?php if ($displayContact !== ''): ?>
+                            <span>
+                                <i class="bi bi-telephone-fill"></i>
+                                <?= dentistProfileEscape($displayContact) ?>
+                            </span>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="hero-badges-row">
+                        <span class="hero-chip gold">
+                            <i class="bi bi-shield-check"></i>
+                            DENTIST PORTAL
+                        </span>
+                        <span class="hero-chip">
+                            <i class="bi bi-award-fill"></i>
+                            <?= dentistProfileEscape($displaySpec) ?>
+                        </span>
+                        <span class="hero-chip">
+                            <i class="bi bi-person-Vcard-fill bi-person-badge-fill"></i>
+                            ID: <?= dentistProfileEscape($dentistBadgeCode) ?>
+                        </span>
+                    </div>
                 </div>
+
                 <div class="profile-header-right">
-                    <div class="profile-photo-actions" style="margin-top:0;">
+                    <div class="profile-photo-actions">
                         <button
                             type="button"
                             class="profile-photo-edit-text"
                             id="dentistEditPhotoTextBtn"
                         >
-                            <i class="bi bi-pencil-square"></i>
-                            Edit Photo
+                            <i class="bi bi-camera-fill"></i>
+                            Change Photo
                         </button>
                         <?php if ($profilePhotoUrl !== ''): ?>
                             <form method="POST" style="display:inline;" id="dentistRemovePhotoForm">
-<?= csrfField() ?>
+                                <?= csrfField() ?>
                                 <input type="hidden" name="action" value="remove_photo">
                                 <button type="button" class="profile-photo-remove" id="dentistRemovePhotoBtn">
                                     <i class="bi bi-trash3-fill"></i>
@@ -1753,13 +1895,17 @@ include __DIR__ . '/dentist_sidebar.php';
                             </form>
                         <?php endif; ?>
                     </div>
+                    <div class="photo-hint-note">
+                        <i class="bi bi-info-circle me-1"></i>JPG, PNG, or WEBP · Max 2MB
+                    </div>
+
                     <form
                         method="POST"
                         enctype="multipart/form-data"
                         id="dentistPhotoForm"
                         style="display:none;"
                     >
-<?= csrfField() ?>
+                        <?= csrfField() ?>
                         <input type="hidden" name="action" value="upload_photo">
                         <input
                             type="file"
@@ -1797,11 +1943,9 @@ include __DIR__ . '/dentist_sidebar.php';
                             return;
                         }
 
-                        // Instant preview bago mag-upload.
                         try {
                             var url = URL.createObjectURL(file);
                             var circle = document.getElementById('dentistPhotoPreviewCircle');
-
                             if (circle) {
                                 circle.innerHTML = '<img src="' + url + '" alt="Preview">';
                             }
@@ -1813,432 +1957,327 @@ include __DIR__ . '/dentist_sidebar.php';
             })();
             </script>
 
-            <div class="profile-layout">
 
+            <!-- =================================================
+                 2-COLUMN WORKSPACE: OVERVIEW + EDIT FORM
+            ================================================== -->
+            <div class="profile-workspace-grid">
 
-                <!-- =================================================
-                     PROFILE FORM
-                ================================================== -->
+                <!-- LEFT COLUMN: ACCOUNT & CLINICAL SNAPSHOT -->
+                <aside class="profile-panel-card">
+                    <div class="profile-panel-head">
+                        <span class="panel-head-icon">
+                            <i class="bi bi-person-badge-fill"></i>
+                        </span>
+                        <div>
+                            <h2>Account & Clinical Overview</h2>
+                            <p>Verified practitioner details & workload summary</p>
+                        </div>
+                    </div>
 
-                <section class="portal-card">
+                    <div class="profile-panel-body">
+                        <div class="overview-info-list">
+                            <div class="overview-info-item">
+                                <span class="overview-item-label">
+                                    <i class="bi bi-activity"></i>
+                                    Account Status
+                                </span>
+                                <span class="overview-badge">
+                                    <i class="bi bi-check-circle-fill"></i>
+                                    <?= dentistProfileEscape($displayStatus) ?>
+                                </span>
+                            </div>
 
+                            <div class="overview-info-item">
+                                <span class="overview-item-label">
+                                    <i class="bi bi-shield-lock-fill"></i>
+                                    Portal Role
+                                </span>
+                                <span class="overview-badge role">
+                                    <?= dentistProfileEscape($user['role'] ?? 'Dentist') ?>
+                                </span>
+                            </div>
 
-                    <h2>
-                        Profile Information
-                    </h2>
+                            <div class="overview-info-item">
+                                <span class="overview-item-label">
+                                    <i class="bi bi-award-fill"></i>
+                                    Specialization
+                                </span>
+                                <span class="overview-item-val">
+                                    <?= dentistProfileEscape($displaySpec) ?>
+                                </span>
+                            </div>
 
+                            <div class="overview-info-item">
+                                <span class="overview-item-label">
+                                    <i class="bi bi-telephone-fill"></i>
+                                    Contact Number
+                                </span>
+                                <span class="overview-item-val">
+                                    <?= dentistProfileEscape($displayContact !== '' ? $displayContact : 'Not set') ?>
+                                </span>
+                            </div>
 
-                    <p
-                        style="
-                            color:#7b8997;
-                            font-size:13px;
-                            margin-top:-8px;
-                            margin-bottom:22px;
-                        "
-                    >
-
-                        Basic account information of the dentist.
-
-                    </p>
-
-
-
-                    <!-- SUCCESS -->
-
-                    <?php if ($message !== ''): ?>
-
-                        <div class="profile-message">
-
-                            <i class="bi bi-check-circle-fill"></i>
-
-                            <?= dentistProfileEscape(
-                                $message
-                            ) ?>
-
+                            <div class="overview-info-item">
+                                <span class="overview-item-label">
+                                    <i class="bi bi-hospital-fill"></i>
+                                    Clinic Branch
+                                </span>
+                                <span class="overview-item-val">
+                                    Abalos Dental Clinic
+                                </span>
+                            </div>
                         </div>
 
-                    <?php endif; ?>
-
-
-
-                    <!-- ERROR -->
-
-                    <?php if ($error !== ''): ?>
-
-                        <div class="profile-error">
-
-                            <i class="bi bi-exclamation-circle-fill"></i>
-
-                            <?= dentistProfileEscape(
-                                $error
-                            ) ?>
-
+                        <div class="clinical-stats-title">
+                            <i class="bi bi-bar-chart-fill" style="color:#0E6B5E;"></i>
+                            Clinical Activity Snapshot
                         </div>
 
-                    <?php endif; ?>
+                        <div class="clinical-stats-grid">
+                            <div class="clinical-stat-box">
+                                <div class="stat-num"><?= (int) $statTotalAppts ?></div>
+                                <div class="stat-lbl">
+                                    <i class="bi bi-calendar2-check-fill"></i>
+                                    Total Assigned
+                                </div>
+                            </div>
+
+                            <div class="clinical-stat-box">
+                                <div class="stat-num"><?= (int) $statCompletedAppts ?></div>
+                                <div class="stat-lbl">
+                                    <i class="bi bi-check-circle-fill"></i>
+                                    Completed
+                                </div>
+                            </div>
+
+                            <div class="clinical-stat-box">
+                                <div class="stat-num"><?= (int) $statUpcomingAppts ?></div>
+                                <div class="stat-lbl">
+                                    <i class="bi bi-alarm-fill"></i>
+                                    Upcoming
+                                </div>
+                            </div>
+
+                            <div class="clinical-stat-box">
+                                <div class="stat-num"><?= (int) $statTodayAppts ?></div>
+                                <div class="stat-lbl">
+                                    <i class="bi bi-calendar-day-fill"></i>
+                                    Today's Load
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
 
 
+                <!-- RIGHT COLUMN: PROFILE INFORMATION & SECURITY FORM -->
+                <section class="profile-panel-card">
+                    <div class="profile-panel-head">
+                        <span class="panel-head-icon">
+                            <i class="bi bi-Sliders2 bi-person-gear"></i>
+                        </span>
+                        <div>
+                            <h2>Personal & Professional Settings</h2>
+                            <p>Update your practitioner name, contact details, specialization, and password</p>
+                        </div>
+                    </div>
 
-                    <!-- FORM -->
+                    <div class="profile-panel-body">
 
-                    <form
-                        method="POST"
-                        class="profile-form"
-                    >
-<?= csrfField() ?>
+                        <!-- SUCCESS ALERT -->
+                        <?php if ($message !== ''): ?>
+                            <div class="profile-message">
+                                <i class="bi bi-check-circle-fill" style="font-size:17px;"></i>
+                                <span><?= dentistProfileEscape($message) ?></span>
+                            </div>
+                        <?php endif; ?>
 
+                        <!-- ERROR ALERT -->
+                        <?php if ($error !== ''): ?>
+                            <div class="profile-error">
+                                <i class="bi bi-exclamation-triangle-fill" style="font-size:17px;"></i>
+                                <span><?= dentistProfileEscape($error) ?></span>
+                            </div>
+                        <?php endif; ?>
 
-                        <!-- 3-COLUMN: Col1 Name+Contact | Col2 Email+Spec | Col3 Account Overview -->
+                        <form method="POST" class="profile-form" autocomplete="off">
+                            <?= csrfField() ?>
 
-                        <div class="profile-3col">
-
-                            <!-- COLUMN 1 -->
-
-                            <div>
-
-                                <!-- NAME -->
-
+                            <div class="profile-form-grid">
+                                <!-- FULL NAME -->
                                 <div class="profile-form-group">
-
-                                    <label
-                                        class="profile-form-label"
-                                        for="full_name"
-                                    >
-
-                                        <i class="bi bi-person-fill"></i>Name
-
+                                    <label class="profile-form-label" for="full_name">
+                                        <span><i class="bi bi-person-fill"></i>Full Name</span>
                                     </label>
-
-
                                     <input
                                         type="text"
                                         id="full_name"
                                         name="full_name"
                                         class="profile-form-input"
-                                        value="<?= dentistProfileEscape(
-                                            $user['full_name']
-                                        ) ?>"
+                                        value="<?= dentistProfileEscape($user['full_name']) ?>"
+                                        placeholder="e.g. Dr. Juan Dela Cruz"
                                         required
                                     >
-
+                                    <div class="profile-help">
+                                        Displayed on patient schedules and dental records.
+                                    </div>
                                 </div>
 
-
-                                <!-- CONTACT -->
-
+                                <!-- EMAIL (READ-ONLY) -->
                                 <div class="profile-form-group">
-
-                                    <label
-                                        class="profile-form-label"
-                                        for="contact_number"
-                                    >
-
-                                        <i class="bi bi-telephone-fill"></i>Contact
-
+                                    <label class="profile-form-label" for="email">
+                                        <span><i class="bi bi-envelope-fill"></i>Registered Email</span>
+                                        <span class="readonly-tag"><i class="bi bi-lock-fill"></i> Read-only</span>
                                     </label>
+                                    <input
+                                        type="email"
+                                        id="email"
+                                        class="profile-form-input"
+                                        value="<?= dentistProfileEscape($user['username']) ?>"
+                                        disabled
+                                    >
+                                    <div class="profile-help">
+                                        Used as your primary login username.
+                                    </div>
+                                </div>
 
-
+                                <!-- CONTACT NUMBER -->
+                                <div class="profile-form-group">
+                                    <label class="profile-form-label" for="contact_number">
+                                        <span><i class="bi bi-telephone-fill"></i>Contact Number</span>
+                                    </label>
                                     <input
                                         type="text"
                                         id="contact_number"
                                         name="contact_number"
                                         class="profile-form-input"
-                                        value="<?= dentistProfileEscape(
-                                            $dentist[
-                                                'contact_number'
-                                            ]
-                                        ) ?>"
-                                        placeholder="Enter contact number"
+                                        value="<?= dentistProfileEscape($dentist['contact_number']) ?>"
+                                        placeholder="e.g. 0917 123 4567"
                                     >
-
-
-                                    <?php if (
-                                        $contactColumn === null
-                                    ): ?>
-
-                                        <div class="profile-help">
-
-                                            Contact field is not available
-                                            in the dentist table yet.
-
-                                        </div>
-
-                                    <?php endif; ?>
-
-                                </div>
-
-                            </div>
-
-
-                            <!-- COLUMN 2 -->
-
-                            <div>
-
-                                <!-- EMAIL -->
-
-                                <div class="profile-form-group">
-
-                                    <label
-                                        class="profile-form-label"
-                                        for="email"
-                                    >
-
-                                        <i class="bi bi-envelope-fill"></i>Email
-
-                                    </label>
-
-
-                                    <input
-                                        type="email"
-                                        id="email"
-                                        class="profile-form-input"
-                                        value="<?= dentistProfileEscape(
-                                            $user['username']
-                                        ) ?>"
-                                        disabled
-                                    >
-
-
                                     <div class="profile-help">
-
-                                        Your registered account email.
-
+                                        Active mobile or clinic contact number.
                                     </div>
-
                                 </div>
-
 
                                 <!-- SPECIALIZATION -->
-
                                 <div class="profile-form-group">
-
-                                    <label
-                                        class="profile-form-label"
-                                        for="specialization"
-                                    >
-
-                                        <i class="bi bi-award-fill"></i>Specialization
-
+                                    <label class="profile-form-label" for="specialization">
+                                        <span><i class="bi bi-award-fill"></i>Clinical Specialization</span>
                                     </label>
-
-
                                     <input
                                         type="text"
                                         id="specialization"
                                         name="specialization"
                                         class="profile-form-input"
-                                        value="<?= dentistProfileEscape(
-                                            $dentist[
-                                                'specialization'
-                                            ]
-                                        ) ?>"
-                                        placeholder="e.g. General Dentistry"
+                                        value="<?= dentistProfileEscape($dentist['specialization']) ?>"
+                                        placeholder="e.g. General Dentistry, Orthodontics"
                                     >
+                                    <div class="profile-help">
+                                        Field of dental practice or clinical specialty.
+                                    </div>
+                                </div>
+                            </div>
 
+                            <!-- PASSWORD SECTION -->
+                            <div class="password-section">
+                                <div class="password-head">
+                                    <h3 class="password-title">
+                                        <i class="bi bi-shield-lock-fill"></i>
+                                        Change Account Password
+                                    </h3>
+                                    <span class="optional-pill">Optional — Leave blank to keep current password</span>
+                                </div>
 
-                                    <?php if (
-                                        $specializationColumn === null
-                                    ): ?>
-
-                                        <div class="profile-help">
-
-                                            Specialization field is not
-                                            available in the dentist table yet.
-
+                                <div class="profile-form-grid">
+                                    <div class="profile-form-group">
+                                        <label class="profile-form-label" for="password">
+                                            <span><i class="bi bi-key-fill"></i>New Password</span>
+                                        </label>
+                                        <div class="input-icon-wrap">
+                                            <input
+                                                type="password"
+                                                id="password"
+                                                name="password"
+                                                class="profile-form-input"
+                                                style="padding-right:42px;"
+                                                minlength="6"
+                                                placeholder="Minimum of 6 characters"
+                                                autocomplete="new-password"
+                                            >
+                                            <button type="button" class="pw-toggle-btn" data-toggle-pw="password" aria-label="Show or hide password">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
                                         </div>
-
-                                    <?php endif; ?>
-
-                                </div>
-
-                            </div>
-
-
-                            <!-- COLUMN 3: ACCOUNT OVERVIEW -->
-
-                            <div class="account-overview">
-
-                                <div class="account-overview-title">
-
-                                    <i class="bi bi-person-badge"></i>
-
-                                    Account Overview
-
-                                </div>
-
-
-                                <div class="profile-form-group">
-
-                                    <label class="profile-form-label">
-                                        <i class="bi bi-activity"></i>Account Status
-                                    </label>
-
-                                    <div>
-                                        <span class="overview-badge">
-                                            <?= dentistProfileEscape($dentist['status'] ?? 'Active') ?>
-                                        </span>
+                                        <div class="profile-help">
+                                            Use at least 6 characters for security.
+                                        </div>
                                     </div>
 
-                                </div>
-
-
-                                <div class="profile-form-group" style="margin-bottom:0;">
-
-                                    <label class="profile-form-label">
-                                        <i class="bi bi-person-badge-fill"></i>Role
-                                    </label>
-
-                                    <div>
-                                        <span class="overview-badge role">
-                                            <?= dentistProfileEscape($user['role'] ?? 'dentist') ?>
-                                        </span>
+                                    <div class="profile-form-group">
+                                        <label class="profile-form-label" for="password_confirm">
+                                            <span><i class="bi bi-check2-square"></i>Confirm New Password</span>
+                                        </label>
+                                        <div class="input-icon-wrap">
+                                            <input
+                                                type="password"
+                                                id="password_confirm"
+                                                name="password_confirm"
+                                                class="profile-form-input"
+                                                style="padding-right:42px;"
+                                                minlength="6"
+                                                placeholder="Re-enter new password"
+                                                autocomplete="new-password"
+                                            >
+                                            <button type="button" class="pw-toggle-btn" data-toggle-pw="password_confirm" aria-label="Show or hide confirm password">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                        </div>
+                                        <div class="profile-help">
+                                            Must match the new password entered.
+                                        </div>
                                     </div>
-
                                 </div>
-
                             </div>
 
-                        </div>
-
-
-
-                        <!-- =================================================
-                             PASSWORD
-                        ================================================== -->
-
-                        <div class="password-section">
-
-
-                            <div class="password-title">
-
-                                <i class="bi bi-shield-lock"></i>
-
-                                Change Password
-
+                            <!-- SAVE BUTTON -->
+                            <div class="profile-form-footer">
+                                <button type="submit" class="profile-save-button">
+                                    <i class="bi bi-check2-circle"></i>
+                                    Save Profile Changes
+                                </button>
                             </div>
+                        </form>
 
-
-                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-                            <div class="profile-form-group">
-
-                                <label
-                                    class="profile-form-label"
-                                    for="password"
-                                >
-
-                                    <i class="bi bi-key-fill"></i>New Password
-
-                                </label>
-
-
-                                <input
-                                    type="password"
-                                    id="password"
-                                    name="password"
-                                    class="profile-form-input"
-                                    minlength="6"
-                                    placeholder="Enter new password"
-                                >
-
-
-                                <div class="profile-help">
-
-                                    Leave blank if you do not want
-                                    to change your password.
-
-                                </div>
-
-                            </div>
-
-                            <div class="profile-form-group">
-
-                                <label
-                                    class="profile-form-label"
-                                    for="password_confirm"
-                                >
-
-                                    <i class="bi bi-key-fill"></i>Confirm Password
-
-                                </label>
-
-
-                                <input
-                                    type="password"
-                                    id="password_confirm"
-                                    name="password_confirm"
-                                    class="profile-form-input"
-                                    minlength="6"
-                                    placeholder="Confirm new password"
-                                >
-
-
-                                <div class="profile-help">
-
-                                    Re-type the new password to confirm.
-
-                                </div>
-
-                            </div>
-                            </div>
-
-                        </div>
-
-
-
-                        <!-- =================================================
-                             SAVE BUTTON
-                        ================================================== -->
-
-                        <button
-                            type="submit"
-                            class="profile-save-button"
-                        >
-
-                            <i class="bi bi-check-lg"></i>
-
-                            Save Profile
-
-                        </button>
-
-
-                    </form>
-
-
+                    </div>
                 </section>
-
 
             </div>
 
+            <script>
+            (function(){
+                document.querySelectorAll('[data-toggle-pw]').forEach(function(btn){
+                    btn.addEventListener('click', function(){
+                        var targetId = btn.getAttribute('data-toggle-pw');
+                        var input = document.getElementById(targetId);
+                        if(!input) return;
+                        var isPw = input.type === 'password';
+                        input.type = isPw ? 'text' : 'password';
+                        var icon = btn.querySelector('i');
+                        if(icon){
+                            icon.className = isPw ? 'bi bi-eye-slash' : 'bi bi-eye';
+                        }
+                    });
+                });
+            })();
+            </script>
 
         </div>
 
 
-        <?php if (($_GET['nosidebar'] ?? '') === '1'): ?>
-        <style>.portal-sidebar{display:none!important;}.portal-main{margin-left:0!important;width:100%!important;}</style>
-        <script>
-        function autoCloseSubTab(){
-            try{ if(window.opener && !window.opener.closed){ window.opener.focus(); } }catch(e){}
-            /* Hindi na nagsasara ang tab — same-tab navigation. */
-            if (!window.opener || window.opener.closed) {
-                window.location.href='dentist_dashboard.php';
-            }
-            return false;
-        }
-        </script>
-        <?php endif; ?>
     </main>
 
-<script>
-/* Itago ang sidebar kapag binuksan mula sa dashboard menu (?nosidebar=1) */
-(function(){
-    try {
-        if (new URLSearchParams(window.location.search).get('nosidebar') === '1') {
-            document.querySelectorAll('.portal-sidebar').forEach(function(el){ el.style.display = 'none'; });
-            document.querySelectorAll('.portal-main').forEach(function(el){ el.style.marginLeft = '0'; el.style.width = '100%'; });
-        }
-    } catch(e){}
-})();
-</script>
+
 
 
 <!-- DENTIST LOGOUT CONFIRM — "Are you sure you want to log out?" -->

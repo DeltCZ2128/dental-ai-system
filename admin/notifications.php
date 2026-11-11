@@ -139,10 +139,7 @@ usort($notifications, function ($first, $second) {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
     <style>
         body { background: linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22) !important; background-size: 300% 300% !important; animation: adminBgAnim 8s ease infinite !important; background-attachment: fixed !important; }
-@keyframes adminBgAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-        .shared-sidebar { display: none !important; }
-        .shared-topbar { left: 0 !important; right: 0 !important; }
-        .notifications-page { margin-left: 0 !important; width: 100% !important; min-height: 100vh; padding: 110px 24px 40px !important; background: transparent !important; box-sizing: border-box; display: block !important; }
+        .notifications-page { margin-left: 280px !important; width: calc(100% - 280px) !important; min-height: 100vh; padding: 110px 24px 40px !important; background: transparent !important; box-sizing: border-box; display: block !important; }
         .notifications-page > a.btn[href*="dashboard.php"] { margin-left: 14px !important; margin-right: 14px !important; margin-bottom: 16px !important; }
         .notifications-head { margin: 0 14px 16px 14px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
         .notifications-head h1 { color: #ffffff !important; font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; margin: 0; display: flex; align-items: center; gap: 10px; }
@@ -179,7 +176,56 @@ usort($notifications, function ($first, $second) {
         .notifications-page .btn-sm { font-size: 12.5px; }
         .notifications-empty { text-align: center; padding: 40px 20px; color: #8aa0a8; font-size: 13.5px; font-family: "Inter", "DM Sans", system-ui, sans-serif; }
         .notifications-empty i { display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 14px; background: #EAF7F0; color: #0E6B5E; border: 1px solid #C9E9DA; font-size: 24px; margin-bottom: 12px; }
-        @media (max-width: 991px) { .notifications-page { padding: 25px 16px 40px !important; } .notifications-panel { margin-left: 0 !important; margin-right: 0 !important; } .notifications-head { margin: 0 0 16px 0; } }
+
+        /* Notification Popup Modal */
+        .notification-modal-content {
+            border-radius: 18px !important;
+            border: 1px solid #C9E9DA !important;
+            overflow: hidden !important;
+            box-shadow: 0 16px 40px rgba(14,107,94,.18) !important;
+        }
+        .notification-modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #C9E9DA;
+            background: linear-gradient(135deg, #D9F2E6 0%, #EAF7F0 100%);
+        }
+        .notification-modal-header.pending {
+            background: linear-gradient(135deg, #FFF7E0 0%, #FFFDF4 100%);
+            border-bottom-color: #E3D3A0;
+        }
+        .notification-modal-header.confirmed {
+            background: linear-gradient(135deg, #D9F2E6 0%, #EAF7F0 100%);
+            border-bottom-color: #C9E9DA;
+        }
+        .notification-modal-header.cancelled {
+            background: linear-gradient(135deg, #F9EDED 0%, #FDF8F8 100%);
+            border-bottom-color: #E3C2C2;
+        }
+        .notification-modal-header.rescheduled {
+            background: linear-gradient(135deg, #F1EDFA 0%, #FAF8FE 100%);
+            border-bottom-color: #CFC6E3;
+        }
+        .modal-notif-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
+            background: #ffffff;
+            box-shadow: 0 4px 12px rgba(0,0,0,.06);
+        }
+        .modal-notif-icon.pending { color: #8A6D1B; border: 1.5px solid #E3D3A0; }
+        .modal-notif-icon.confirmed { color: #3E7D5E; border: 1.5px solid #BFD9CB; }
+        .modal-notif-icon.cancelled { color: #9A5A5A; border: 1.5px solid #E3C2C2; }
+        .modal-notif-icon.rescheduled { color: #6A5D8F; border: 1.5px solid #CFC6E3; }
+        .modal-notif-icon.default { color: #0E6B5E; border: 1.5px solid #C9E9DA; }
+        .notification-item { transition: all .2s ease; }
+        .notification-item:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(20,63,81,.08); }
+
+        @media (max-width: 991px) { .notifications-page { margin-left: 0 !important; width: 100% !important; padding: 100px 16px 40px !important; } .notifications-panel { margin-left: 0 !important; margin-right: 0 !important; } .notifications-head { margin: 0 0 16px 0; } }
     </style>
 </head>
 <body>
@@ -218,60 +264,147 @@ usort($notifications, function ($first, $second) {
         <?php else: ?>
             <?php foreach ($notifications as $notification): ?>
                 <?php $notifLink = trim($notification['link'] ?? ''); ?>
-                <a href="<?= e($notifLink !== '' ? $notifLink : 'appointments.php') ?>" class="notification-item <?= e($notification['class']) ?> text-decoration-none" style="cursor:pointer;" title="Click to view: <?= e($notification['title']) ?>" data-tip="View Notification">
+                <div
+                    class="notification-item <?= e($notification['class']) ?>"
+                    role="button"
+                    tabindex="0"
+                    style="cursor:pointer;"
+                    data-notif-title="<?= e($notification['title']) ?>"
+                    data-notif-message="<?= e($notification['message']) ?>"
+                    data-notif-date="<?= e(date('M d, Y • h:i A', strtotime($notification['date']))) ?>"
+                    data-notif-icon="bi <?= e($notification['icon']) ?>"
+                    data-notif-class="<?= e($notification['class']) ?>"
+                    data-notif-link="<?= e($notifLink) ?>"
+                    title="Click to view details: <?= e($notification['title']) ?>"
+                    data-tip="Click to view details"
+                >
                     <div class="notification-icon"><i class="bi <?= e($notification['icon']) ?>"></i></div>
                     <div class="flex-grow-1">
                         <div class="notification-title"><?= e($notification['title']) ?></div>
                         <div class="notification-message"><?= e($notification['message']) ?></div>
-                        <div class="notification-date"><?= e(date('M d, Y h:i A', strtotime($notification['date']))) ?></div>
+                        <div class="notification-date"><i class="bi bi-clock-history me-1"></i><?= e(date('M d, Y • h:i A', strtotime($notification['date']))) ?></div>
                     </div>
-                    <span class="btn btn-sm btn-outline-primary">View</span>
-                </a>
+                    <button type="button" class="btn btn-sm btn-outline-primary notif-view-btn"><i class="bi bi-eye me-1"></i>View Details</button>
+                </div>
             <?php endforeach; ?>
         <?php endif; ?>
         </div>
     </section>
+
+    <!-- NOTIFICATION POPUP MODAL -->
+    <div class="modal fade" id="notificationModal" tabindex="-1" aria-labelledby="notificationModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content notification-modal-content">
+                <div class="modal-header notification-modal-header" id="notifModalHeader">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="modal-notif-icon default" id="notifModalIcon">
+                            <i class="bi bi-bell-fill"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold mb-1" id="notificationModalTitle" style="color:#143f51; font-family:'Plus Jakarta Sans',sans-serif; font-size:17px;">Notification Details</h5>
+                            <span class="badge" id="notifModalBadge" style="font-size:11.5px;">Activity</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="d-flex align-items-center justify-content-between mb-3 pb-3 border-bottom">
+                        <span class="text-muted small"><i class="bi bi-clock-history me-1"></i>Date Received</span>
+                        <strong class="small" id="notifModalDate" style="color:#2A4A57;">-</strong>
+                    </div>
+                    <div class="p-3 rounded-3 mb-2" style="background:#F6FBF8; border:1.5px solid #E6F2EC;">
+                        <div class="small text-muted fw-bold mb-2"><i class="bi bi-chat-left-text-fill me-1" style="color:#0E6B5E;"></i>Notification Message:</div>
+                        <div id="notifModalMessage" style="font-size:14.5px; line-height:1.6; color:#234450; font-weight:500;"></div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 px-4 pb-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <a href="#" id="notifModalLink" class="btn btn-sm btn-outline-primary d-none" target="_blank" rel="noopener noreferrer">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>Open Related Record
+                        </a>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm px-4" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 (function(){
-    function closeTabThenFallback(url){
-        try { window.close(); } catch(e) {}
-        setTimeout(function(){
-            try {
-                if (!window.closed) { window.open('', '_self'); window.close(); }
-            } catch(e2) {}
-            setTimeout(function(){ if (!window.closed) window.location.href = url; }, 150);
-        }, 200);
-    }
-    // Mark na galing sa notification click — para mag-close ang tab sa dulo ng flow
-    document.querySelectorAll('a.notification-item').forEach(function(a){
-        a.addEventListener('click', function(){
-            try { sessionStorage.setItem('adminNotifReturn', '1'); } catch(e) {}
-            // dalhin ang #notab hash kung meron
-            try {
-                if (window.location.hash && a.getAttribute('href').indexOf('#') === -1) {
-                    a.href = a.getAttribute('href') + window.location.hash;
-                }
-            } catch(e) {}
+    var notifModalEl = document.getElementById('notificationModal');
+    var bsModal = notifModalEl ? new bootstrap.Modal(notifModalEl) : null;
+
+    document.querySelectorAll('.notification-item').forEach(function(item){
+        function openNotificationModal(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            var title = item.getAttribute('data-notif-title') || 'Notification Details';
+            var message = item.getAttribute('data-notif-message') || '';
+            var date = item.getAttribute('data-notif-date') || '';
+            var iconClass = item.getAttribute('data-notif-icon') || 'bi bi-bell-fill';
+            var notifClass = item.getAttribute('data-notif-class') || 'default';
+            var link = item.getAttribute('data-notif-link') || '';
+
+            document.getElementById('notificationModalTitle').textContent = title;
+            document.getElementById('notifModalMessage').textContent = message;
+            document.getElementById('notifModalDate').textContent = date;
+
+            // Configure badge text & theme
+            var badge = document.getElementById('notifModalBadge');
+            badge.textContent = title;
+            badge.className = 'badge';
+            if (notifClass === 'pending') {
+                badge.classList.add('bg-warning', 'text-dark');
+            } else if (notifClass === 'confirmed') {
+                badge.classList.add('bg-success');
+            } else if (notifClass === 'cancelled') {
+                badge.classList.add('bg-danger');
+            } else if (notifClass === 'rescheduled') {
+                badge.classList.add('bg-info', 'text-dark');
+            } else {
+                badge.classList.add('bg-primary');
+            }
+
+            // Configure icon
+            var iconContainer = document.getElementById('notifModalIcon');
+            iconContainer.className = 'modal-notif-icon ' + notifClass;
+            iconContainer.innerHTML = '<i class="' + iconClass + '"></i>';
+
+            // Configure header background theme
+            var header = document.getElementById('notifModalHeader');
+            header.className = 'modal-header notification-modal-header ' + notifClass;
+
+            // Optional direct link button inside modal
+            var linkBtn = document.getElementById('notifModalLink');
+            if (link && link !== '#' && link !== 'appointments.php') {
+                linkBtn.href = link;
+                linkBtn.classList.remove('d-none');
+            } else {
+                linkBtn.classList.add('d-none');
+            }
+
+            if (bsModal) {
+                bsModal.show();
+            }
+        }
+
+        item.addEventListener('click', openNotificationModal);
+        item.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                openNotificationModal(e);
+            }
         });
     });
+
     var back = document.getElementById('adminNotifBackDashboard');
     if (back) {
-        // dalhin din ang hash sa dashboard kung #notab mode
-        try {
-            if (window.location.hash === '#notab' && back.getAttribute('href').indexOf('#') === -1) {
-                back.href = back.getAttribute('href') + '#notab';
-            }
-        } catch(e) {}
-        back.addEventListener('click', function(e){
-            var fromFlow = false;
-            try { fromFlow = sessionStorage.getItem('adminNotifReturn') === '1'; } catch(err) {}
-            if (fromFlow || window.location.hash === '#notab') {
-                e.preventDefault();
-                try { sessionStorage.removeItem('adminNotifReturn'); } catch(err) {}
-                closeTabThenFallback(back.href);
-            }
-        });
+        if (window.location.hash === '#notab' && back.getAttribute('href').indexOf('#') === -1) {
+            back.href = back.getAttribute('href') + '#notab';
+        }
     }
 })();
 </script>

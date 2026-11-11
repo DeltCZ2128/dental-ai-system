@@ -77,11 +77,6 @@ $pageTitles = [
     'settings.php' => [
         'Settings',
         'Manage clinic information and preferences'
-    ],
-
-    'backup.php' => [
-        'Backup',
-        'Export and import the full database backup'
     ]
 
 ];
@@ -108,7 +103,7 @@ $username =
      SIDEBAR
 ========================================================= -->
 
-<aside class="sidebar shared-sidebar">
+<aside class="sidebar shared-sidebar" id="sidebar">
 
 
     <!-- BRAND -->
@@ -301,22 +296,6 @@ $username =
         </a>
 
 
-        <!-- BACKUP -->
-
-        <a
-            href="backup.php"
-            class="sidebar-link <?= isActive('backup.php') ?>"
-        >
-
-            <i class="bi bi-database-fill-check"></i>
-
-            <span>
-                Backup
-            </span>
-
-        </a>
-
-
         <div class="nav-title" style="margin-top:14px;">
             ACCOUNT
         </div>
@@ -335,16 +314,114 @@ $username =
         </a>
 
 
-    </div>
+        <!-- TAGLINE -->
+        <div class="sidebar-tagline" style="margin-top:18px;padding:14px 12px 4px;border-top:1px solid rgba(255,255,255,.15);text-align:center;">
+            <div class="sidebar-tagline-tooth" style="font-size:26px;line-height:1;margin-bottom:6px;">🦷</div>
+            <div class="sidebar-tagline-text" style="color:#C9A227;font-size:11px;font-weight:700;letter-spacing:.4px;line-height:1.5;">Healthy Smiles.<br>Brighter Futures</div>
+        </div>
 
+    </div>
 
 </aside>
 
 <style>
-/* Admin Back to Dashboard — katulad sa patient account (green visible) */
+/* Master Admin Sidebar & Main Layout Locking — permanently visible on left */
+.shared-sidebar,
+aside.sidebar {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    width: 280px !important;
+    min-height: 100vh !important;
+    height: 100vh !important;
+    background: linear-gradient(180deg, #022c22 0%, #059669 100%) !important;
+    border-right: 1px solid #808080 !important;
+    color: #ffffff !important;
+    padding: 25px 17px !important;
+    overflow-y: auto !important;
+    font-family: "Inter", "DM Sans", system-ui, sans-serif !important;
+    z-index: 1000 !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    box-sizing: border-box !important;
+}
+
+.shared-topbar,
+header.topbar {
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    left: 280px !important;
+    height: 75px !important;
+    background: #ffffff !important;
+    border-bottom: 1px solid #808080 !important;
+    padding: 0 30px !important;
+    z-index: 999 !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+}
+
+.main,
+.main-content,
+.patients-page,
+.concern-wrapper,
+.notifications-page,
+.queue-page,
+.reports-page,
+.settings-page {
+    margin-left: 280px !important;
+    width: calc(100% - 280px) !important;
+    box-sizing: border-box !important;
+}
+
+@media (max-width: 991px) {
+    .shared-sidebar,
+    aside.sidebar {
+        transform: translateX(-100%);
+        transition: transform .25s ease;
+    }
+
+    .shared-sidebar.show,
+    aside.sidebar.show {
+        transform: translateX(0);
+    }
+
+    .shared-topbar,
+    header.topbar {
+        left: 0 !important;
+        width: 100% !important;
+        padding: 0 16px !important;
+    }
+
+    .shared-topbar .mobile-menu,
+    header.topbar .mobile-menu {
+        display: inline-flex !important;
+    }
+
+    .main,
+    .main-content,
+    .patients-page,
+    .concern-wrapper,
+    .notifications-page,
+    .queue-page,
+    .reports-page,
+    .settings-page {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+}
+
+/* Admin Back to Dashboard / Back to Notifications — katulad sa patient account (green visible) */
 a.btn[href="dashboard.php"],
 a.btn[href="./dashboard.php"],
-a.btn[href*="dashboard.php"] {
+a.btn[href*="dashboard.php"],
+a.btn[href="notifications.php"],
+a.btn[href="./notifications.php"],
+a.btn[href*="notifications.php"] {
     background: linear-gradient(135deg, #149A72, #0A4A41) !important;
     color: #ffffff !important;
     border: 1px solid rgba(201,162,39,.35) !important;
@@ -363,14 +440,18 @@ a.btn[href*="dashboard.php"] {
 }
 a.btn[href="dashboard.php"]:hover,
 a.btn[href="./dashboard.php"]:hover,
-a.btn[href*="dashboard.php"]:hover {
+a.btn[href*="dashboard.php"]:hover,
+a.btn[href="notifications.php"]:hover,
+a.btn[href="./notifications.php"]:hover,
+a.btn[href*="notifications.php"]:hover {
     background: linear-gradient(135deg, #0E6B5E, #083A32) !important;
     color: #ffffff !important;
     transform: translateY(-1px);
     box-shadow: 0 12px 26px rgba(14,107,94,.28) !important;
 }
 /* Huwag madamay ang sidebar link (hindi btn) */
-.sidebar a[href*="dashboard.php"] { background: none !important; box-shadow: none !important; }
+.sidebar a[href*="dashboard.php"],
+.sidebar a[href*="notifications.php"] { background: none !important; box-shadow: none !important; }
 </style>
 
 <!-- =========================================================
@@ -381,6 +462,10 @@ a.btn[href*="dashboard.php"]:hover {
 
 
     <div class="d-flex align-items-center gap-3">
+
+        <button type="button" class="mobile-menu" onclick="toggleSidebar()" aria-label="Toggle Navigation" style="background:transparent;border:none;font-size:24px;color:#143f51;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;margin-right:4px;">
+            <i class="bi bi-list"></i>
+        </button>
 
         <div class="page-title">
 
@@ -463,23 +548,30 @@ a.btn[href*="dashboard.php"]:hover {
         });
     }
 
+    window.toggleSidebar = function() {
+        var sidebar = document.querySelector(".shared-sidebar") || document.getElementById("sidebar");
+        if (sidebar) {
+            sidebar.classList.toggle("show");
+        }
+    };
+
+    // Close sidebar on small screen when clicking outside or clicking a link
+    document.addEventListener("click", function(e) {
+        if (window.innerWidth > 991) return;
+        var sidebar = document.querySelector(".shared-sidebar") || document.getElementById("sidebar");
+        var toggleBtn = document.querySelector(".mobile-menu");
+        if (!sidebar || !sidebar.classList.contains("show")) return;
+        if (toggleBtn && (toggleBtn === e.target || toggleBtn.contains(e.target))) return;
+        if (!sidebar.contains(e.target)) {
+            sidebar.classList.remove("show");
+        }
+    });
+
     function applyAdminNewTabView()
     {
-        if (window.location.hash !== "#notab") return;
+        // Huwag itatago ang sidebar — mananatiling nakalock sa kaliwa (tulad sa dentist account)
 
-        var sidebar = document.querySelector(".shared-sidebar");
-        if (sidebar) {
-            sidebar.style.display = "none";
-        }
-        var candidates = document.querySelectorAll(
-            ".patients-page, .main, .settings-page, .notifications-page, main, .main-content, .content"
-        );
-        candidates.forEach(function(el) {
-            el.style.marginLeft = "0";
-        });
-        document.body.style.marginLeft = "0";
-
-        // Hanapin lahat ng Back to Dashboard links (static) — gawing close-tab
+        // Hanapin lahat ng Back to Dashboard links (static) — gawing close-tab kung #notab
         var backs = document.querySelectorAll('a[href="dashboard.php"], a[href="./dashboard.php"], a[href*="dashboard.php"]');
         backs.forEach(function(b)
         {
@@ -488,26 +580,6 @@ a.btn[href*="dashboard.php"]:hover {
                 bindAdminClose(b);
             }
         });
-
-        // Kung walang Back button, mag-inject ng isa sa taas ng content
-        var hasBack = false;
-        backs.forEach(function(b){
-            if (b.textContent && b.textContent.toLowerCase().indexOf("back to dashboard") !== -1) hasBack = true;
-        });
-        if (!hasBack)
-        {
-            var target = document.querySelector(".patients-page, .main-content, .content, .patient-panel, main");
-            if (target)
-            {
-                var a = document.createElement("a");
-                a.href = "dashboard.php";
-                a.className = "btn mb-3";
-                a.innerHTML = '<i class="bi bi-arrow-left-circle-fill me-1"></i>Back to Dashboard';
-                a.style.display = "inline-block";
-                target.prepend(a);
-                bindAdminClose(a);
-            }
-        }
 
         // Delegation fallback
         document.addEventListener("click", function(ev)

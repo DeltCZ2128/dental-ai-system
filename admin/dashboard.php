@@ -268,7 +268,7 @@ try {
                 SUM(
                     CASE
                         WHEN appointment_date = CURDATE()
-                        AND status NOT IN ('Cancelled', 'Canceled')
+                        AND status NOT IN ('No-Show', 'Completed', 'Cancelled', 'Canceled')
                         THEN 1
                         ELSE 0
                     END
@@ -3484,7 +3484,7 @@ button {
 
 
         <a
-            href="dashboard.php#notab"
+            href="dashboard.php"
             target="_self"
             rel="noopener noreferrer"
             class="sidebar-link active"
@@ -3500,7 +3500,7 @@ button {
 
 
         <a
-            href="patients.php#notab"
+            href="patients.php"
             target="_self"
             rel="noopener noreferrer"
             class="sidebar-link"
@@ -3516,7 +3516,7 @@ button {
 
 
         <a
-            href="appointments.php#notab"
+            href="appointments.php"
             target="_self"
             rel="noopener noreferrer"
             class="sidebar-link"
@@ -3532,7 +3532,7 @@ button {
 
 
         <a
-            href="appointment_concern.php#notab"
+            href="appointment_concern.php"
             target="_self"
             rel="noopener noreferrer"
             class="sidebar-link"
@@ -3548,7 +3548,7 @@ button {
 
 
         <a
-            href="dentists.php#notab"
+            href="dentists.php"
             target="_self"
             rel="noopener noreferrer"
             class="sidebar-link"
@@ -3564,7 +3564,7 @@ button {
 
 
         <a
-            href="queue.php#notab"
+            href="queue.php"
             target="_self"
             rel="noopener noreferrer"
             class="sidebar-link"
@@ -3580,7 +3580,7 @@ button {
 
 
         <a
-            href="reports.php#notab"
+            href="reports.php"
             target="_self"
             rel="noopener noreferrer"
             class="sidebar-link"
@@ -3596,7 +3596,7 @@ button {
 
 
         <a
-            href="notifications.php#notab"
+            href="notifications.php"
             target="_self"
             rel="noopener noreferrer"
             class="sidebar-link"
@@ -3612,7 +3612,7 @@ button {
 
 
         <a
-            href="settings.php#notab"
+            href="settings.php"
             target="_self"
             rel="noopener noreferrer"
             class="sidebar-link"
@@ -4248,25 +4248,28 @@ button {
                     </div>
                 </div>
                 <div class="card-body-custom">
-                    <div class="detail-mini-grid">
-                        <div class="detail-mini"><div class="detail-mini-icon icon-purple"><i class="bi bi-check-circle-fill"></i></div><div><small>Total Completed</small><strong><?= $completedSub['total'] ?></strong></div></div>
-                        <div class="detail-mini"><div class="detail-mini-icon icon-green"><i class="bi bi-sun-fill"></i></div><div><small>Today</small><strong><?= $completedSub['today'] ?></strong></div></div>
-                        <div class="detail-mini"><div class="detail-mini-icon icon-green"><i class="bi bi-calendar-week-fill"></i></div><div><small>This Week</small><strong><?= $completedSub['week'] ?></strong></div></div>
-                        <div class="detail-mini"><div class="detail-mini-icon icon-blue"><i class="bi bi-calendar-month-fill"></i></div><div><small>This Month</small><strong><?= $completedSub['month'] ?></strong></div></div>
+                    <div class="detail-mini-grid" data-mini-group="completed">
+                        <div class="detail-mini detail-mini-clickable" data-filter="all" role="button" tabindex="0" title="Show all"><div class="detail-mini-icon icon-purple"><i class="bi bi-check-circle-fill"></i></div><div><small>Total Completed</small><strong><?= $completedSub['total'] ?></strong></div></div>
+                        <div class="detail-mini detail-mini-clickable" data-filter="today" role="button" tabindex="0" title="Show today"><div class="detail-mini-icon icon-green"><i class="bi bi-sun-fill"></i></div><div><small>Today</small><strong><?= $completedSub['today'] ?></strong></div></div>
+                        <div class="detail-mini detail-mini-clickable" data-filter="week" role="button" tabindex="0" title="Show this week"><div class="detail-mini-icon icon-green"><i class="bi bi-calendar-week-fill"></i></div><div><small>This Week</small><strong><?= $completedSub['week'] ?></strong></div></div>
+                        <div class="detail-mini detail-mini-clickable" data-filter="month" role="button" tabindex="0" title="Show this month"><div class="detail-mini-icon icon-blue"><i class="bi bi-calendar-month-fill"></i></div><div><small>This Month</small><strong><?= $completedSub['month'] ?></strong></div></div>
                     </div>
                     <div class="table-wrapper">
                         <table class="appointment-table">
                             <thead><tr><th>#</th><th>Patient Name</th><th>Date &amp; Time</th><th>Service</th><th>Dentist</th></tr></thead>
                             <tbody>
                             <?php if (empty($completedList)): ?>
-                                <tr><td colspan="5"><div class="empty-state"><div class="empty-icon"><i class="bi bi-check2-square"></i></div><strong>No completed appointments.</strong></div></td></tr>
+                                <tr class="detail-empty-row"><td colspan="5"><div class="empty-state"><div class="empty-icon"><i class="bi bi-check2-square"></i></div><strong>No completed appointments.</strong></div></td></tr>
                             <?php else: ?>
                                 <?php $n=1; foreach ($completedList as $a):
                                     $pn = trim(($a['patient_name'] ?? '')) !== '' ? trim($a['patient_name']) : 'Patient #' . ($a['patient_id'] ?? '-');
                                     $dn = trim(($a['dentist_name'] ?? '')) !== '' ? trim($a['dentist_name']) : 'Not assigned';
-                                    $dt = '-'; if (!empty($a['appointment_date'])) { $ts = strtotime($a['appointment_date'] . ' ' . ($a['start_time'] ?? '')); if ($ts) $dt = date('M j, Y h:i A', $ts); }
+                                    $dstr = substr((string)($a['appointment_date'] ?? ''), 0, 10);
+                                    $dt = '-'; if ($dstr !== '') { $ts = strtotime($dstr . ' ' . ($a['start_time'] ?? '')); if ($ts) $dt = date('M j, Y h:i A', $ts); }
+                                    $ws = (new DateTime('monday this week'))->format('Y-m-d'); $we = (new DateTime('sunday this week'))->format('Y-m-d');
+                                    $inWeek = ($dstr >= $ws && $dstr <= $we); $inMonth = (substr($dstr,0,7) === date('Y-m'));
                                 ?>
-                                <tr>
+                                <tr data-status="completed" data-today="<?= $dstr === date('Y-m-d') ? '1' : '0' ?>" data-week="<?= $inWeek ? '1' : '0' ?>" data-month="<?= $inMonth ? '1' : '0' ?>">
                                     <td><?= $n++ ?></td>
                                     <td><div class="patient-cell"><div class="patient-avatar"><i class="bi bi-person-fill"></i></div><div><strong><?= adminDashboardEscape($pn) ?></strong></div></div></td>
                                     <td><?= adminDashboardEscape($dt) ?></td>
@@ -4523,10 +4526,6 @@ button {
                     <div class="chart-panel" id="analyticsPanelForecast">
                         <div class="chart-card-body">
                             <canvas id="chartForecast"></canvas>
-                        </div>
-                        <div class="chart-legend-note">
-                            <span><span class="chart-dot" style="background:#059669;"></span> ML prediction</span>
-                            <span><span class="chart-dot" style="background:#10b981;"></span> Already booked</span>
                         </div>
                     </div>
                 </div>
@@ -5839,16 +5838,8 @@ document.querySelectorAll(
     }
 
     function hideSidebarForNewTab() {
-        var sidebar = document.getElementById("sidebar");
-        if (sidebar) {
-            sidebar.style.display = "none";
-        }
-        var main = document.querySelector(".main-content");
-        if (main) {
-            main.style.marginLeft = "0";
-            main.style.width = "100%";
-        }
-        // Back to Dashboard sa new tab â€” isara ang tab
+        // Mananatiling visible ang sidebar sa kaliwa tulad sa dentist portal
+        // Back to Dashboard sa new tab — isara ang tab
         var backs = document.querySelectorAll('a[href="dashboard.php"], a[href*="dashboard.php"]');
         backs.forEach(function(b){
             if (b.textContent && b.textContent.toLowerCase().indexOf("back to dashboard") !== -1) bindAdminClose(b);
@@ -6180,24 +6171,24 @@ document.querySelectorAll(
                     {
                         label: "AI prediction",
                         data: forecastML,
-                        backgroundColor: "#059669",
-                        hoverBackgroundColor: "#022c22",
-                        borderRadius: 7,
+                        backgroundColor: "#0E6B5E",
+                        hoverBackgroundColor: "#0A4A41",
+                        borderRadius: 6,
                         borderSkipped: false,
-                        maxBarThickness: 20,
-                        categoryPercentage: 0.62,
-                        barPercentage: 0.9
+                        maxBarThickness: 22,
+                        categoryPercentage: 0.35,
+                        barPercentage: 0.92
                     },
                     {
                         label: "Already booked",
                         data: forecastBooked,
-                        backgroundColor: "#10b981",
+                        backgroundColor: "#10B981",
                         hoverBackgroundColor: "#059669",
-                        borderRadius: 7,
+                        borderRadius: 6,
                         borderSkipped: false,
-                        maxBarThickness: 20,
-                        categoryPercentage: 0.62,
-                        barPercentage: 0.9
+                        maxBarThickness: 22,
+                        categoryPercentage: 0.35,
+                        barPercentage: 0.92
                     }
                 ]
             },
@@ -6205,12 +6196,35 @@ document.querySelectorAll(
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { position: "bottom", labels: { boxWidth: 11, boxHeight: 11, borderRadius: 4, useBorderRadius: true, padding: 12 } },
+                    legend: {
+                        position: "bottom",
+                        labels: {
+                            boxWidth: 12,
+                            boxHeight: 12,
+                            borderRadius: 4,
+                            useBorderRadius: true,
+                            padding: 16,
+                            font: { family: "DM Sans, sans-serif", size: 12, weight: "600" },
+                            color: "#143f51"
+                        }
+                    },
                     tooltip: tooltipStyle
                 },
                 scales: {
-                    y: { beginAtZero: true, stacked: true, ticks: { stepSize: 1, precision: 0 }, grid: { color: "#edf3f4" }, border: { display: false }, title: { display: true, text: "No. of Appointments", color: "#143f51", font: { size: 12, weight: "800" } } },
-                    x: { stacked: true, grid: { display: false }, border: { display: false }, title: { display: true, text: "Day (Next 7 Days)", color: "#143f51", font: { size: 12, weight: "800" } } }
+                    y: {
+                        beginAtZero: true,
+                        stacked: false,
+                        ticks: { stepSize: 1, precision: 0 },
+                        grid: { color: "#edf3f4" },
+                        border: { display: false },
+                        title: { display: true, text: "No. of Appointments", color: "#143f51", font: { size: 12, weight: "800" } }
+                    },
+                    x: {
+                        stacked: false,
+                        grid: { display: false },
+                        border: { display: false },
+                        title: { display: true, text: "Day (Next 7 Days)", color: "#143f51", font: { size: 12, weight: "800" } }
+                    }
                 }
             }
         });
@@ -6563,33 +6577,129 @@ document.querySelectorAll(
     document.querySelectorAll("[data-close-detail]").forEach(function(btn){
         btn.addEventListener("click", closeAll);
     });
-    // Inner filter tabs + mini summary cards (no reload, no new tab)
-    // Pareho lang sila ng function: pag pinindot ang mini, sasabay ang tab, at vice versa.
-    function applyDetailFilter(card, group, filter) {
-        var f = (filter || "all").toLowerCase();
-        var rows = Array.prototype.slice.call(card.querySelectorAll("tbody tr[data-status], tbody tr[data-today]"));
-        var visible = 0;
+    // Inner filter tabs + mini summary cards + 10-per-page Pagination
+    var DETAIL_PER_PAGE = 10;
+
+    function renderDetailTable(card, group, filter, page) {
+        var f = (filter || card._currentFilter || "all").toLowerCase();
+        var tbody = card.querySelector(".appointment-table tbody");
+        if (!tbody) return;
+
+        var rows = Array.prototype.slice.call(
+            tbody.querySelectorAll("tr:not(.detail-empty-row):not(.js-filter-empty-row)")
+        );
+        var matched = [];
+
         rows.forEach(function(r){
             var keep = false;
-            if (f === "all") keep = true;
-            else if (group === "confirmed") {
+            if (f === "all") {
+                keep = true;
+            } else if (group === "confirmed" || group === "completed") {
                 if (f === "today") keep = r.getAttribute("data-today") === "1";
                 else if (f === "week") keep = r.getAttribute("data-week") === "1";
                 else if (f === "month") keep = r.getAttribute("data-month") === "1";
             } else {
                 keep = (r.getAttribute("data-status") || "").toLowerCase() === f;
             }
-            r.style.display = keep ? "" : "none";
-            if (keep) visible++;
+            r.style.display = "none";
+            if (keep) matched.push(r);
+        });
+
+        var total = matched.length;
+        var totalPages = Math.max(1, Math.ceil(total / DETAIL_PER_PAGE));
+        var curPage = parseInt(page, 10) || 1;
+        if (curPage < 1) curPage = 1;
+        if (curPage > totalPages) curPage = totalPages;
+
+        card._currentFilter = f;
+        card._currentPage = curPage;
+
+        var startIdx = (curPage - 1) * DETAIL_PER_PAGE;
+        var endIdx = Math.min(startIdx + DETAIL_PER_PAGE, total);
+
+        for (var i = startIdx; i < endIdx; i++) {
+            matched[i].style.display = "";
+            var firstTd = matched[i].querySelector("td:first-child");
+            if (firstTd) {
+                firstTd.textContent = (i + 1);
+            }
+        }
+
+        // Empty state kapag nag-filter at 0 ang tugma
+        var filterEmptyRow = tbody.querySelector("tr.js-filter-empty-row");
+        if (rows.length > 0) {
+            if (total === 0) {
+                if (!filterEmptyRow) {
+                    var colCount = card.querySelectorAll(".appointment-table thead th").length || 6;
+                    filterEmptyRow = document.createElement("tr");
+                    filterEmptyRow.className = "js-filter-empty-row";
+                    filterEmptyRow.innerHTML = '<td colspan="' + colCount + '"><div class="empty-state"><div class="empty-icon"><i class="bi bi-inbox"></i></div><strong>No matching records found.</strong></div></td>';
+                    tbody.appendChild(filterEmptyRow);
+                }
+                filterEmptyRow.style.display = "";
+            } else if (filterEmptyRow) {
+                filterEmptyRow.style.display = "none";
+            }
+        }
+
+        // Pagination bar (10 lists per page)
+        var pager = card.querySelector(".detail-pagination");
+        if (!pager) {
+            var tableWrap = card.querySelector(".table-wrapper");
+            if (tableWrap && tableWrap.parentNode) {
+                pager = document.createElement("div");
+                pager.className = "detail-pagination";
+                tableWrap.parentNode.insertBefore(pager, tableWrap.nextSibling);
+            }
+        }
+        if (!pager) return;
+
+        if (total === 0) {
+            pager.style.display = "none";
+            pager.innerHTML = "";
+            return;
+        }
+
+        pager.style.display = "flex";
+        var fromNum = startIdx + 1;
+        var toNum = endIdx;
+        var labelUnit = (group === "queue") ? (total === 1 ? "patient" : "patients") : (total === 1 ? "appointment" : "appointments");
+
+        var html = '<span class="detail-pagination-info">Showing <strong>' + fromNum + '</strong>&ndash;<strong>' + toNum + '</strong> of <strong>' + total + '</strong> ' + labelUnit + '</span>';
+
+        if (totalPages > 1) {
+            var pStart = Math.max(1, Math.min(curPage - 3, totalPages - 6));
+            var pEnd = Math.min(totalPages, pStart + 6);
+            pStart = Math.max(1, pEnd - 6);
+
+            html += '<nav class="detail-page-notation" aria-label="Detail table pagination">';
+            html += '<button type="button" class="detail-page-btn' + (curPage <= 1 ? ' disabled' : '') + '" data-page="' + (curPage - 1) + '"' + (curPage <= 1 ? ' disabled' : '') + ' aria-label="Previous page"><i class="bi bi-chevron-left"></i></button>';
+            for (var p = pStart; p <= pEnd; p++) {
+                html += '<button type="button" class="detail-page-btn' + (p === curPage ? ' active' : '') + '" data-page="' + p + '">' + p + '</button>';
+            }
+            html += '<button type="button" class="detail-page-btn' + (curPage >= totalPages ? ' disabled' : '') + '" data-page="' + (curPage + 1) + '"' + (curPage >= totalPages ? ' disabled' : '') + ' aria-label="Next page"><i class="bi bi-chevron-right"></i></button>';
+            html += '</nav>';
+        }
+
+        pager.innerHTML = html;
+        pager.querySelectorAll("button.detail-page-btn[data-page]").forEach(function(btn){
+            btn.addEventListener("click", function(){
+                if (btn.disabled || btn.classList.contains("disabled")) return;
+                var targetPage = parseInt(btn.getAttribute("data-page"), 10) || 1;
+                renderDetailTable(card, group, card._currentFilter || "all", targetPage);
+            });
         });
     }
+
     document.querySelectorAll(".card-detail").forEach(function(card){
         var tabWrap = card.querySelector(".detail-tabs");
         var miniWrap = card.querySelector(".detail-mini-grid[data-mini-group]");
         var group = "";
         if (tabWrap) group = tabWrap.getAttribute("data-tab-group") || "";
         else if (miniWrap) group = miniWrap.getAttribute("data-mini-group") || "";
-        if (!group) return;
+        if (!group && card.id) group = card.id.replace("detail-", "");
+        if (!card.querySelector(".appointment-table")) return;
+
         function syncActive(filter) {
             var f = (filter || "all").toLowerCase();
             if (tabWrap) {
@@ -6608,7 +6718,7 @@ document.querySelectorAll(
                 tab.addEventListener("click", function(){
                     var f = tab.getAttribute("data-filter") || "all";
                     syncActive(f);
-                    applyDetailFilter(card, group, f);
+                    renderDetailTable(card, group, f, 1);
                 });
             });
         }
@@ -6617,16 +6727,17 @@ document.querySelectorAll(
                 var go = function(){
                     var f = mini.getAttribute("data-filter") || "all";
                     syncActive(f);
-                    applyDetailFilter(card, group, f);
+                    renderDetailTable(card, group, f, 1);
                 };
                 mini.addEventListener("click", go);
                 mini.addEventListener("keydown", function(ev){
                     if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); go(); }
                 });
             });
-            // Default: naka-highlight ang "All"
-            syncActive("all");
         }
+        // Default: naka-highlight ang "All" at 10 rows per page
+        syncActive("all");
+        renderDetailTable(card, group, "all", 1);
     });
     // DEFAULT: lahat ng detail nakatago pag load — bubukas lang pag pinindot ang summary card.
     // Linisin ang lumang hash/session state para hindi kusa bumukas ang detail.
@@ -6641,6 +6752,67 @@ document.querySelectorAll(
 
 </script>
 
+<style>
+.detail-pagination {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    margin-top: 12px;
+    background: #F6FBF8;
+    border: 1px solid #E6F2EC;
+    border-radius: 12px;
+}
+.detail-pagination-info {
+    font-size: 13px;
+    color: #3F525B;
+    font-family: "Inter", system-ui, sans-serif;
+    font-weight: 600;
+}
+.detail-page-notation {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.detail-page-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    height: 34px;
+    padding: 0 10px;
+    border-radius: 9px;
+    border: 1px solid #D1E7DD;
+    background: #ffffff;
+    color: #0E6B5E;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: "Inter", system-ui, sans-serif;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.detail-page-btn:hover:not(.disabled):not(:disabled) {
+    background: #EAF7F0;
+    border-color: #0E6B5E;
+    color: #0E6B5E;
+}
+.detail-page-btn.active {
+    background: linear-gradient(135deg, #0E6B5E, #0A4A41) !important;
+    border-color: #0A4A41 !important;
+    color: #ffffff !important;
+    box-shadow: 0 3px 8px rgba(14, 107, 94, 0.25);
+}
+.detail-page-btn.disabled,
+.detail-page-btn:disabled {
+    opacity: 0.45;
+    pointer-events: none;
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+    color: #94a3b8;
+}
+</style>
 
 </body>
 

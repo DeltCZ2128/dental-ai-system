@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="tl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Abalos Dental Clinic - User Manual</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+    body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        color: #1E293B;
+        background: #F8FAFC;
+        line-height: 1.68;
+        font-size: 14.5px;
+    }
+    .manual-container {
+        max-width: 960px;
+        margin: 30px auto;
+        background: #ffffff;
+        padding: 50px 65px;
+        border-radius: 16px;
+        box-shadow: 0 4px 25px rgba(0,0,0,0.06);
+        border: 1px solid #E2E8F0;
+    }
+    .doc-h1 {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-weight: 800;
+        color: #0E6B5E;
+        font-size: 28px;
+        letter-spacing: -0.5px;
+        margin-top: 25px;
+        margin-bottom: 8px;
+    }
+    .doc-h2 {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-weight: 700;
+        color: #0A4A41;
+        font-size: 20px;
+        margin-top: 35px;
+        margin-bottom: 14px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #E2E8F0;
+    }
+    .doc-h3 {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-weight: 700;
+        color: #1E293B;
+        font-size: 16.5px;
+        margin-top: 26px;
+        margin-bottom: 10px;
+    }
+    .doc-h4 {
+        font-weight: 700;
+        color: #334155;
+        font-size: 14.5px;
+        margin-top: 16px;
+    }
+    .doc-p {
+        margin-bottom: 12px;
+        color: #334155;
+    }
+    .doc-caption {
+        font-size: 12.5px;
+        color: #64748B;
+        text-align: center;
+        font-style: italic;
+        margin-top: 6px;
+        margin-bottom: 24px;
+    }
+    .img-wrapper {
+        text-align: center;
+        margin: 20px 0 6px 0;
+    }
+    .doc-img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 12px;
+        border: 1.5px solid #CBD5E1;
+        box-shadow: 0 4px 18px rgba(0,0,0,0.08);
+    }
+    .callout-box {
+        padding: 14px 18px;
+        border-radius: 12px;
+        margin: 18px 0;
+        font-size: 13.5px;
+    }
+    .callout-box.alert-warning {
+        background: #FFFBEB;
+        border: 1.5px solid #FDE68A;
+        color: #92400E;
+    }
+    .callout-box.alert-info {
+        background: #F0FDF4;
+        border: 1.5px solid #BBF7D0;
+        color: #166534;
+    }
+    .callout-title {
+        font-weight: 700;
+        margin-bottom: 4px;
+        letter-spacing: 0.5px;
+    }
+    .table {
+        font-size: 13.5px;
+        margin: 16px 0 24px 0;
+    }
+    .table th {
+        background: #F1F5F9;
+        color: #0F172A;
+        font-weight: 700;
+    }
+    code {
+        background: #F1F5F9;
+        color: #0E6B5E;
+        padding: 2px 6px;
+        border-radius: 6px;
+        font-size: 13px;
+    }
+    .doc-hr {
+        margin: 28px 0;
+        border-color: #E2E8F0;
+        opacity: 0.8;
+    }
+    .print-bar {
+        position: fixed;
+        bottom: 25px;
+        right: 30px;
+        z-index: 9999;
+    }
+    .print-btn {
+        background: linear-gradient(135deg, #10B981, #0E6B5E);
+        color: #ffffff;
+        font-weight: 700;
+        border: none;
+        border-radius: 50px;
+        padding: 12px 24px;
+        box-shadow: 0 6px 20px rgba(16,185,129,0.35);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+    }
+    @media print {
+        .print-bar { display: none !important; }
+        body { background: #ffffff !important; padding: 0 !important; }
+        .manual-container {
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+        }
+        .page-break { page-break-after: always; }
+    }
+</style>
+</head>
+<body>
+
+<div class="print-bar">
+    <button class="print-btn" onclick="window.print()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/>
+          <path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2H5zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4V3zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2H5zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1z"/>
+        </svg>
+        Save / Print as PDF (Ctrl + P)
+    </button>
+</div>
+
+<div class="manual-container">
+<h1 class="doc-h1">ABALOS DENTAL CLINIC</h1>
+<h2 class="doc-h2">Web-Based Dental Clinic Management and Appointment System</h2>
+<h3 class="doc-h3">Comprehensive User Manual & Operational Guide</h3>
+<hr class="doc-hr">
+<p class="doc-p"><strong>System Version:</strong> 2.0 (CapStone Edition)</p>
+<p class="doc-p"><strong>Document Type:</strong> System User Manual & Technical Operating Guide</p>
+<p class="doc-p"><strong>Prepared For:</strong> Capstone Defense Panel, Clinic Administrators, Dentists, and Patients</p>
+<p class="doc-p"><strong>Clinic Location:</strong> Malolos Avenue, Bagong Barrio, Caloocan City</p>
+<p class="doc-p"><strong>Operating Hours:</strong> Monday to Saturday: 8:00 AM – 6:00 PM (Sunday: Closed)</p>
+<hr class="doc-hr">
+<h2 class="doc-h2">Talaan ng Nilalaman (Table of Contents)</h2>
+<ol><li><a href="#kabanata-1-pangkalahatang-kaalaman-sa-system">Kabanata 1: Pangkalahatang Kaalaman sa System (System Overview)</a></li></ol>
+<ul><li>1.1 Layunin ng System</li><li>1.2 Mga Antas ng Gumagamit (User Roles & Access Levels)</li><li>1.3 System Requirements</li></ul>
+<ol><li><a href="#kabanata-2-pagpaparehistro-at-pag-login">Kabanata 2: Pagpaparehistro at Pag-login (Authentication)</a></li></ol>
+<ul><li>2.1 Pag-login sa System</li><li>2.2 Pagpaparehistro ng Bagong Pasyente</li><li>2.3 One-Time Password (OTP) Email Verification</li><li>2.4 Walk-in Patient QR Registration</li></ul>
+<ol><li><a href="#kabanata-3-patient-portal-module">Kabanata 3: Patient Portal Module</a></li></ol>
+<ul><li>3.1 Patient Dashboard</li><li>3.2 Hakbang sa Pag-book ng Appointment</li><li>3.3 Patient Safety Rules (2 Appointments Per Day Limit)</li><li>3.4 Pamamahala ng Sariling Schedule (My Appointments)</li></ul>
+<ol><li><a href="#kabanata-4-dentist-portal-module">Kabanata 4: Dentist Portal Module</a></li></ol>
+<ul><li>4.1 Dentist Dashboard</li><li>4.2 Arawang Listahan ng Pasyente (Dentist Appointments)</li><li>4.3 Live Queue at Dental Consultation Charting</li></ul>
+<ol><li><a href="#kabanata-5-admin-portal-module">Kabanata 5: Admin Portal Module (Pangunahing Gamit sa Defense)</a></li></ol>
+<ul><li>5.1 Admin Dashboard at Clinic Analytics</li><li>5.2 Appointments Management (Status Actions & Rescheduling)</li><li>5.3 Dentist Absence & Appointment Reassignment Protocol</li><li>5.4 Dentist Schedule Management (Rest Days & Emergency Leave)</li><li>5.5 Patient Records Search at Pag-print ng Medical Record</li><li>5.6 Clinic Reports na may Opisyal na Letterhead</li><li>5.7 Clinic Queue Display System</li></ul>
+<ol><li><a href="#kabanata-6-mga-tanong-sa-defense-at-troubleshooting">Kabanata 6: Mga Tanong sa Defense at Troubleshooting (Panel FAQ)</a></li></ol>
+<hr class="doc-hr">
+<div class="page-break"></div>
+<h2 class="doc-h2">Kabanata 1: Pangkalahatang Kaalaman sa System</h2>
+<h3 class="doc-h3">1.1 Layunin ng System</h3>
+<p class="doc-p">Ang <strong>Abalos Dental Clinic Management and Appointment System</strong> ay isang modernong web-based application na binuo upang i-automate ang operasyon ng dental clinic. Pinapalitan nito ang tradisyunal na manual logbook tungo sa isang sentralisadong digital platform para sa:</p>
+<ul><li>Online scheduling at appointment booking ng mga pasyente.</li><li>Awtomatikong pag-detect ng conflict sa schedule ng dentista.</li><li>Pamamahala sa mga biglaang pagliban (absence) ng dentista at mabilisang paglilipat (reassignment) ng apektadong pasyente.</li><li>Pag-iingat ng kumpletong dental at medical record ng bawat pasyente.</li><li>Paggawa ng opisyal na clinic reports na may legal na letterhead at lagda.</li></ul>
+<h3 class="doc-h3">1.2 Mga Antas ng Gumagamit (User Roles & Access Levels)</h3>
+<div class="table-responsive"><table class="table table-bordered"><tr><th>Role</th><th>Pangunahing Kakayahan</th></tr><tr><td><strong>System Administrator (Admin)</strong></td><td>May ganap na kontrol sa clinic: Pamamahala ng lahat ng appointments, pag-reassign ng appointments kapag absent ang doktor, pag-apruba ng dentist rest days at leave, pag-print ng patient medical records, pag-generate ng financial at operational reports, at system backups.</td></tr><tr><td><strong>Dentist (Attending Doctor)</strong></td><td>Pagtingin sa sariling schedule, pagtawag ng pasyente sa queue (Serving / Complete), pagtatala ng clinical diagnosis at consultation notes, at pag-update ng profile.</td></tr><tr><td><strong>Patient (Registered User)</strong></td><td>Pagtingin sa mga bakanteng oras ng dentista, pag-book ng appointment gamit ang interactive calendar, pag-check sa status ng booking, at pag-access sa sariling appointment history.</td></tr></table></div>
+<h3 class="doc-h3">1.3 System Requirements</h3>
+<ul><li><strong>Web Server:</strong> Apache (via XAMPP)</li><li><strong>Database:</strong> MariaDB / MySQL</li><li><strong>Programming Language:</strong> PHP 8.x</li><li><strong>Frontend Framework:</strong> Bootstrap 5, HTML5, CSS3, Vanilla JavaScript</li><li><strong>Supported Browsers:</strong> Google Chrome, Microsoft Edge, Mozilla Firefox, Safari</li></ul>
+<hr class="doc-hr">
+<div class="page-break"></div>
+<h2 class="doc-h2">Kabanata 2: Pagpaparehistro at Pag-login</h2>
+<h3 class="doc-h3">2.1 Pag-login sa System</h3>
+<ol><li>Buksan ang web browser at pumunta sa: <code>http://localhost/dental-ai-system-fixed/login.php</code>.</li><li>Ilagay ang inyong rehistradong <strong>Email / Username</strong> at <strong>Password</strong>.</li><li>I-click ang <strong>[Sign In]</strong> button.</li><li>Awtomatikong tutukuyin ng system ang inyong role (Admin, Dentist, o Patient) at dadalhin kayo sa inyong kaukulang dashboard.</li></ol>
+<div class="img-wrapper"><img src="./images/fig_01_login.png" alt="Figure 1: Login Interface" class="doc-img"></div>
+<p class="doc-caption"><em>Figure 2.1: Opisyal na Login Interface ng Abalos Dental Clinic</em></p>
+<hr class="doc-hr">
+<h3 class="doc-h3">2.2 Pagpaparehistro ng Bagong Pasyente</h3>
+<ol><li>Sa Login page, i-click ang link na <strong>"Don't have an account? Sign Up"</strong> o pumunta sa <code>register.php</code>.</li><li>Punan ang mga kinakailangang impormasyon:</li></ol>
+<ul><li><strong>First Name, Middle Name, Last Name</strong></li><li><strong>Contact Number</strong> (awtomatikong nililimitahan sa 11 digits, hal. <code>09171234567</code>)</li><li><strong>Email Address</strong> (dito ipadadala ang OTP verification code)</li><li><strong>Password at Confirm Password</strong> (may password strength validation)</li></ul>
+<ol><li>I-click ang <strong>[Create Account]</strong>. Awtomatikong bibigyan ng system ang pasyente ng natatanging <strong>Patient Number</strong> (hal. <code>PT-2026-0012</code>).</li></ol>
+<div class="img-wrapper"><img src="./images/fig_02_register.png" alt="Figure 2: Registration Interface" class="doc-img"></div>
+<p class="doc-caption"><em>Figure 2.2: Patient Registration Form na may live validation</em></p>
+<hr class="doc-hr">
+<h3 class="doc-h3">2.3 One-Time Password (OTP) Email Verification</h3>
+<ul><li>Pagkatapos mag-register, makatatanggap ang pasyente ng 6-digit verification code sa kanyang rehistradong email.</li><li>Ilagay ang 6-digit code sa screen ng <code>verify_otp.php</code>.</li><li>Pinipigilan nito ang mga bot, peke, at spam accounts upang masiguro na lehitimo ang bawat pasyente na nagbu-book sa klinika.</li></ul>
+<hr class="doc-hr">
+<div class="page-break"></div>
+<h2 class="doc-h2">Kabanata 3: Patient Portal Module</h2>
+<h3 class="doc-h3">3.1 Patient Dashboard</h3>
+<p class="doc-p">Sa sandaling mag-login ang pasyente, makikita niya ang kanyang dashboard kung saan nakabuod ang kanyang:</p>
+<ul><li><strong>Upcoming Appointments:</strong> Oras, petsa, dentista, at serbisyo.</li><li><strong>Appointment Status:</strong> (Pending, Confirmed, Checked In, Serving, Completed, Cancelled).</li><li><strong>Mabilisang Pindutan:</strong> Pindutan para mag-book ng bagong appointment.</li></ul>
+<div class="img-wrapper"><img src="./images/fig_03_patient_dashboard.png" alt="Figure 3: Patient Dashboard" class="doc-img"></div>
+<p class="doc-caption"><em>Figure 3.1: Patient Portal Dashboard Overview</em></p>
+<hr class="doc-hr">
+<h3 class="doc-h3">3.2 Hakbang sa Pag-book ng Appointment</h3>
+<ol><li>Pindutin ang <strong>[Book Appointment]</strong> sa navigation menu o dashboard.</li><li>Bubukas ang <strong>Interactive Clinic Calendar</strong>:</li></ol>
+<ul><li>Pumili ng nais na petsa mula Lunes hanggang Sabado (Sarado ang klinika kapag Linggo).</li></ul>
+<ol><li>Piliin ang <strong>Attending Dentist</strong> (hal. Dr. Abby, Dr. Juan Dela Cruz, atbp.).</li><li>Piliin ang <strong>Dental Service</strong> (hal. General Dentistry, Orthodontics, Extraction, Pasta, Cleaning).</li><li>Awtomatikong magpapakita ang system ng mga <strong>Available Time Slots</strong> na may pagitan ng 30 minuto hanggang 1 oras batay sa tagal ng serbisyo.</li><li>Piliin ang oras at i-click ang <strong>[Confirm Booking]</strong>.</li></ol>
+<div class="img-wrapper"><img src="./images/fig_04_patient_calendar.png" alt="Figure 4: Booking Calendar" class="doc-img"></div>
+<p class="doc-caption"><em>Figure 3.2: Interactive Booking Calendar na may live slot availability</em></p>
+<div class="callout-box alert-info"><div class="callout-title"><strong>NOTE</strong></div><p><strong>Tungkol sa Clinic Capacity:</strong><br>Alinsunod sa bagong patakaran ng klinika, tinanggal na ang limitasyon sa kabuuang pasyente bawat araw para sa buong klinika (unlimited capacity). Hangga't may bakanteng oras ang napiling dentista, papayagan ng system ang pag-book.</p></div>
+<hr class="doc-hr">
+<h3 class="doc-h3">3.3 Patient Safety Rules (2 Appointments Per Day Limit)</h3>
+<ul><li><strong>Patakaran:</strong> Ang bawat account ng pasyente ay pinapayagan lamang na mag-book ng maximum na <strong>2 appointments sa iisang araw</strong>.</li><li><strong>Dahilan (Pang-Defense):</strong></li></ul>
+<ol><li><em>Slot Hoarding Prevention:</em> Upang hindi i-book ng iisang tao ang lahat ng oras sa isang araw.</li><li><em>Medical Safety:</em> Upang maiwasan ang sobrang stress o anesthesia complication sa pasyente kapag sumailalim sa higit sa dalawang mabibigat na procedure sa parehong araw.</li></ol>
+<hr class="doc-hr">
+<h3 class="doc-h3">3.4 Pamamahala ng Schedule (My Appointments)</h3>
+<ul><li>Sa tab na <strong>My Appointments</strong>, makikita ng pasyente ang listahan ng kanyang mga naging appointment.</li><li>Maaaring makita ang eksaktong detalye at mag-request ng appointment update o cancellation kung kinakailangan.</li></ul>
+<div class="img-wrapper"><img src="./images/fig_05_patient_appointments.png" alt="Figure 5: My Appointments" class="doc-img"></div>
+<p class="doc-caption"><em>Figure 3.3: Talaan ng mga Appointment ng Pasyente</em></p>
+<hr class="doc-hr">
+<div class="page-break"></div>
+<h2 class="doc-h2">Kabanata 4: Dentist Portal Module</h2>
+<h3 class="doc-h3">4.1 Dentist Dashboard</h3>
+<p class="doc-p">Ang mga dentista ay may sariling portal upang masubaybayan ang kanilang pasyente nang hindi nakikialam sa pangkalahatang configuration ng klinika.</p>
+<div class="img-wrapper"><img src="./images/fig_06_dentist_dashboard.png" alt="Figure 6: Dentist Dashboard" class="doc-img"></div>
+<p class="doc-caption"><em>Figure 4.1: Dentist Portal Dashboard</em></p>
+<hr class="doc-hr">
+<h3 class="doc-h3">4.2 Arawang Listahan ng Pasyente (Dentist Appointments)</h3>
+<ul><li>Ipinapakita ng screen na ito ang lahat ng pasyente na nakatakda para sa partikular na doktor sa araw na ito at sa mga darating na araw.</li><li>Malinaw na nakasaad ang <strong>Time Slot</strong>, <strong>Pangalan ng Pasyente</strong>, at <strong>Serbisyong Isasagawa</strong>.</li></ul>
+<div class="img-wrapper"><img src="./images/fig_07_dentist_appointments.png" alt="Figure 7: Dentist Appointments" class="doc-img"></div>
+<p class="doc-caption"><em>Figure 4.2: Listahan ng mga Pasyente ng Dentista</em></p>
+<hr class="doc-hr">
+<h3 class="doc-h3">4.3 Live Queue at Dental Consultation Charting</h3>
+<ol><li>Kapag dumating na ang pasyente sa clinic, makikita ito sa <strong>Dentist Queue</strong>.</li><li>I-click ng dentista ang <strong>[Call / Serving]</strong> kapag papasok na ang pasyente sa dental chair.</li><li>Pagkatapos ng gamutan, itatala ng dentista ang kanyang clinical notes at diagnosis bago i-click ang <strong>[Complete]</strong>.</li></ol>
+<div class="img-wrapper"><img src="./images/fig_08_dentist_queue.png" alt="Figure 8: Dentist Queue" class="doc-img"></div>
+<p class="doc-caption"><em>Figure 4.3: Dentist Queue Management Screen</em></p>
+<hr class="doc-hr">
+<div class="page-break"></div>
+<h2 class="doc-h2">Kabanata 5: Admin Portal Module (Pangunahing Gamit sa Defense)</h2>
+<h3 class="doc-h3">5.1 Admin Dashboard at Clinic Analytics</h3>
+<p class="doc-p">Ipinapakita sa Admin Dashboard ang buod ng operasyon ng klinika:</p>
+<ul><li><strong>Kabuuang Appointments Ngayong Araw</strong></li><li><strong>Pending Approvals</strong></li><li><strong>Aktibong Dentista at Rehistradong Pasyente</strong></li><li><strong>Chart ng mga pinaka-in-demand na Dental Services</strong></li></ul>
+<div class="img-wrapper"><img src="./images/fig_09_admin_dashboard.png" alt="Figure 9: Admin Dashboard" class="doc-img"></div>
+<p class="doc-caption"><em>Figure 5.1: Administrator Central Dashboard</em></p>
+<hr class="doc-hr">
+<h3 class="doc-h3">5.2 Appointments Management (Status Actions & Rescheduling)</h3>
+<p class="doc-p">Sa <code>admin/appointments.php</code>, ganap na kontrolado ng Admin ang bawat schedule gamit ang apat (4) na sub-tabs:</p>
+<ol><li><strong>Today's Appointments:</strong> Mga appointment na nakatakda sa araw na ito.</li><li><strong>Upcoming Appointments:</strong> Mga appointment para sa mga susunod na araw.</li><li><strong>Pending Approvals:</strong> Mga bagong request mula sa pasyente na naghihintay ng kumpirmasyon.</li><li><strong>Appointment History:</strong> Nakaraang records kasama ang mga completed at cancelled.</li></ol>
+<div class="img-wrapper"><img src="./images/fig_10_admin_appointments.png" alt="Figure 10: Admin Appointments" class="doc-img"></div>
+<p class="doc-caption"><em>Figure 5.2: Master Appointments Management Interface</em></p>
+<h4 class="doc-h4">Paano Gamitin ang [Change Status] Popup:</h4>
+<ol><li>Hanapin ang appointment at i-click ang <strong>[Change Status]</strong>.</li><li>May mga pagpipilian:</li></ol>
+<ul><li><strong>CONFIRM:</strong> Para aprubahan ang pending na schedule.</li><li><strong>CHECK IN:</strong> Kapag dumating na ang pasyente sa clinic lobby.</li><li><strong>COMPLETE:</strong> Kapag tapos na ang gamutan.</li><li><strong>RESCHEDULE:</strong> Para ilipat ang schedule sa ibang petsa o oras.</li><li><strong>CANCEL:</strong> Para kanselahin ang appointment.</li></ul>
+<hr class="doc-hr">
+<h3 class="doc-h3">5.3 Dentist Absence & Appointment Reassignment Protocol</h3>
+<div class="callout-box alert-warning"><div class="callout-title"><strong>IMPORTANT</strong></div><p><strong>Ito ang Pangunahing Solusyon sa Tanong ng Panel:</strong><br><em>"Paano kapag absent ang dentista sa araw na may nakatakda siyang appointments?"</em></p></div>
+<h4 class="doc-h4">Ang Solusyon ng System:</h4>
+<ol><li><strong>Smart Absence Detection:</strong></li></ol>
+<p class="doc-p">Kapag pumasok ang Admin sa <code>Change Status</code>, awtomatikong sinusuri ng system kung ang nakatalagang doktor ay minarkahang <strong>Absent</strong> o naka-<strong>Leave</strong> sa petsang iyon sa database.</p>
+<ol><li><strong>Kondisyonal na Pagsulpot ng Reassign Button:</strong></li></ol>
+<ul><li><strong>Kapag HINDI absent ang dentista:</strong> HINDI ipapakita ang reassign button upang maiwasan ang pagkakamali ng staff.</li><li><strong>Kapag NAKA-MARK AS ABSENT ang doktor:</strong> Awtomatikong lalabas ang button na <strong>[REASSIGN DENTIST]</strong> kalakip ang babala:</li></ul>
+<p class="doc-p"><code>⚠️ Assigned dentist is marked ABSENT on this date. Please reassign this appointment to an available doctor.</code></p>
+<ol><li><strong>Hakbang sa Pag-reassign:</strong></li></ol>
+<ul><li>I-click ang <strong>[REASSIGN DENTIST]</strong>.</li><li>Piliin ang bagong doktor mula sa dropdown list ng mga <strong>Active & Available Dentists</strong>.</li><li>May built-in conflict check ang system: Kung ang lilipatang doktor ay may appointment na sa oras na iyon o naka-day off din, haharangin ito ng system at hihilingin na pumili ng ibang doktor.</li><li>I-click ang <strong>[Confirm Reassignment]</strong>. Awtomatikong makatatanggap ng notification ang pasyente at ang bagong doktor.</li></ul>
+<div class="img-wrapper"><img src="./images/fig_17_reassign_dentist_modal.png" alt="Figure 17: Reassign Dentist Modal" class="doc-img"></div>
+<p class="doc-caption"><em>Figure 5.3: Reassign Dentist Action Popup kapag absent ang doktor</em></p>
+<hr class="doc-hr">
+<h3 class="doc-h3">5.4 Dentist Schedule Management (Rest Days & Emergency Leave)</h3>
+<p class="doc-p">Sa pahinang <code>admin/dentists.php</code>, makikita ang talaan ng lahat ng lisensyadong dentista sa klinika.</p>
+<div class="img-wrapper"><img src="./images/fig_11_admin_dentists.png" alt="Figure 11: Dentist Schedule Management" class="doc-img"></div>
+<p class="doc-caption"><em>Figure 5.4: Talaan ng mga Dentista at Pamamahala ng Schedule</em></p>
+<h4 class="doc-h4">A. Pag-marka ng Absent kay Dentista (Emergency / Sick Leave):</h4>
+<ol><li>Hanapin ang dentista at i-click ang pulang button na <strong>[Mark as Absent]</strong>.</li><li>Sa popup modal:</li></ol>
+<ul><li>Piliin ang petsa ng pagliban.</li><li>Piliin ang uri ng leave: <em>Medical Emergency / Sick Leave</em>, <em>Personal / Family Emergency</em>, o <em>Official Clinic Duty</em>.</li><li>Maglagay ng maikling tala (Notes).</li></ul>
+<ol><li>I-click ang <strong>[Save Absence Record]</strong>.</li></ol>
+<div class="img-wrapper"><img src="./images/fig_16_mark_absent_modal.png" alt="Figure 16: Mark Absent Modal" class="doc-img"></div>
+<p class="doc-caption"><em>Figure 5.5: Modal sa Pag-record ng Biglaang Pagliban ng Dentista</em></p>
+<h4 class="doc-h4">B. Pag-alis ng Rest Day / Leave (Bagong Custom Confirmation Modal):</h4>
+<ul><li>Kapag pumasok na muli ang dentista o nais bawiin ang rest day, i-click lamang ang <strong>trash icon (basurahan)</strong> sa tabi ng petsa.</li><li>Lalabas ang bagong <strong>Confirmation Modal</strong> (hindi browser alert) na nagpapaliwanag kung sinong doktor at anong petsa ang bubuksan muli para sa mga booking.</li><li>I-click ang pulang <strong>[Remove]</strong> button upang kumpirmahin.</li></ul>
+<div class="img-wrapper"><img src="./images/fig_18_delete_restday_modal.png" alt="Figure 18: Delete Rest Day Modal" class="doc-img"></div>
+<p class="doc-caption"><em>Figure 5.6: Custom Confirmation Popup bago tanggalin ang rest day o leave</em></p>
+<hr class="doc-hr">
+<h3 class="doc-h3">5.5 Patient Records Search at Pag-print ng Medical Record</h3>
+<p class="doc-p">Sa tab na <code>admin/reports.php</code> (Tab 2: Patient Reports) at <code>admin/patients.php</code>:</p>
+<ol><li>Gamitin ang live <strong>Search Bar</strong> upang hanapin ang pasyente gamit ang kanyang <strong>Buong Pangalan</strong> o <strong>Patient ID</strong> (hal. <code>PT-2026-0001</code>).</li><li>Agad na sasalain ng system ang listahan sa screen.</li><li>I-click ang button na <strong>[Print Record]</strong> sa tabi ng pangalan ng pasyente.</li><li>Bubukas ang opisyal na printable record na naglalaman ng:</li></ol>
+<ul><li>Clinic Header & Letterhead.</li><li>Patient Demographics (Edad, Kasarian, Contact, Address).</li><li>Medical & Dental History.</li><li>Talaan ng lahat ng naging gamutan, diagnosis, at prescribing dentists.</li><li>Linya para sa lagda ng Admin at Attending Dentist.</li></ul>
+<div class="img-wrapper"><img src="./images/fig_12_admin_patients.png" alt="Figure 12: Patient Records Management" class="doc-img"></div>
+<p class="doc-caption"><em>Figure 5.7: Listahan ng mga Pasyente na may Mabilisang Search</em></p>
+<div class="img-wrapper"><img src="./images/fig_15_patient_record_print.png" alt="Figure 15: Patient Medical Record Printout" class="doc-img"></div>
+<p class="doc-caption"><em>Figure 5.8: Opisyal na Printable Dental & Medical Record ng Pasyente</em></p>
+<hr class="doc-hr">
+<h3 class="doc-h3">5.6 Clinic Reports na may Opisyal na Letterhead</h3>
+<p class="doc-p">Sa <code>admin/reports.php</code>, maaaring mag-generate ng tatlong uri ng ulat ang klinika:</p>
+<ol><li><strong>Appointment Reports:</strong> Buod ng lahat ng natapos, nakansela, at no-show na schedule.</li><li><strong>Patient Reports:</strong> Demographics at kabuuang bilang ng aktibong pasyente.</li><li><strong>Revenue & Treatment Reports:</strong> Kinita ng klinika ayon sa uri ng dental procedure.</li></ol>
+<div class="img-wrapper"><img src="./images/fig_13_admin_reports.png" alt="Figure 13: Admin Reports Module" class="doc-img"></div>
+<p class="doc-caption"><em>Figure 5.9: Clinic Reports and Analytics Module</em></p>
+<h4 class="doc-h4">Mga Katangian ng Printable Report:</h4>
+<ul><li><strong>Abalos Dental Clinic Official Letterhead:</strong> May pangalan ng klinika, address sa Caloocan City, petsa ng coverage, at petsa kung kailan ito na-print.</li><li><strong>Smart Printing Layout:</strong> Tanging ang aktibong report tab lamang ang pini-print; awtomatikong itinatago ang top navigation, sidebar, at hamburger buttons upang hindi mag-aksaya ng papel.</li><li><strong>Official Sign-Offs:</strong> May nakalaang pirmahan sa ibaba para sa <em>Admin</em> at <em>Head Dentist</em>.</li></ul>
+<hr class="doc-hr">
+<h3 class="doc-h3">5.7 Clinic Queue Display System</h3>
+<ul><li>Ang <code>admin/queue.php</code> ay nagsisilbing live queue board ng klinika.</li><li>Maaari itong i-project sa TV monitor sa reception waiting area ng Abalos Dental Clinic upang makita ng mga pasyente kung sino ang kasalukuyang ginagamot sa bawat dental room.</li></ul>
+<div class="img-wrapper"><img src="./images/fig_14_admin_queue.png" alt="Figure 14: Clinic Live Queue Board" class="doc-img"></div>
+<p class="doc-caption"><em>Figure 5.10: Central Live Queue Display System</em></p>
+<hr class="doc-hr">
+<div class="page-break"></div>
+<h2 class="doc-h2">Kabanata 6: Mga Tanong sa Defense at Troubleshooting (Panel FAQ)</h2>
+<h3 class="doc-h3">T1: Paano kapag absent ang dentista sa araw na may appointments siya?</h3>
+<p class="doc-p">> <strong>Sagot:</strong></p>
+<p class="doc-p">> 1. Pupunta ang Admin sa <strong>Dentists Management</strong> at iki-click ang <strong>[Mark as Absent]</strong> para sa petsang iyon upang ma-block ang calendar sa mga bagong pasyente.</p>
+<p class="doc-p">> 2. Pagkatapos, pupunta ang Admin sa <strong>Appointments</strong>, bubuksan ang <strong>[Change Status]</strong> ng bawat apektadong schedule.</p>
+<p class="doc-p">> 3. Dahil absent ang doktor, awtomatikong magpapakita ang system ng warning at ang button na <strong>[REASSIGN DENTIST]</strong>.</p>
+<p class="doc-p">> 4. Pipili ang Admin ng ibang available na doktor para hawakan ang pasyente. May awtomatikong conflict check ang system upang masigurong hindi magkakasabay ang oras ng bagong doktor. Awtomatikong makatatanggap ng update notification ang pasyente.</p>
+<h3 class="doc-h3">T2: Bakit tinanggal ang clinic daily capacity limit?</h3>
+<p class="doc-p">> <strong>Sagot:</strong></p>
+<p class="doc-p">> Ang klinika ay mayroong maraming lisensyadong dentista (hal. 5 doktor) at sariling dental chairs. Ang lumang limit na 10 pasyente bawat araw ay naglilimita sa buong klinika kahit marami pang bakanteng oras ang ibang doktor. Sa bagong version, <strong>unlimited</strong> na ang clinic capacity basta't may bukas na slot ang bawat dentista sa loob ng clinic hours (8:00 AM – 6:00 PM).</p>
+<h3 class="doc-h3">T3: Bakit may limitasyon na 2 appointments per day bawat pasyente?</h3>
+<p class="doc-p">> <strong>Sagot:</strong></p>
+<p class="doc-p">> Ito ay isang safety and anti-spam mechanism. Pinipigilan nito ang iisang pasyente na mag-hoard ng napakaraming slot sa parehong araw na magiging dahilan ng pagkaubos ng slots para sa ibang pasyente. Bukod dito, sa dental practice, 1 hanggang 2 procedures lamang ang ligtas na maisagawa sa iisang pasyente sa loob ng isang araw.</p>
+<h3 class="doc-h3">T4: Paano sinisiguro ng system na legal at pormal ang mga printouts?</h3>
+<p class="doc-p">> <strong>Sagot:</strong></p>
+<p class="doc-p">> Lahat ng printout—maging Patient Medical Record man o Monthly Clinic Report—ay sumusunod sa standard clinic format na may:</p>
+<p class="doc-p">> 1. Opisyal na Letterhead ng Abalos Dental Clinic.</p>
+<p class="doc-p">> 2. Kumpletong metadata (Petsa ng pagka-print, coverage date, generated by).</p>
+<p class="doc-p">> 3. Dalawahang lagda (Admin Sign-off at Head Dentist Attestation).</p>
+<hr class="doc-hr">
+<p class="doc-caption"><em>Wakas ng User Manual. Binuo para sa Abalos Dental Clinic Capstone Project 2026.</em></p>
+</div>
+
+</body>
+</html>

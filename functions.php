@@ -74,7 +74,11 @@ function showFlash()
 
 function generatePatientNumber()
 {
-    return "PAT-" . date("YmdHis") . rand(10, 99);
+    global $pdo;
+    if (function_exists('generateShortPatientNumber')) {
+        return generateShortPatientNumber($pdo);
+    }
+    return "PAT-" . rand(1000, 9999);
 }
 
 /*

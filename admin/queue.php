@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $parts = preg_split('/\s+/', $qrName);
         $wFirst = $parts[0] ?? $qrName;
         $wLast = count($parts) > 1 ? implode(' ', array_slice($parts, 1)) : '-';
-        $patientNumber = 'WALK-' . date('YmdHis') . random_int(10,99);
+        $patientNumber = generateShortPatientNumber($pdo);
         $stmtP = $pdo->prepare("INSERT INTO patients (patient_number, first_name, last_name, contact_number, email) VALUES (?, ?, ?, ?, ?)");
         $stmtP->execute([$patientNumber, $wFirst, $wLast, '', '']);
         $newPatientId = (int)$pdo->lastInsertId();
@@ -83,20 +83,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         if ($publicUrl === '' || $publicUrl === '/walkin_qr.php') {
-            // Blank = burahin ang public URL, bumalik sa LAN
+            // Blank = remove public URL, revert to LAN
             @unlink(__DIR__ . '/../qr_public_url.txt');
-            flash("Public QR link tinanggal. LAN QR na ulit ang gamit (hindi nag-e-expire).");
+            flash("Public QR link removed. System has reverted to LAN QR (non-expiring).");
         } else {
             file_put_contents(__DIR__ . '/../qr_public_url.txt', $publicUrl);
-            flash("Public QR link na-save! Ang QR ay pang-data na: " . $publicUrl);
+            flash("Public QR link saved! QR code can now be scanned over mobile data: " . $publicUrl);
         }
         redirect("queue.php");
     }
 
-    /* Expired Cloudflare fix: one-click balik sa LAN QR (hindi nag-e-expire) */
+    /* One-click revert to LAN QR (non-expiring) */
     if ($action === 'use_lan_qr') {
         @unlink(__DIR__ . '/../qr_public_url.txt');
-        flash("Bumalik na sa LAN QR (hindi nag-e-expire). Ipa-scan ulit sa Android/iPhone na nakakonek sa clinic WiFi.");
+        flash("Reverted to LAN QR code (non-expiring). Scan using any device connected to the clinic Wi-Fi.");
         redirect("queue.php");
     }
 
@@ -112,7 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Walk-in para sa walang cellphone / senior citizens / hindi pa registered - gumawa ng patient record kung wala napili
         if (!$patientId && $walkinFirst !== '' && $walkinLast !== '') {
-            $patientNumber = 'WALK-' . date('YmdHis') . random_int(10,99);
+            $patientNumber = generateShortPatientNumber($pdo);
             $stmtP = $pdo->prepare("INSERT INTO patients (patient_number, first_name, last_name, contact_number, email) VALUES (?, ?, ?, ?, ?)");
             $stmtP->execute([$patientNumber, $walkinFirst, $walkinLast, $walkinContact, '']);
             $patientId = (int)$pdo->lastInsertId();
@@ -196,14 +196,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     SET status = ?, {$syncCol} = NOW()
                     WHERE patient_id = ?
                     AND appointment_date = ?
-                    AND status IN ('Pending', 'Confirmed', 'Approved', 'Checked In')
+                    AND status IN ('Pending', 'Confirmed', 'Approved', 'Checked In', 'Serving')
                 ");
                 $syncStmt->execute([$status, (int) $qRow['patient_id'], $qRow['queue_date']]);
             } catch (PDOException $e) {
             }
         }
 
-        flash("Queue updated.");
+        if (!empty($_POST['ajax_popup'])) {
+            // Do not set top flash banner when handled by popup
+            redirect("queue.php");
+        }
+
+        $_SESSION['queue_updated_popup'] = true;
 
         redirect("queue.php");
     }
@@ -303,9 +308,7 @@ rel="stylesheet">
 /* Queue — gaya ng Reports page: green gradient bg, white cards, green table header */
 body { background: linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22) !important; background-size: 300% 300% !important; animation: adminBgAnim 8s ease infinite !important; background-attachment: fixed !important; }
 @keyframes adminBgAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-.shared-sidebar { display: none !important; }
-.shared-topbar { left: 0 !important; right: 0 !important; }
-.queue-page { margin-left: 0 !important; width: 100% !important; padding: 110px 24px 40px !important; background: transparent !important; min-height: 100vh; }
+.queue-page { margin-left: 280px !important; width: calc(100% - 280px) !important; padding: 110px 24px 40px !important; background: transparent !important; min-height: 100vh; box-sizing: border-box !important; }
 .queue-page > .mb-3, .queue-page > .alert { margin-left: 14px; margin-right: 14px; }
 .queue-head { margin: 0 14px 16px 14px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
 .queue-head h1 { color: #ffffff !important; font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; margin: 0; }
@@ -341,7 +344,17 @@ body { background: linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c2
 .modal-title, .modal-header h5 { font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif; font-size: 17px; font-weight: 800; color: #143f51; margin: 0; }
 .modal-body label { font-size: 13px; font-weight: 600; color: #426471; font-family: "Inter", system-ui, sans-serif; }
 .modal-body .form-control, .modal-body .form-select { font-size: 14px; border-radius: 10px; }
-@media (max-width: 991px) { .queue-page { padding: 25px 16px 40px !important; } .queue-card { margin: 0; } .queue-head { margin: 0 0 16px 0; } }
+
+/* Patient QR Modal specific modern styling */
+#patientQrModal .modal-dialog { max-width: 420px !important; margin: 1.75rem auto !important; }
+#patientQrModal .modal-content { border-radius: 20px !important; border: 1.5px solid #0E6B5E !important; overflow: hidden !important; box-shadow: 0 20px 60px rgba(10, 74, 65, 0.25) !important; background: #ffffff !important; }
+#patientQrModal .modal-header { background: linear-gradient(135deg, #0A4A41 0%, #0E6B5E 100%) !important; border-bottom: none !important; border-radius: 0 !important; padding: 16px 22px !important; }
+#patientQrModal .modal-title, #patientQrModal .modal-header h5 { color: #ffffff !important; font-size: 16px !important; font-weight: 800 !important; margin: 0 !important; }
+#patientQrModal .btn-close { filter: invert(1) grayscale(100%) brightness(200%) !important; opacity: 0.9 !important; }
+#patientQrModal .qr-display-card { background: #ffffff; border-radius: 18px; padding: 26px; border: 1.5px solid #D1EADE; box-shadow: 0 8px 24px rgba(10, 74, 65, 0.08); display: inline-block; margin: 0 auto; }
+#patientQrModal #patientQrBoxLan { width: 240px; height: 240px; margin: 0 auto; overflow: hidden; position: relative; display: flex; align-items: center; justify-content: center; }
+#patientQrModal #patientQrBoxLan canvas, #patientQrModal #patientQrBoxLan img { border-radius: 8px; max-width: 240px; max-height: 240px; }
+@media (max-width: 991px) { .queue-page { margin-left: 0 !important; width: 100% !important; padding: 100px 16px 40px !important; } .queue-card { margin: 0; } .queue-head { margin: 0 0 16px 0; } }
 </style>
 
 </head>
@@ -506,7 +519,7 @@ Normal
 <td>
 
 <?php if ($q['status'] === 'Waiting'): ?>
-<form method="POST" class="d-inline">
+<form method="POST" class="d-inline js-queue-status-form">
 <?= csrfField() ?>
 <input type="hidden" name="action" value="status">
 <input type="hidden" name="id" value="<?= $q['id'] ?>">
@@ -514,7 +527,7 @@ Normal
 <button type="submit" class="btn btn-sm btn-success" data-tip="Start Serving"><i class="bi bi-play-fill"></i> Start Serving</button>
 </form>
 <?php elseif ($q['status'] === 'Serving'): ?>
-<form method="POST" class="d-inline">
+<form method="POST" class="d-inline js-queue-status-form">
 <?= csrfField() ?>
 <input type="hidden" name="action" value="status">
 <input type="hidden" name="id" value="<?= $q['id'] ?>">
@@ -625,7 +638,7 @@ src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.j
 </div>
 <div class="modal-body">
 <div class="alert alert-success" style="font-size:13px;">
-<i class="bi bi-qr-code me-1"></i> I-scan ang QR code ng walk-in patient. Lalabas ang fill-up form (Name + Dental Service) at deretso na siya sa pila pag Submit.
+<i class="bi bi-qr-code me-1"></i> Scan the walk-in patient's QR code. The intake form (Name + Dental Service) will open, adding them directly to the queue upon submission.
 </div>
 <div id="qrReader" style="width:100%; min-height:220px; border:1px dashed #0b9fbd; border-radius:10px; overflow:hidden;"></div>
 <div class="d-flex gap-2 mt-2">
@@ -634,8 +647,8 @@ src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.j
 <button type="button" class="btn btn-sm btn-link" id="qrShowFormBtn" data-tip="Skip scan / manual fill-up">Skip scan / manual fill-up</button>
 </div>
 <div class="mt-2">
-<label style="font-size:12.5px;">QR content (auto-filled pag na-scan)</label>
-<input type="text" id="qrRawInput" class="form-control form-control-sm" placeholder='Hal. {"name":"Juan Dela Cruz","service":"Dental Check-up"} o Juan Dela Cruz|Cleaning'>
+<label style="font-size:12.5px;">QR content (auto-filled once scanned)</label>
+<input type="text" id="qrRawInput" class="form-control form-control-sm" placeholder='e.g. {"name":"Juan Dela Cruz","service":"Dental Check-up"} or Juan Dela Cruz|Cleaning'>
 </div>
 <hr>
 <div id="qrFillForm">
@@ -649,11 +662,11 @@ src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.j
 <option value="">-- Select service --</option>
 <option>General Dentistry</option>
 <option>Orthodontics (Braces)</option>
-<option>Oral Surgery (Tooth Extraction or Bunot)</option>
+<option>Oral Surgery (Tooth Extraction)</option>
 <option>Cosmetic</option>
-<option>Fillings or Pasta</option>
+<option>Fillings</option>
 <option>Root Canal</option>
-<option>Oral Prophylaxis or Cleaning</option>
+<option>Oral Prophylaxis (Cleaning)</option>
 <option>Denture</option>
 <option>Teeth Whitening</option>
 <option>Crown</option>
@@ -717,13 +730,13 @@ src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.j
     document.getElementById("qrFillForm").scrollIntoView({behavior:"smooth", block:"center"});
   }
   document.getElementById("qrStartBtn").addEventListener("click", function(){
-    if(typeof Html5Qrcode === "undefined"){ alert("QR scanner library hindi nag-load. Gamitin ang manual fill-up."); return; }
+    if(typeof Html5Qrcode === "undefined"){ alert("QR scanner library failed to load. Please use manual entry."); return; }
     if(html5Qr){ try{ html5Qr.clear(); }catch(e){} }
     html5Qr = new Html5Qrcode(readerId);
     html5Qr.start({facingMode:"environment"}, {fps:10, qrbox:{width:220, height:220}},
       function(decoded){ parseQrContent(decoded); try{ html5Qr.stop(); }catch(e){} },
       function(err){}
-    ).catch(function(err){ alert("Hindi ma-open ang camera: " + err); });
+    ).catch(function(err){ alert("Unable to access camera: " + err); });
   });
   document.getElementById("qrStopBtn").addEventListener("click", function(){
     if(html5Qr){ try{ html5Qr.stop(); }catch(e){} }
@@ -773,8 +786,14 @@ if (is_file($qrPublicFile)) {
 }
 // PERMANENT QR: kapag may PERMANENT_QR_DOMAIN sa config.php, ito ang QR 1 —
 // hindi nag-e-expire, kahit anong WiFi/mobile data, Android + iPhone.
+if (function_exists('ensurePermanentQrTunnelRunning')) {
+    ensurePermanentQrTunnelRunning(true);
+}
 $qrPermanent = function_exists('permanentQrUrl') ? permanentQrUrl() : '';
 $qrHasPermanent = ($qrPermanent !== '');
+$qrSystemPermanentUrl = ($qrHasPermanent && defined('PERMANENT_QR_DOMAIN'))
+    ? ('https://' . rtrim(preg_replace('#^https?://#i', '', trim((string)PERMANENT_QR_DOMAIN)), '/') . '/dental-ai-system-fixed/login.php')
+    : '';
 // Expired check: ang trycloudflare.com quick tunnel ay temporary — nag-e-expire pag namatay ang tunnel.
 // NOTE: walang network check dito para mabilis mag-load ang page; pattern check lang.
 $qrIsTempTunnel = ($qrPublicUrl !== '' && stripos($qrPublicUrl, 'trycloudflare.com') !== false);
@@ -791,107 +810,21 @@ $qrIsExpired = false; // hindi na auto-check; user ang mag-test via Open button
 <div class="modal-dialog modal-dialog-centered">
 <div class="modal-content">
 <div class="modal-header">
-<h5><i class="bi bi-qr-code me-1"></i>Walk-in QR for Patients <span class="badge bg-success ms-1" style="font-size:11px;">Android + iPhone</span></h5>
+<h5 class="modal-title"><i class="bi bi-qr-code me-2"></i>Walk-in Patient QR</h5>
 <button type="button" class="btn-close" data-bs-dismiss="modal" data-tip="Close"></button>
 </div>
-<div class="modal-body text-center">
-<?php if ($qrIsTempTunnel): ?>
-<div class="alert alert-warning text-start" style="font-size:12.5px;">
-<b><i class="bi bi-exclamation-triangle me-1"></i>Cloudflare quick link ito — temporary lang!</b><br>
-Gumana ito kagabi kasi bukas pa ang tunnel. Namatay/ni-restart ang <code>cloudflared</code> kaya nag-iba na ang URL at hindi na ma-scan ngayon.<br>
-<b>Fix (30 seconds):</b> mag-run ulit ng <code>cloudflared tunnel --url http://localhost:8080</code>, kopyahin ang bagong <code>https://xxx.trycloudflare.com</code> URL, i-paste sa <b>QR 2</b> sa baba + Save.<br>
-<form method="POST" class="mt-2">
-<?= csrfField() ?><input type="hidden" name="action" value="use_lan_qr"><button class="btn btn-sm btn-success" type="submit"><i class="bi bi-wifi me-1"></i>O gamitin ang LAN QR (hindi nag-e-expire)</button></form>
-</div>
-<?php endif; ?>
-<?php if ($qrHasPermanent): ?>
-<div class="alert alert-success text-start" style="font-size:12.5px;">
-<b><i class="bi bi-infinity me-1"></i>PERMANENT QR: ACTIVE — hindi nag-e-expire, kahit anong WiFi (Android + iPhone)</b><br>
-Public link: <b><?= htmlspecialchars($qrPermanent) ?></b> — ma-o-open sa kahit anong WiFi/mobile data. Basta bukas ang PC (XAMPP + ngrok), gagana ang QR.
-</div>
-<?php elseif ($qrIsPublic): ?>
-<div class="alert alert-success text-start" style="font-size:12.5px;">
-<b><i class="bi bi-signal me-1"></i>Pang-data QR: ACTIVE (Android + iPhone)</b><br>
-Public link — ma-o-open kahit naka-mobile data.
-</div>
-<?php else: ?>
-<div class="alert alert-warning text-start" style="font-size:12.5px;">
-<b><i class="bi bi-wifi me-1"></i>LAN QR lang ang active — same WiFi lang gumagana.</b><br>
-Iyan ang dahilan kaya <b>loading lang</b> sa phone: kapag ibang WiFi/mobile data ang phone, hindi niya maabot ang PC.<br>
-<b>Para permanent + kahit anong WiFi:</b> sundan ang <b>"Gawing PERMANENT (10 min, isang beses lang)"</b> guide sa baba — libre via ngrok static domain.
-</div>
-<?php endif; ?>
-<p class="text-muted" style="font-size:13.5px;">Ipa-scan sa patient (<b>Android o iPhone</b>). Bubukas ang fill-up form (Name + Dental Service) at deretso pila pag Submit.</p>
-<div class="row g-2 text-start mb-2">
-<div class="col-6"><div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;padding:10px;font-size:12px;"><b>&#128241; Android</b><br>1. Buksan <b>Camera / Lens / Chrome</b>.<?php if ($qrHasPermanent): ?><br>2. Itutok sa <b>QR 1</b> (kahit anong WiFi/data), tap link &gt; Submit.<?php else: ?><br>2. Kumonek sa <b>clinic WiFi</b>, itutok sa <b>QR 1</b>, tap link &gt; Submit.<?php endif; ?></div></div>
-<div class="col-6"><div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px;font-size:12px;"><b>&#127822; iPhone</b><br>1. Buksan <b>Camera</b>.<?php if ($qrHasPermanent): ?><br>2. Itutok sa <b>QR 1</b> (kahit anong WiFi/data), tap link &gt; Submit.<?php else: ?><br>2. Kumonek sa <b>clinic WiFi</b>, itutok sa <b>QR 1</b>, tap link &gt; Submit.<?php endif; ?></div></div>
-</div>
-
+<div class="modal-body text-center py-4 px-4" style="background:#F6FBF8;">
 <?php $qrMain1 = $qrHasPermanent ? $qrPermanent : ($qrLanUrl !== '' ? $qrLanUrl : $qrDefaultUrl); ?>
-<!-- QR 1: MAIN — permanent (kahit anong WiFi) o LAN (same WiFi) -->
-<div class="text-start mb-2" style="border:2px solid #0E6B5E;border-radius:12px;padding:12px;background:#f6fef9;">
-<div class="fw-bold mb-1" style="font-size:13.5px;color:#0A4A41;"><i class="bi bi-qr-code me-1"></i>QR 1 — Main QR <?php if ($qrHasPermanent): ?><span class="badge bg-success" style="font-size:10.5px;">PERMANENT ∞</span> <span class="badge bg-primary" style="font-size:10.5px;">Kahit anong WiFi</span><?php else: ?><span class="badge bg-warning text-dark" style="font-size:10.5px;">LAN — same WiFi lang</span><?php endif; ?> <span class="badge bg-primary" style="font-size:10.5px;">Android + iPhone</span></div>
-<?php if ($qrHasPermanent): ?>
-<div class="small text-muted mb-2">I-print at idikit sa counter. Hindi nag-e-expire, kahit anong WiFi/data gumagana. Dapat bukas ang PC (XAMPP + ngrok).</div>
-<?php else: ?>
-<div class="small text-muted mb-2">I-print at idikit sa counter. <b>Same WiFi lang</b> ang gumagana dito — kapag ibang WiFi/data ang phone, loading lang talaga. Gawing permanent sa guide sa baba.</div>
-<?php endif; ?>
-<div id="patientQrBoxLan" class="d-flex justify-content-center my-2" style="min-height:240px;">
-<img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=<?= urlencode($qrMain1) ?>" alt="Main QR - Android iPhone" style="width:240px;height:240px;border:1px solid #0E6B5E;border-radius:10px;background:#fff;">
+<div class="qr-display-card">
+  <div id="patientQrBoxLan">
+    <img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=<?= urlencode($qrMain1) ?>" alt="Walk-in QR" style="width:240px;height:240px;border-radius:8px;background:#fff;display:block;">
+  </div>
 </div>
-<div class="small text-muted"><?= $qrHasPermanent ? 'Permanent link:' : 'LAN link:' ?></div>
-<div class="fw-bold small mb-2" id="patientQrUrlLan" style="word-break:break-all;"><?= htmlspecialchars($qrMain1) ?></div>
-<div class="d-flex gap-2 justify-content-center flex-wrap">
-<button class="btn btn-sm btn-outline-primary" id="patientQrPrintLan" data-tip="Print QR 1"><i class="bi bi-printer me-1"></i>Print QR 1</button>
-<a class="btn btn-sm btn-outline-success" href="<?= htmlspecialchars($qrMain1) ?>" target="_blank" data-tip="Open">Open</a>
-<button class="btn btn-sm btn-outline-secondary" id="patientQrCopyLan" data-tip="Copy">Copy</button>
-<button class="btn btn-sm btn-success" id="patientQrDownloadLan" data-tip="Download"><i class="bi bi-download me-1"></i>Download</button>
-</div>
-</div>
-
-<!-- QR 2: Public pang-data (optional, kailangan stable tunnel) -->
-<div class="text-start mb-2" style="border:1px solid #C9E9DA;border-radius:12px;padding:12px;background:#f8fcfd;">
-<div class="fw-bold mb-1" style="font-size:13px;color:#143f51;"><i class="bi bi-globe me-1"></i>QR 2 — Pang-data / walang WiFi <span class="badge bg-warning text-dark" style="font-size:10.5px;">Optional</span></div>
-<?php if ($qrIsTempTunnel): ?>
-<div class="alert alert-warning py-2 px-2 mb-2" style="font-size:11.5px;"><b>Paalala:</b> ang <code>trycloudflare.com</code> quick tunnel ay <b>temporary — mag-e-expire</b>. Para hindi mag-expire, gumamit ng <b>ngrok static domain (libre, hindi nagbabago)</b> sa guide sa baba.</div>
-<?php endif; ?>
-<label class="form-label" style="font-size:12px;">Public link (pang-data):</label>
-<form method="POST" class="input-group input-group-sm mb-2">
-<?= csrfField() ?>
-<input type="hidden" name="action" value="save_qr_public_url">
-<input type="text" name="qr_public_url" class="form-control" placeholder="https://xxxx.ngrok-free.app/walkin_qr.php" value="<?= htmlspecialchars($qrPublicUrl) ?>">
-<button class="btn btn-success" type="submit">Save</button>
-</form>
-<?php if ($qrPublicUrl !== ''): ?>
-<div id="patientQrBoxPublic" class="d-flex justify-content-center my-2" style="min-height:200px;">
-<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=<?= urlencode($qrPublicUrl) ?>" alt="Public QR - Android iPhone" style="width:200px;height:200px;border:1px solid #e0ecef;border-radius:10px;background:#fff;">
-</div>
-<div class="small text-muted">Public link:</div>
-<div class="fw-bold small mb-2" id="patientQrUrlPublic" style="word-break:break-all;"></div>
-<div class="d-flex gap-2 justify-content-center flex-wrap mb-2">
-<a class="btn btn-sm btn-outline-success" id="patientQrOpenPublic" target="_blank" data-tip="Open">Open</a>
-<button class="btn btn-sm btn-outline-secondary" id="patientQrCopyPublic" type="button" data-tip="Copy">Copy</button>
-</div>
-<?php endif; ?>
-<details class="small text-muted" <?= $qrHasPermanent ? '' : 'open' ?>><summary class="fw-bold" style="cursor:pointer;">⭐ Gawing PERMANENT (10 min, isang beses lang) — hindi nag-e-expire, kahit anong WiFi</summary>
-<div class="mt-1">1. Signup sa <b>ngrok.com</b> (libre) &gt; Dashboard &gt; kunin ang <b>Authtoken</b>.<br>
-2. Sa ngrok Dashboard &gt; <b>Domains &gt; New Domain</b> (o Claim Static Domain) — makukuha mo hal. <code>abalos-dental.ngrok-free.app</code>.<br>
-3. Sa PC, isang beses lang i-run: <code>ngrok config add-authtoken PASTE_TOKEN_MO</code><br>
-4. Buksan ang <code>config.php</code>, hanapin ang <code>PERMANENT_QR_DOMAIN</code>, ilagay ang domain mo:<br><code>define('PERMANENT_QR_DOMAIN', 'abalos-dental.ngrok-free.app');</code><br>
-5. I-double click ang <b>START_PERMANENT_QR.bat</b> (nasa project folder) bago mag-clinic — bubuksan nito ang ngrok sa static domain mo.<br>
-6. Tapos na! Ang QR 1 ay magiging <b>PERMANENT ∞</b> — i-print, hindi na magbabago kahit i-restart. Gumagana sa <b>kahit anong WiFi/mobile data, Android at iPhone</b>.<br>
-<span class="text-muted">Kailangan bukas ang PC (XAMPP + ngrok) habang clinic hours. Kung gusto mo kahit patay ang PC gumana, kailangan ng paid hosting — sabihin mo lang.</span></div>
-</details>
-<details class="small text-muted"><summary class="fw-bold" style="cursor:pointer;">Bakit loading lang / bakit gumana kagabi, ayaw ngayon?</summary>
-<div class="mt-1"><b>Loading lang:</b> ang LAN link (<code>192.168.1.15</code>) ay naaabot lang kapag <b>same WiFi</b> ang phone at PC. Kapag ibang WiFi o mobile data ang phone, hindi niya mahanap ang PC — kaya loading lang. Solusyon: permanent QR sa taas.<br>
-<b>Cloudflare kagabi:</b> ang <code>trycloudflare.com</code> ay quick tunnel — random at temporary. Pag sinara ang terminal/PC, patay ang lumang URL. Para ibalik pansamantala: <code>cloudflared tunnel --url http://localhost:8080</code>, kopyahin ang bagong URL, i-paste sa QR 2 + Save.</div>
-</details>
-</div>
-<div class="mb-2 text-start">
-<div class="small text-muted mt-1">Troubleshoot: Naka-start ba XAMPP Apache + MySQL? Bukas ba ang ngrok (kung permanent)? Naka-Allow ba ang Apache sa Windows Firewall (port 8080)?</div>
+<div class="mt-2 text-start" style="display:none;">
 <input type="hidden" id="patientQrCustom" value="<?= htmlspecialchars($qrDefaultUrl) ?>">
 <input type="hidden" id="patientQrLanValue" value="<?= htmlspecialchars($qrMain1) ?>">
 <input type="hidden" id="patientQrPublicValue" value="<?= htmlspecialchars($qrPublicUrl) ?>">
+</div>
 </div>
 </div>
 </div>
@@ -906,11 +839,24 @@ Iyan ang dahilan kaya <b>loading lang</b> sa phone: kapag ibang WiFi/mobile data
     try {
       if(typeof QRCode !== 'undefined'){
         new QRCode(box, { text: url, width: size, height: size, correctLevel: QRCode.CorrectLevel.H });
+        setTimeout(function(){
+          var canvas = box.querySelector('canvas');
+          var img = box.querySelector('img');
+          if (canvas && img) {
+            if (canvas.style.display === 'none') {
+              img.style.display = 'block';
+              img.style.borderRadius = '8px';
+            } else {
+              img.style.display = 'none';
+              canvas.style.borderRadius = '8px';
+            }
+          }
+        }, 50);
       } else { throw new Error('no lib'); }
     } catch(e) {
       var img = document.createElement('img');
       img.src = 'https://api.qrserver.com/v1/create-qr-code/?size='+size+'x'+size+'&data=' + encodeURIComponent(url);
-      img.style.cssText = 'width:'+size+'px;height:'+size+'px;border:1px solid #e0ecef;border-radius:10px;background:#fff;';
+      img.style.cssText = 'width:'+size+'px;height:'+size+'px;border-radius:8px;background:#fff;display:block;';
       box.appendChild(img);
     }
   }
@@ -923,32 +869,252 @@ Iyan ang dahilan kaya <b>loading lang</b> sa phone: kapag ibang WiFi/mobile data
     if(!box) return;
     var img = box.querySelector('img');
     var canvas = box.querySelector('canvas');
-    if(img && img.src){ var a=document.createElement('a'); a.href=img.src; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); }
+    if(img && img.src && img.src.indexOf('data:') === 0){ var a=document.createElement('a'); a.href=img.src; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); }
     else if(canvas){ var a2=document.createElement('a'); a2.href=canvas.toDataURL('image/png'); a2.download=filename; document.body.appendChild(a2); a2.click(); a2.remove(); }
     else { window.open('https://api.qrserver.com/v1/create-qr-code/?size=500x500&data='+encodeURIComponent(fallbackUrl), '_blank'); }
   }
   function renderAll(){
-    var lan = (document.getElementById('patientQrLanValue').value || '').trim();
-    var pub = (document.getElementById('patientQrPublicValue').value || '').trim();
+    var lanInput = document.getElementById('patientQrLanValue');
+    var lan = lanInput ? lanInput.value.trim() : '';
     if(lan){
-      document.getElementById('patientQrUrlLan').textContent = lan;
+      var urlEl = document.getElementById('patientQrUrlLan');
+      if(urlEl) urlEl.textContent = lan;
       drawQr('patientQrBoxLan', lan, 240);
     }
-    if(pub){
-      var pubEl = document.getElementById('patientQrUrlPublic');
-      if(pubEl) pubEl.textContent = pub;
-      var openPub = document.getElementById('patientQrOpenPublic');
-      if(openPub) openPub.href = pub;
-      drawQr('patientQrBoxPublic', pub, 200);
-    }
   }
-  document.getElementById('patientQrModal').addEventListener('shown.bs.modal', renderAll);
-  document.getElementById('patientQrCopyLan').addEventListener('click', function(){ copyText(document.getElementById('patientQrLanValue').value.trim(), 'LAN link copied! Ipa-scan sa Android o iPhone na naka-clinic WiFi.'); });
-  document.getElementById('patientQrDownloadLan').addEventListener('click', function(){ downloadBox('patientQrBoxLan', 'walkin-qr1-lan-android-iphone.png', document.getElementById('patientQrLanValue').value.trim()); });
-  document.getElementById('patientQrPrintLan').addEventListener('click', function(){ window.print(); });
+  var qrModal = document.getElementById('patientQrModal');
+  if(qrModal) qrModal.addEventListener('shown.bs.modal', renderAll);
+  var cpLan = document.getElementById('patientQrCopyLan');
+  if(cpLan) cpLan.addEventListener('click', function(){ copyText(document.getElementById('patientQrLanValue').value.trim(), 'Permanent Walk-in QR link copied!'); });
+  var dlLan = document.getElementById('patientQrDownloadLan');
+  if(dlLan) dlLan.addEventListener('click', function(){ downloadBox('patientQrBoxLan', 'walkin-qr-permanent.png', document.getElementById('patientQrLanValue').value.trim()); });
+  var prLan = document.getElementById('patientQrPrintLan');
+  if(prLan) prLan.addEventListener('click', function(){ window.print(); });
+  var cpSys = document.getElementById('copySystemUrlBtn');
+  if(cpSys) cpSys.addEventListener('click', function(){ copyText(document.getElementById('systemPermanentUrlText').textContent.trim(), 'System link copied! Maaari mo na itong buksan sa ibang device.'); });
   var cp = document.getElementById('patientQrCopyPublic');
   if(cp) cp.addEventListener('click', function(){ copyText(document.getElementById('patientQrPublicValue').value.trim()); });
 })();
+</script>
+
+<?php
+$showQueueUpdatedPopup = !empty($_SESSION['queue_updated_popup']);
+unset($_SESSION['queue_updated_popup']);
+?>
+<!-- Queue Status Loading + "Queue updated." Popup -->
+<div id="queueStatusPopup" class="queue-status-popup-overlay" style="display:none;" role="dialog" aria-modal="true">
+  <div class="queue-status-popup-card">
+    <button type="button" class="queue-status-popup-close" id="queueStatusPopupClose" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+
+    <!-- Loading State -->
+    <div id="queuePopupLoading" class="queue-popup-state">
+      <div class="queue-popup-spinner" role="status" aria-hidden="true"></div>
+      <h5 class="queue-popup-title">Updating queue...</h5>
+      <p class="queue-popup-sub">Please wait a moment.</p>
+    </div>
+
+    <!-- Updated State -->
+    <div id="queuePopupSuccess" class="queue-popup-state" style="display:none;">
+      <div class="queue-popup-check"><i class="bi bi-check-lg"></i></div>
+      <h5 class="queue-popup-title">Queue updated.</h5>
+      <button type="button" class="btn queue-popup-ok-btn mt-2" id="queueStatusPopupOk">OK</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.queue-status-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 44, 34, 0.55);
+  backdrop-filter: blur(3px);
+  z-index: 2060;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.queue-status-popup-card {
+  position: relative;
+  background: #ffffff;
+  border: 1.5px solid #C9E9DA;
+  border-radius: 18px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+  max-width: 360px;
+  width: 100%;
+  padding: 30px 26px 26px;
+  text-align: center;
+  font-family: "Inter", "Plus Jakarta Sans", system-ui, sans-serif;
+  animation: queuePopupIn 0.18s ease-out;
+}
+@keyframes queuePopupIn {
+  from { transform: scale(0.94); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.queue-status-popup-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  border: 1px solid #D1E7DD;
+  background: #ffffff;
+  color: #57727d;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  cursor: pointer;
+}
+.queue-status-popup-close:hover {
+  background: #EAF7F0;
+  color: #0E6B5E;
+}
+.queue-popup-spinner {
+  width: 54px;
+  height: 54px;
+  margin: 4px auto 16px;
+  border: 4px solid #D9F2E6;
+  border-top-color: #0E6B5E;
+  border-radius: 50%;
+  animation: queueSpin 0.75s linear infinite;
+}
+@keyframes queueSpin {
+  to { transform: rotate(360deg); }
+}
+.queue-popup-check {
+  width: 58px;
+  height: 58px;
+  margin: 4px auto 14px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #EAF7F0 0%, #D1F2E2 100%);
+  border: 2px solid #86EFAC;
+  color: #0E6B5E;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  animation: queuePopupIn 0.2s ease-out;
+}
+.queue-popup-title {
+  color: #143f51;
+  font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 18px;
+  margin: 0 0 6px;
+}
+.queue-popup-sub {
+  color: #7c959f;
+  font-size: 13px;
+  margin: 0;
+}
+.queue-popup-ok-btn {
+  background: linear-gradient(135deg, #149A72, #0A4A41) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 700;
+  padding: 8px 28px;
+  box-shadow: 0 6px 14px rgba(14, 107, 94, 0.25);
+}
+.queue-popup-ok-btn:hover {
+  filter: brightness(0.95);
+}
+</style>
+
+<script>
+(function(){
+  var overlay = document.getElementById('queueStatusPopup');
+  var loadingBox = document.getElementById('queuePopupLoading');
+  var successBox = document.getElementById('queuePopupSuccess');
+  var closeBtn = document.getElementById('queueStatusPopupClose');
+  var okBtn = document.getElementById('queueStatusPopupOk');
+  var autoCloseTimer = null;
+
+  function openLoadingPopup() {
+    if (!overlay) return;
+    if (autoCloseTimer) { clearTimeout(autoCloseTimer); autoCloseTimer = null; }
+    loadingBox.style.display = 'block';
+    successBox.style.display = 'none';
+    overlay.style.display = 'flex';
+  }
+
+  function showUpdatedState() {
+    if (!overlay) return;
+    loadingBox.style.display = 'none';
+    successBox.style.display = 'block';
+    if (autoCloseTimer) clearTimeout(autoCloseTimer);
+    autoCloseTimer = setTimeout(closePopup, 1400);
+  }
+
+  function closePopup() {
+    if (!overlay) return;
+    if (autoCloseTimer) { clearTimeout(autoCloseTimer); autoCloseTimer = null; }
+    overlay.style.display = 'none';
+  }
+
+  if (closeBtn) closeBtn.addEventListener('click', closePopup);
+  if (okBtn) okBtn.addEventListener('click', closePopup);
+  if (overlay) {
+    overlay.addEventListener('click', function(e){
+      if (e.target === overlay && successBox.style.display !== 'none') {
+        closePopup();
+      }
+    });
+  }
+
+  function bindQueueStatusForms() {
+    document.querySelectorAll('form.js-queue-status-form').forEach(function(form){
+      if (form.dataset.popupBound === '1') return;
+      form.dataset.popupBound = '1';
+
+      form.addEventListener('submit', function(e){
+        e.preventDefault();
+        openLoadingPopup();
+
+        var fd = new FormData(form);
+        fd.append('ajax_popup', '1');
+        var minDelay = new Promise(function(resolve){ setTimeout(resolve, 850); });
+
+        var req = fetch(window.location.href, {
+          method: 'POST',
+          body: fd,
+          credentials: 'same-origin'
+        }).then(function(res){ return res.text(); });
+
+        Promise.all([req, minDelay]).then(function(results){
+          var html = results[0] || '';
+          try {
+            var doc = new DOMParser().parseFromString(html, 'text/html');
+            var newTbody = doc.querySelector('.queue-table tbody');
+            var curTbody = document.querySelector('.queue-table tbody');
+            if (newTbody && curTbody) {
+              curTbody.innerHTML = newTbody.innerHTML;
+              bindQueueStatusForms();
+            } else {
+              window.location.reload();
+              return;
+            }
+          } catch (err) {
+            window.location.reload();
+            return;
+          }
+          showUpdatedState();
+        }).catch(function(){
+          form.submit();
+        });
+      });
+    });
+  }
+
+  bindQueueStatusForms();
+
+  <?php if ($showQueueUpdatedPopup): ?>
+  openLoadingPopup();
+  setTimeout(showUpdatedState, 750);
+  <?php endif; ?>
 })();
 </script>
 

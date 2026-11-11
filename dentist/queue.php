@@ -272,9 +272,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $redirectFilter = 'All';
     }
 
-    $redirectNoSidebar = (($_GET['nosidebar'] ?? '') === '1') ? '&nosidebar=1' : '';
-
-    header('Location: queue.php?filter=' . urlencode($redirectFilter) . $redirectNoSidebar);
+    header('Location: queue.php?filter=' . urlencode($redirectFilter));
     exit;
 }
 
@@ -297,15 +295,6 @@ $allowedFilters = [
 if (!in_array($filter, $allowedFilters, true)) {
     $filter = 'All';
 }
-
-/*
-|--------------------------------------------------------------------------
-| NOSIDEBAR SUFFIX (para hindi lumitaw ang sidebar pag pinindot ang
-| Waiting / Serving / Completed / All buttons, view at close links)
-|--------------------------------------------------------------------------
-*/
-
-$noSidebarSuffix = (($_GET['nosidebar'] ?? '') === '1') ? '&nosidebar=1' : '';
 
 
 /*
@@ -1576,7 +1565,7 @@ include __DIR__ . '/dentist_sidebar.php';
 
                 <!-- WAITING -->
 
-                <a class="queue-summary-card<?= $filter === 'Waiting' ? ' active' : '' ?>" href="queue.php?filter=Waiting<?= $noSidebarSuffix ?>" title="Show waiting patients only">
+                <a class="queue-summary-card<?= $filter === 'Waiting' ? ' active' : '' ?>" href="queue.php?filter=Waiting" title="Show waiting patients only">
 
                     <div class="queue-summary-head">
 
@@ -1606,7 +1595,7 @@ include __DIR__ . '/dentist_sidebar.php';
 
                 <!-- SERVING -->
 
-                <a class="queue-summary-card<?= $filter === 'Serving' ? ' active' : '' ?>" href="queue.php?filter=Serving<?= $noSidebarSuffix ?>" title="Show serving patients only">
+                <a class="queue-summary-card<?= $filter === 'Serving' ? ' active' : '' ?>" href="queue.php?filter=Serving" title="Show serving patients only">
 
                     <div class="queue-summary-head">
 
@@ -1636,7 +1625,7 @@ include __DIR__ . '/dentist_sidebar.php';
 
                 <!-- COMPLETED -->
 
-                <a class="queue-summary-card<?= $filter === 'Completed' ? ' active' : '' ?>" href="queue.php?filter=Completed<?= $noSidebarSuffix ?>" title="Show completed patients only">
+                <a class="queue-summary-card<?= $filter === 'Completed' ? ' active' : '' ?>" href="queue.php?filter=Completed" title="Show completed patients only">
 
                     <div class="queue-summary-head">
 
@@ -1666,7 +1655,7 @@ include __DIR__ . '/dentist_sidebar.php';
 
                 <!-- TOTAL -->
 
-                <a class="queue-summary-card<?= $filter === 'All' ? ' active' : '' ?>" href="queue.php?filter=All<?= $noSidebarSuffix ?>" title="Show all patients in queue">
+                <a class="queue-summary-card<?= $filter === 'All' ? ' active' : '' ?>" href="queue.php?filter=All" title="Show all patients in queue">
 
                     <div class="queue-summary-head">
 
@@ -1718,7 +1707,7 @@ include __DIR__ . '/dentist_sidebar.php';
 
 
                         <a
-                            href="queue.php?filter=All<?= $noSidebarSuffix ?>"
+                            href="queue.php?filter=All"
                             class="filter-button <?= $filter === 'All' ? 'active' : '' ?>"
                         >
                             All
@@ -1726,7 +1715,7 @@ include __DIR__ . '/dentist_sidebar.php';
 
 
                         <a
-                            href="queue.php?filter=Waiting<?= $noSidebarSuffix ?>"
+                            href="queue.php?filter=Waiting"
                             class="filter-button <?= $filter === 'Waiting' ? 'active' : '' ?>"
                         >
                             Waiting
@@ -1734,7 +1723,7 @@ include __DIR__ . '/dentist_sidebar.php';
 
 
                         <a
-                            href="queue.php?filter=Serving<?= $noSidebarSuffix ?>"
+                            href="queue.php?filter=Serving"
                             class="filter-button <?= $filter === 'Serving' ? 'active' : '' ?>"
                         >
                             Serving
@@ -1742,7 +1731,7 @@ include __DIR__ . '/dentist_sidebar.php';
 
 
                         <a
-                            href="queue.php?filter=Completed<?= $noSidebarSuffix ?>"
+                            href="queue.php?filter=Completed"
                             class="filter-button <?= $filter === 'Completed' ? 'active' : '' ?>"
                         >
                             Completed
@@ -2137,7 +2126,7 @@ include __DIR__ . '/dentist_sidebar.php';
 
 
                         <a
-                            href="queue.php?filter=<?= urlencode($filter) ?><?= $noSidebarSuffix ?>"
+                            href="queue.php?filter=<?= urlencode($filter) ?>"
                             class="close-detail"
                         >
 
@@ -2528,19 +2517,6 @@ include __DIR__ . '/dentist_sidebar.php';
 
         </div>
 
-        <?php if (($_GET['nosidebar'] ?? '') === '1'): ?>
-        <style>.portal-sidebar{display:none!important;}.portal-main{margin-left:0!important;width:100%!important;}</style>
-        <script>
-        function autoCloseSubTab(){
-            try{ if(window.opener && !window.opener.closed){ window.opener.focus(); } }catch(e){}
-            /* Hindi na nagsasara ang tab — same-tab navigation. */
-            if (!window.opener || window.opener.closed) {
-                window.location.href='dentist_dashboard.php';
-            }
-            return false;
-        }
-        </script>
-        <?php endif; ?>
     </main>
 
 <style>
@@ -2597,17 +2573,7 @@ include __DIR__ . '/dentist_sidebar.php';
 })();
 </script>
 
-<script>
-/* Itago ang sidebar kapag binuksan mula sa dashboard menu (?nosidebar=1) */
-(function(){
-    try {
-        if (new URLSearchParams(window.location.search).get('nosidebar') === '1') {
-            document.querySelectorAll('.portal-sidebar').forEach(function(el){ el.style.display = 'none'; });
-            document.querySelectorAll('.portal-main').forEach(function(el){ el.style.marginLeft = '0'; el.style.width = '100%'; });
-        }
-    } catch(e){}
-})();
-</script>
+
 
 
 <!-- DENTIST LOGOUT CONFIRM — "Are you sure you want to log out?" -->

@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $parts = preg_split('/\s+/', $name);
             $first = $parts[0] ?? $name;
             $last = count($parts) > 1 ? implode(' ', array_slice($parts, 1)) : '-';
-            $patientNumber = 'WALK-' . date('YmdHis') . random_int(10, 99);
+            $patientNumber = generateShortPatientNumber($pdo);
 
             $stmtP = $pdo->prepare("INSERT INTO patients (patient_number, first_name, last_name, contact_number, email) VALUES (?, ?, ?, ?, ?)");
             $stmtP->execute([$patientNumber, $first, $last, '', '']);
@@ -45,9 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([$newId, $qnum, $date]);
             }
 
-            $success = "Salamat, " . $name . "! Nakapila ka na. Queue number: Q-" . str_pad($qnum, 3, '0', STR_PAD_LEFT) . " (" . $service . "). Pakihintay ang tawag.";
+            $success = "Thank you, " . $name . "! You have been added to the queue. Queue number: Q-" . str_pad($qnum, 3, '0', STR_PAD_LEFT) . " (" . $service . "). Please wait for your number to be called.";
         } catch (Throwable $e) {
-            $error = "Hindi ma-add sa pila. Subukan ulit.";
+            $error = "Unable to add to queue. Please try again.";
         }
     }
 }
@@ -55,11 +55,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $services = [
     'General Dentistry',
     'Orthodontics (Braces)',
-    'Oral Surgery (Tooth Extraction or Bunot)',
+    'Oral Surgery (Tooth Extraction)',
     'Cosmetic',
-    'Fillings or Pasta',
+    'Fillings',
     'Root Canal',
-    'Oral Prophylaxis or Cleaning',
+    'Oral Prophylaxis (Cleaning)',
     'Denture',
     'Teeth Whitening',
     'Crown',
@@ -102,10 +102,10 @@ input, select, button { font-size:16px !important; /* iwas auto-zoom sa Android 
 <div class="walkin-card">
 <div class="logo-circle"><i class="bi bi-qr-code-scan"></i></div>
 <h2>Walk-in Queue</h2>
-<p>Abalos Dental Clinic — fill-up lang ng Name + Dental Service, deretso pila ka na.<br><span style="font-size:12px;">&#10003; Gumagana sa <b>Android</b> (Camera / Chrome / Lens) at <b>iPhone</b> (Camera / Safari).</span></p>
+<p>Abalos Dental Clinic — Enter your Name + Dental Service to join the queue.<br><span style="font-size:12px;">&#10003; Compatible with <b>Android</b> (Camera / Chrome / Lens) and <b>iPhone</b> (Camera / Safari).</span></p>
 <?php if ($success): ?>
 <div class="alert alert-success" style="font-size:15px;"><?= htmlspecialchars($success) ?></div>
-<div class="text-center mt-2"><a href="walkin_qr.php" class="btn btn-outline-success btn-sm">+ Mag-queue ng kasama</a></div>
+<div class="text-center mt-2"><a href="walkin_qr.php" class="btn btn-outline-success btn-sm">+ Queue another person</a></div>
 <?php else: ?>
 <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
 <form method="POST" autocomplete="on">
@@ -116,7 +116,7 @@ input, select, button { font-size:16px !important; /* iwas auto-zoom sa Android 
 <div class="mb-4">
 <label class="form-label">Dental Service *</label>
 <select name="service" class="form-select" required>
-<option value="">-- Piliin ang service --</option>
+<option value="">-- Select a service --</option>
 <?php foreach ($services as $s): ?>
 <option value="<?= htmlspecialchars($s) ?>" <?= (($_POST['service'] ?? '') === $s) ? 'selected' : '' ?>><?= htmlspecialchars($s) ?></option>
 <?php endforeach; ?>
@@ -124,7 +124,7 @@ input, select, button { font-size:16px !important; /* iwas auto-zoom sa Android 
 </div>
 <button class="btn btn-success btn-submit w-100" type="submit"><i class="bi bi-check-circle me-1"></i>Submit</button>
 </form>
-<div class="device-hint">&#128241; <b>Android:</b> buksan ang Camera o Chrome &gt; tap ang link &gt; fill-up &gt; Submit.<br>&#127822; <b>iPhone:</b> buksan ang Camera &gt; tap ang Cloudflare link &gt; fill-up &gt; Submit. Iisang QR lang ito.</div>
+<div class="device-hint">&#128241; <b>Android:</b> Open Camera or Chrome &gt; tap the link &gt; enter details &gt; Submit.<br>&#127822; <b>iPhone:</b> Open Camera &gt; tap the link &gt; enter details &gt; Submit.</div>
 <?php endif; ?>
 </div>
 </body>

@@ -26,6 +26,8 @@ tasklist /FI "IMAGENAME eq mysqld.exe" 2>NUL | find /I /N "mysqld.exe" >NUL
 if "%ERRORLEVEL%"=="0" (
     echo        [OK] MySQL is already running.
 ) else (
+    REM Clean up stale pid or lock if computer restarted abruptly
+    if exist "%XAMPP_DIR%\mysql\data\mysql.pid" del /f /q "%XAMPP_DIR%\mysql\data\mysql.pid" >nul 2>&1
     echo        [*] Starting MySQL in background...
     powershell -NoProfile -WindowStyle Hidden -Command "Start-Process '%XAMPP_DIR%\mysql\bin\mysqld.exe' -ArgumentList '--defaults-file=%XAMPP_DIR%\mysql\bin\my.ini --standalone' -WindowStyle Hidden"
     ping 127.0.0.1 -n 4 >nul
@@ -33,9 +35,21 @@ if "%ERRORLEVEL%"=="0" (
     if "%ERRORLEVEL%"=="0" (
         echo        [OK] MySQL started successfully.
     ) else (
-        echo        [*] Trying fallback start...
-        start "" /min "%XAMPP_DIR%\mysql_start.bat"
-        ping 127.0.0.1 -n 3 >nul
+        echo        [*] Performing auto-recovery on MariaDB tables...
+        del /f /q "%XAMPP_DIR%\mysql\data\aria_log*" >nul 2>&1
+        if exist "%XAMPP_DIR%\mysql\bin\aria_chk.exe" (
+            "%XAMPP_DIR%\mysql\bin\aria_chk.exe" -o "%XAMPP_DIR%\mysql\data\mysql\*.MAI" >nul 2>&1
+        )
+        powershell -NoProfile -WindowStyle Hidden -Command "Start-Process '%XAMPP_DIR%\mysql\bin\mysqld.exe' -ArgumentList '--defaults-file=%XAMPP_DIR%\mysql\bin\my.ini --standalone' -WindowStyle Hidden"
+        ping 127.0.0.1 -n 4 >nul
+        tasklist /FI "IMAGENAME eq mysqld.exe" 2>NUL | find /I /N "mysqld.exe" >NUL
+        if "%ERRORLEVEL%"=="0" (
+            echo        [OK] MySQL auto-recovered and started successfully.
+        ) else (
+            echo        [*] Trying fallback start...
+            start "" /min "%XAMPP_DIR%\mysql_start.bat"
+            ping 127.0.0.1 -n 3 >nul
+        )
     )
 )
 
@@ -77,12 +91,20 @@ if "%ERRORLEVEL%"=="0" (
 )
 
 REM ----------------------------------------------------------------
+REM 2b. Start Permanent QR Tunnel in background (no window)
+REM ----------------------------------------------------------------
+if exist "%~dp0start_qr_tunnel_silent.vbs" (
+    wscript.exe //B "%~dp0start_qr_tunnel_silent.vbs"
+)
+
+REM ----------------------------------------------------------------
 REM 3. Open Dental AI System in default browser
 REM ----------------------------------------------------------------
 echo.
 echo  [3/3] Opening Dental AI System in browser...
 ping 127.0.0.1 -n 2 >nul
 start "" "http://localhost/dental-ai-system-fixed/login.php"
+
 
 echo.
 echo  ================================================================

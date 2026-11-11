@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="tl">
+<head>
+<meta charset="UTF-8">
+<title>ABALOS DENTAL CLINIC</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; background: #F8FAFC; color: #1E293B; line-height: 1.68; padding: 25px 0; font-size: 14.5px; }
+    .manual-box { max-width: 980px; margin: 0 auto; background: #ffffff; padding: 45px 55px; border-radius: 16px; border: 1px solid #E2E8F0; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+    h1 { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; color: #0E6B5E; font-size: 26px; text-align: center; margin-bottom: 6px; }
+    .subtitle { text-align: center; font-size: 16px; color: #0A4A41; font-weight: 700; margin-bottom: 4px; }
+    .meta { text-align: center; font-size: 12.5px; color: #64748B; margin-bottom: 24px; }
+    h2 { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 17.5px; font-weight: 700; color: #0E6B5E; margin-top: 30px; margin-bottom: 12px; border-bottom: 2px solid #E2E8F0; padding-bottom: 6px; }
+    .doc-img { max-width: 100%; height: auto; border-radius: 10px; border: 1.5px solid #CBD5E1; box-shadow: 0 4px 15px rgba(0,0,0,0.07); margin: 10px 0; }
+    .caption { font-size: 12px; color: #64748B; font-style: italic; text-align: center; margin-bottom: 20px; }
+    .callout { padding: 12px 18px; border-radius: 10px; font-size: 13px; margin: 14px 0; }
+    .callout-warn { background: #FFFBEB; border: 1.5px solid #FDE68A; color: #92400E; }
+    .callout-info { background: #F0FDF4; border: 1.5px solid #BBF7D0; color: #166534; }
+    .print-bar { position: fixed; bottom: 20px; right: 25px; z-index: 9999; }
+    .print-btn { background: linear-gradient(135deg,#10B981,#0E6B5E); color: #fff; border: none; border-radius: 50px; padding: 10px 22px; font-weight: 700; box-shadow: 0 4px 15px rgba(16,185,129,0.35); cursor: pointer; }
+    @media print { .print-bar { display: none !important; } body { background: #fff; padding: 0; } .manual-box { border: none; box-shadow: none; padding: 0; } }
+</style>
+</head>
+<body>
+<div class="print-bar"><button class="print-btn" onclick="window.print()">Print / Save PDF (Ctrl + P)</button></div>
+<div class="manual-box">
+<h1>ABALOS DENTAL CLINIC</h1>
+<div class="subtitle">PATIENT USER MANUAL</div>
+<div class="meta">Gabay para sa: <strong>Pasyente (Registered Patient Account)</strong> &bull; Abalos Dental Clinic (Caloocan City)</div>
+<hr>
+
+<h2>1. Pangkalahatang Gabay sa Patient Account</h2>
+<p>Ang gabay na ito ay nakalaan para sa <strong>Patient Portal</strong> ng Abalos Dental Clinic. Gamit ang inyong rehistradong Patient Account, maaari kayong mag-book ng inyong sariling dental checkup, pumili ng nais na dentista, at subaybayan ang katayuan ng inyong appointment mula sa inyong computer o mobile phone nang hindi na kailangang pumila sa klinika.</p>
+<h2>2. Pagpaparehistro ng Account (Patient Sign Up)</h2>
+<p>Para sa mga bagong pasyente na wala pang account, sundin ang mga sumusunod na hakbang sa Registration Form:</p>
+<ol>
+<li>Pumunta sa <strong>`register.php`</strong> gamit ang inyong browser.</li>
+<li>Sundin ang Callout Box <strong>(1)</strong>: Ilagay ang inyong buong pangalan at 11-digit mobile contact number (hal. `09171234567`).</li>
+<li>Sundin ang Callout Box <strong>(2)</strong>: Ilagay ang inyong aktibong Email Address. Dito ipapadala ang inyong OTP verification code.</li>
+<li>Sundin ang Callout Box <strong>(3)</strong>: Maglagay ng secure na password na may hindi bababa sa 8 characters.</li>
+<li>Sundin ang Callout Box <strong>(4)</strong>: Pindutin ang button na <strong>[Create Account]</strong>.</li>
+</ol>
+<div class="callout callout-warn"><strong>[MAHALAGA]</strong> Pagkatapos mag-register, ilagay ang 6-digit verification code na ipinadala sa inyong email upang ma-activate ang inyong account.</div>
+<div class="text-center"><img src="annotated_images/pat_02_register.png" class="doc-img"></div>
+<div class="caption">Figure 1.1: Patient Registration Form na may mga Arrow Callouts</div>
+<h2>3. Pag-login sa Patient Account</h2>
+<p>Kapag aktibo na ang inyong account, mag-login gamit ang inyong credentials:</p>
+<ol>
+<li>Sundin ang Callout Box <strong>(1)</strong>: I-type ang inyong rehistradong Email Address.</li>
+<li>Sundin ang Callout Box <strong>(2)</strong>: I-type ang inyong Password.</li>
+<li>Sundin ang Callout Box <strong>(3)</strong>: Pindutin ang button na <strong>[Sign In]</strong> para makapasok sa inyong Patient Dashboard.</li>
+<li>Kung wala pa kayong account, pindutin ang Callout Box <strong>(4)</strong> link na <strong>[Sign Up]</strong>.</li>
+</ol>
+<div class="text-center"><img src="annotated_images/pat_01_login.png" class="doc-img"></div>
+<div class="caption">Figure 1.2: Patient Login Screen na may gabay sa bawat field</div>
+<h2>4. Pag-navigate sa Patient Dashboard</h2>
+<p>Sa sandaling mag-login, makikita ninyo ang inyong Patient Dashboard:</p>
+<ol>
+<li>Callout Box <strong>(1) - My Schedule:</strong> Ipinapakita ang inyong pinakamalapit na appointment (petsa, oras, at doktor).</li>
+<li>Callout Box <strong>(2) - Quick Booking:</strong> Pindutan upang mabilis na makapunta sa kalendaryo at mag-book ng schedule.</li>
+<li>Callout Box <strong>(3) - Patient Navigation:</strong> Talaan ng mga menu tulad ng Book Appointment, My Appointments, at Profile.</li>
+</ol>
+<div class="text-center"><img src="annotated_images/pat_03_dashboard.png" class="doc-img"></div>
+<div class="caption">Figure 1.3: Patient Dashboard Overview</div>
+<h2>5. Hakbang sa Pag-book ng Dental Appointment</h2>
+<p>Upang mag-book ng schedule sa inyong napiling doktor, sundin ang apat (4) na simpleng hakbang sa Interactive Calendar:</p>
+<ol>
+<li>Callout Box <strong>(1) - Pumili ng Petsa:</strong> Mag-click ng petsa sa kalendaryo mula Lunes hanggang Sabado (Sarado ang klinika kapag Linggo).</li>
+<li>Callout Box <strong>(2) - Pumili ng Attending Dentist:</strong> Piliin ang doktor na nais ninyong tumingin sa inyong ngipin (hal. Dr. Abby, Dr. Juan Dela Cruz).</li>
+<li>Callout Box <strong>(3) - Pumili ng Dental Service:</strong> Piliin ang uri ng serbisyo (hal. Oral Surgery / Bunot, Fillings / Pasta, Cleaning, o Braces).</li>
+<li>Callout Box <strong>(4) - Pumili ng Available Time Slot:</strong> Lalabas ang mga bakanteng oras. Piliin ang oras at i-click ang <strong>[Confirm Booking]</strong>.</li>
+</ol>
+<div class="callout callout-info"><strong>[SAFETY RULE]</strong> Ang bawat pasyente ay pinapayagan lamang ng maximum na dalawang (2) appointments sa iisang araw upang maiwasan ang slot hoarding at medical complications.</div>
+<div class="text-center"><img src="annotated_images/pat_04_booking_calendar.png" class="doc-img"></div>
+<div class="caption">Figure 1.4: Hakbang-hakbang na Proseso sa Pag-book sa Calendar</div>
+<h2>6. Pamamahala at Pagsusuri sa My Appointments</h2>
+<p>Sa tab na <strong>My Appointments</strong>, makikita ninyo ang kasaysayan ng inyong mga booking:</p>
+<ol>
+<li>Callout Box <strong>(1) - Talaan ng Appointments:</strong> Detalye ng inyong appointment date, reference code, at attendig dentist.</li>
+<li>Callout Box <strong>(2) - Status Badge:</strong> Malinaw na makikita kung ang schedule ay <strong>Pending</strong> (naghihintay ng review), <strong>Confirmed</strong> (aprubado na), o <strong>Completed</strong> (tapos na ang gamutan).</li>
+</ol>
+<div class="text-center"><img src="annotated_images/pat_05_my_appointments.png" class="doc-img"></div>
+<div class="caption">Figure 1.5: Talaan ng mga Appointment sa My Appointments</div>
+</div></body></html>

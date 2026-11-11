@@ -959,6 +959,7 @@ $maxRows   = isset($cfg['max_rows']) ? (int)$cfg['max_rows'] : 0;
         rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
     >
+    <link rel="stylesheet" href="dentist_sidebar.css">
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
@@ -981,7 +982,7 @@ $maxRows   = isset($cfg['max_rows']) ? (int)$cfg['max_rows'] : 0;
             left: 0;
             top: 0;
 
-            width: 250px;
+            width: 255px;
             height: 100vh;
 
             background: #0f766e;
@@ -1036,7 +1037,7 @@ $maxRows   = isset($cfg['max_rows']) ? (int)$cfg['max_rows'] : 0;
         }
 
         .main {
-            margin-left: 250px;
+            margin-left: 255px;
             min-height: 100vh;
         }
 
@@ -2043,87 +2044,10 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
      SIDEBAR
 ========================================================== -->
 
-<aside class="sidebar patient-sidebar">
-
-    <div class="patient-brand">
-
-        <div class="brand-icon">
-            <img
-                src="../assets/dental-ai.jpg"
-                onerror="this.onerror=null;this.src='../assets/dental-bg.jpg';"
-                alt="Abalos Dental Clinic logo"
-                width="44"
-                height="44"
-            >
-        </div>
-
-        <div class="brand-text">
-            <div class="brand-title">Abalos Dental</div>
-            <div class="brand-subtitle">Dentist Portal</div>
-        </div>
-
-    </div>
-
-    <nav class="patient-menu">
-
-        <div class="menu-label">MAIN</div>
-
-        <a href="#dashboard" class="active">
-            <i class="bi bi-grid-fill"></i>
-            <span>Dashboard</span>
-        </a>
-
-        <div class="menu-divider"></div>
-
-        <div class="menu-label">MANAGEMENT</div>
-
-        <a href="appointments.php">
-            <i class="bi bi-calendar2-check-fill"></i>
-            <span>Appointments</span>
-        </a>
-
-        <a href="queue.php">
-            <i class="bi bi-list-ol"></i>
-            <span>Queue</span>
-        </a>
-
-        <a href="patients.php">
-            <i class="bi bi-people-fill"></i>
-            <span>Patients</span>
-        </a>
-
-        <a href="notifications.php">
-            <i class="bi bi-bell-fill"></i>
-            <span>Notifications</span>
-        </a>
-
-        <a href="profile.php">
-            <i class="bi bi-person-fill"></i>
-            <span>Profile</span>
-        </a>
-
-        <a href="settings.php">
-            <i class="bi bi-gear-fill"></i>
-            <span>Settings</span>
-        </a>
-
-        <div class="menu-divider"></div>
-
-        <div class="menu-label">ACCOUNT</div>
-
-        <a href="../logout.php" class="logout-link">
-            <i class="bi bi-box-arrow-right"></i>
-            <span>Logout</span>
-        </a>
-
-    </nav>
-
-    <div class="dentist-tagline">
-        <div class="dentist-tagline-tooth">🦷</div>
-        <div class="dentist-tagline-text">Healthy Smiles.<br>Brighter Futures</div>
-    </div>
-
-</aside>
+<?php
+$dentistActivePage = 'dashboard';
+include __DIR__ . '/dentist_sidebar.php';
+?>
 
 
 <!-- ==========================================================
@@ -2155,19 +2079,6 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
                 <div class="profile-role">Dentist</div>
             </div>
 
-            <div class="notification" id="notifications">
-                <i class="bi bi-bell-fill"></i>
-
-            <?php if ($notificationCount > 0): ?>
-
-                <span class="notification-count">
-                    <?= $notificationCount ?>
-                </span>
-
-            <?php endif; ?>
-
-            </div>
-
         </div>
 
     </header>
@@ -2176,10 +2087,10 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
     <div class="content" id="dashboard">
 
         <?php if (isset($_GET['saved'])): ?>
-        <div style="margin:0 0 14px;background:#EAF7F0;border:1.5px solid #0E6B5E;border-radius:12px;padding:11px 16px;color:#0A4A41;font-size:13px;font-weight:700;"><i class="bi bi-check-circle-fill"></i> Appointment status updated — makikita na ito ni admin.</div>
+        <div style="margin:0 0 14px;background:#EAF7F0;border:1.5px solid #0E6B5E;border-radius:12px;padding:11px 16px;color:#0A4A41;font-size:13px;font-weight:700;"><i class="bi bi-check-circle-fill"></i> Appointment status updated successfully.</div>
         <?php endif; ?>
         <?php if (isset($_GET['save_failed'])): ?>
-        <div style="margin:0 0 14px;background:#FDECEC;border:1.5px solid #b42318;border-radius:12px;padding:11px 16px;color:#7a271a;font-size:13px;font-weight:700;"><i class="bi bi-exclamation-triangle-fill"></i> Hindi na-save ang status — pakisubukang muli o i-report sa admin.</div>
+        <div style="margin:0 0 14px;background:#FDECEC;border:1.5px solid #b42318;border-radius:12px;padding:11px 16px;color:#7a271a;font-size:13px;font-weight:700;"><i class="bi bi-exclamation-triangle-fill"></i> Failed to save status — please try again or contact the administrator.</div>
         <?php endif; ?>
 
 
@@ -3334,7 +3245,7 @@ body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!
 
                             <br>
 
-                            <a href="patients.php" target="_blank" rel="noopener">
+                            <a href="patients.php">
 
                                 View Patient
 
@@ -3811,20 +3722,20 @@ createCalendar();
     var statusTotal = statusData.reduce(function(a,b){ return a + (parseInt(b,10)||0); }, 0);
 
     /* ============ Dynamic insights (My Week Ahead + Treatment Outcomes) ============ */
-    var dDayName = { Sun:"Linggo", Mon:"Lunes", Tue:"Martes", Wed:"Miyerkules", Thu:"Huwebes", Fri:"Biyernes", Sat:"Sabado" };
+    var dDayName = { Sun:"Sunday", Mon:"Monday", Tue:"Tuesday", Wed:"Wednesday", Thu:"Thursday", Fri:"Friday", Sat:"Saturday" };
 
     var weekNote = document.getElementById("dWeekInsight");
     if (weekNote && weekNote.querySelector("span")) {
         var wSpan = weekNote.querySelector("span");
         if (weekTotal === 0) {
-            wSpan.innerHTML = "Wala pang naka-schedule sa susunod na 7 araw — malinis pa ang iyong kalendaryo.";
+            wSpan.innerHTML = "No appointments scheduled for the next 7 days — your calendar is clear.";
         } else {
             var wRanked = weekData.map(function(v, i){
                 return { n: dDayName[weekLabels[i]] || weekLabels[i], v: parseInt(v, 10) || 0 };
             }).filter(function(x){ return x.v > 0; }).sort(function(a, b){ return b.v - a.v; });
             var wTop = wRanked.slice(0, 2).map(function(x){ return x.n + " (" + x.v + ")"; });
-            wSpan.innerHTML = "<strong>" + weekTotal + " patient" + (weekTotal === 1 ? "" : "s") + "</strong> ang naka-schedule sa susunod na 7 araw"
-                + (wTop.length ? " — pinakamarami sa <strong>" + wTop.join("</strong> at <strong>") + "</strong>." : ".");
+            wSpan.innerHTML = "<strong>" + weekTotal + " patient" + (weekTotal === 1 ? "" : "s") + "</strong> scheduled for the next 7 days"
+                + (wTop.length ? " — busiest on <strong>" + wTop.join("</strong> and <strong>") + "</strong>." : ".");
         }
     }
 
@@ -3832,7 +3743,7 @@ createCalendar();
     if (statusNote && statusNote.querySelector("span")) {
         var sSpan = statusNote.querySelector("span");
         if (statusTotal === 0) {
-            sSpan.innerHTML = "Wala pang appointment na naka-record — lalabas dito ang hati ng iyong appointments ayon sa status.";
+            sSpan.innerHTML = "No appointments recorded yet — the breakdown of your appointments by status will appear here.";
         } else {
             var sRanked = statusData.map(function(v, i){
                 return { n: statusLabels[i], v: parseInt(v, 10) || 0 };
@@ -3840,8 +3751,8 @@ createCalendar();
             var sParts = sRanked.slice(0, 3).map(function(x){
                 return "<strong>" + Math.round(x.v / statusTotal * 100) + "% " + x.n + "</strong> (" + x.v + ")";
             });
-            sSpan.innerHTML = "Mula sa <strong>" + statusTotal + "</strong> na appointment: " + sParts.join(", ")
-                + (sRanked.length > 3 ? ", at iba pa." : ".");
+            sSpan.innerHTML = "Out of <strong>" + statusTotal + "</strong> total appointment" + (statusTotal === 1 ? "" : "s") + ": " + sParts.join(", ")
+                + (sRanked.length > 3 ? ", and others." : ".");
         }
     }
 

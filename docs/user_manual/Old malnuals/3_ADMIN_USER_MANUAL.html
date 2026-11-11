@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="tl">
+<head>
+<meta charset="UTF-8">
+<title>ABALOS DENTAL CLINIC</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; background: #F8FAFC; color: #1E293B; line-height: 1.68; padding: 25px 0; font-size: 14.5px; }
+    .manual-box { max-width: 980px; margin: 0 auto; background: #ffffff; padding: 45px 55px; border-radius: 16px; border: 1px solid #E2E8F0; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+    h1 { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; color: #0E6B5E; font-size: 26px; text-align: center; margin-bottom: 6px; }
+    .subtitle { text-align: center; font-size: 16px; color: #0A4A41; font-weight: 700; margin-bottom: 4px; }
+    .meta { text-align: center; font-size: 12.5px; color: #64748B; margin-bottom: 24px; }
+    h2 { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 17.5px; font-weight: 700; color: #0E6B5E; margin-top: 30px; margin-bottom: 12px; border-bottom: 2px solid #E2E8F0; padding-bottom: 6px; }
+    .doc-img { max-width: 100%; height: auto; border-radius: 10px; border: 1.5px solid #CBD5E1; box-shadow: 0 4px 15px rgba(0,0,0,0.07); margin: 10px 0; }
+    .caption { font-size: 12px; color: #64748B; font-style: italic; text-align: center; margin-bottom: 20px; }
+    .callout { padding: 12px 18px; border-radius: 10px; font-size: 13px; margin: 14px 0; }
+    .callout-warn { background: #FFFBEB; border: 1.5px solid #FDE68A; color: #92400E; }
+    .callout-info { background: #F0FDF4; border: 1.5px solid #BBF7D0; color: #166534; }
+    .print-bar { position: fixed; bottom: 20px; right: 25px; z-index: 9999; }
+    .print-btn { background: linear-gradient(135deg,#10B981,#0E6B5E); color: #fff; border: none; border-radius: 50px; padding: 10px 22px; font-weight: 700; box-shadow: 0 4px 15px rgba(16,185,129,0.35); cursor: pointer; }
+    @media print { .print-bar { display: none !important; } body { background: #fff; padding: 0; } .manual-box { border: none; box-shadow: none; padding: 0; } }
+</style>
+</head>
+<body>
+<div class="print-bar"><button class="print-btn" onclick="window.print()">Print / Save PDF (Ctrl + P)</button></div>
+<div class="manual-box">
+<h1>ABALOS DENTAL CLINIC</h1>
+<div class="subtitle">ADMINISTRATOR USER MANUAL</div>
+<div class="meta">Gabay para sa: <strong>Clinic Administrator (Master Admin Account)</strong> &bull; Abalos Dental Clinic (Caloocan City)</div>
+<hr>
+
+<h2>1. Pangkalahatang Gabay sa Administrator Account</h2>
+<p>Ang gabay na ito ay para sa <strong>Clinic Administrator</strong> ng Abalos Dental Clinic. Taglay ng account na ito ang ganap na kontrol sa buong sistema: pamamahala sa lahat ng appointments, pagresolba sa mga absent na dentista, pag-print ng patient medical records, at pag-generate ng opisyal na clinic reports.</p>
+<h2>2. Administrator Dashboard & Analytics</h2>
+<p>Sa pag-login bilang Admin, bubukas ang Master Dashboard:</p>
+<ol>
+<li>Callout Box <strong>(1) - Central Metrics:</strong> Real-time count ng Today's Appointments, Pending Approvals, Aktibong Dentista, at Rehistradong Pasyente.</li>
+<li>Callout Box <strong>(2) - Service Popularity Charts:</strong> Tsart ng pinaka-tinatangkilik na mga dental procedures sa klinika.</li>
+<li>Callout Box <strong>(3) - Master Navigation Sidebar:</strong> Mabilisang pag-access sa Appointments, Dentists, Patients, Reports, at Backups.</li>
+</ol>
+<div class="text-center"><img src="annotated_images/adm_01_dashboard.png" class="doc-img"></div>
+<div class="caption">Figure 3.1: Administrator Master Dashboard Overview</div>
+<h2>3. Appointments Management & Sub-Tabs</h2>
+<p>Sa pahinang <strong>Appointments</strong>, kontrolado ng Admin ang bawat schedule:</p>
+<ol>
+<li>Callout Box <strong>(1) - Appointment Sub-Tabs:</strong> Pumili sa pagitan ng <strong>Today</strong> (kasalukuyang araw), <strong>Upcoming</strong> (mga susunod na araw), <strong>Pending</strong> (naghihintay ng review), o <strong>History</strong>.</li>
+<li>Callout Box <strong>(2) - Pindutan [Change Status]:</strong> I-click sa tabi ng pasyente upang kumpirmahin (Confirm), i-check in pagdating sa lobby, i-reschedule, o i-reassign.</li>
+</ol>
+<div class="text-center"><img src="annotated_images/adm_02_appointments.png" class="doc-img"></div>
+<div class="caption">Figure 3.2: Master Appointments Management Interface</div>
+<h2>4. Dentist Absence & Emergency Reassignment (Mahalaga sa Defense)</h2>
+<p><strong>Solusyon kapag absent ang dentista:</strong> Kapag ang nakatalagang doktor sa isang appointment ay minarkahang Absent, awtomatikong mag-a-activate ang emergency reassignment feature ng system:</p>
+<ol>
+<li>Callout Box <strong>(1) - Dentist Absence Warning:</strong> Awtomatikong naglalabas ang popup ng pulang babala na nagsasaad na ang attending doctor ay <strong>ABSENT</strong> sa petsang iyon.</li>
+<li>Callout Box <strong>(2) - Button [REASSIGN DENTIST]:</strong> Ang button na ito ay lumalabas <strong>LAMANG</strong> kapag absent ang doktor. Hindi ito makikita sa normal na mga schedule.</li>
+<li>Callout Box <strong>(3) - Standard Controls:</strong> Nananatiling buo ang ibang actions tulad ng Confirm, Check-In, at Reschedule.</li>
+</ol>
+<div class="callout callout-info"><strong>[PROSESO NG REASSIGN]</strong> Pindutin ang [REASSIGN DENTIST], pumili ng ibang available na doktor. Awtomatikong magsasagawa ng conflict check ang system upang masigurong walang kasabay na appointment ang bagong doktor.</div>
+<div class="text-center"><img src="annotated_images/adm_03_reassign_modal.png" class="doc-img"></div>
+<div class="caption">Figure 3.3: Reassign Dentist Action Popup kapag Absent ang Doktor</div>
+<h2>5. Dentists & Schedule Management (Rest Days & Emergency Leave)</h2>
+<p>Sa pahinang <strong>Dentists</strong>, pinamamahalaan ang mga doktor at ang kanilang bakasyon o pagliban:</p>
+<ol>
+<li>Callout Box <strong>(1) - Dentists Directory:</strong> Talaan ng lahat ng dentista, kanilang specialization, contact, at active status.</li>
+<li>Callout Box <strong>(2) - Button [Add Rest Day]:</strong> Ginagamit upang mag-set ng regular na day-off o bakasyon ng dentista.</li>
+<li>Callout Box <strong>(3) - Button [Mark as Absent]:</strong> Pindutin upang mag-record ng biglaang emergency o sick leave para sa partikular na petsa.</li>
+<li><strong>Pag-alis ng Leave:</strong> Gamitin ang <strong>trash icon (basurahan)</strong>. Magpapakita ang bagong confirmation popup upang maiwasan ang maling pagbura.</li>
+</ol>
+<div class="text-center"><img src="annotated_images/adm_04_dentists.png" class="doc-img"></div>
+<div class="caption">Figure 3.4: Pamamahala sa Schedule at Pagliban ng Dentista</div>
+<h2>6. Patient Records & Live Search</h2>
+<p>Madaling mahanap at mai-print ang opisyal na rekord ng sinumang pasyente:</p>
+<ol>
+<li>Callout Box <strong>(1) - Live Search Bar:</strong> I-type ang pangalan ng pasyente o ang kanyang Patient ID (hal. `PT-2026-0001`). Awtomatikong sasalain ng system ang listahan sa screen.</li>
+<li>Callout Box <strong>(2) - Button [Print Record]:</strong> I-click ito upang mabuksan ang pormal at legal na <strong>Dental & Medical Record</strong> ng pasyente na may opisyal na clinic letterhead at consultation history.</li>
+</ol>
+<div class="text-center"><img src="annotated_images/adm_05_patients_search.png" class="doc-img"></div>
+<div class="caption">Figure 3.5: Live Patient Search at Medical Record Printing</div>
+<h2>7. Clinic Reports na may Opisyal na Letterhead</h2>
+<p>Sa tab na <strong>Reports</strong>, maaaring mag-generate ng mga opisyal na ulat ang klinika para sa pagsusuri o legal compliance:</p>
+<ol>
+<li>Callout Box <strong>(1) - Report Tabs:</strong> Pumili sa pagitan ng Appointment Reports, Patient Demographics, o Revenue & Treatment Reports.</li>
+<li>Callout Box <strong>(2) - Button [Print Report]:</strong> Pindutin upang i-print ang aktibong ulat. Awtomatikong isinasama ng system ang <strong>Opisyal na Letterhead ng Abalos Dental Clinic</strong>, petsa ng coverage, at mga linya para sa lagda ng Admin at Head Dentist.</li>
+</ol>
+<div class="callout callout-info"><strong>[SMART PRINTING]</strong> Ang print layout ay naka-scope lamang sa aktibong report tab; awtomatikong itinatago ang topbar, sidebar, at mga pindutan upang maging malinis at hindi mag-aksaya ng papel.</div>
+<div class="text-center"><img src="annotated_images/adm_06_reports.png" class="doc-img"></div>
+<div class="caption">Figure 3.6: Clinic Reports Module na may Letterhead at Sign-offs</div>
+</div></body></html>

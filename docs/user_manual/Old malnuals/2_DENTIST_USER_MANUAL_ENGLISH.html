@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ABALOS DENTAL CLINIC - SECTION 2: DENTIST PORTAL USER MANUAL</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; background: #F8FAFC; color: #1E293B; line-height: 1.65; padding: 25px 0; font-size: 13.5px; }
+    .manual-box { max-width: 980px; margin: 0 auto; background: #ffffff; padding: 45px 55px; border-radius: 16px; border: 1px solid #E2E8F0; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+    h1 { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; color: #0E6B5E; font-size: 24px; text-align: center; margin-bottom: 4px; }
+    .subtitle { text-align: center; font-size: 15px; color: #0A4A41; font-weight: 700; margin-bottom: 12px; }
+    .control-tbl { width: 100%; border-collapse: collapse; margin-bottom: 22px; font-size: 11.5px; }
+    .control-tbl th { background: #F1F5F9; color: #475569; padding: 6px 12px; border: 1px solid #CBD5E1; width: 25%; font-weight: 600; }
+    .control-tbl td { background: #FFFFFF; color: #1E293B; padding: 6px 12px; border: 1px solid #CBD5E1; }
+    .toc-card { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 18px 22px; margin-bottom: 25px; }
+    .toc-title { font-weight: 700; color: #0E6B5E; margin-bottom: 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .toc-section { font-weight: 700; color: #0A4A41; margin-top: 8px; font-size: 12.5px; }
+    .toc-list { list-style: none; padding-left: 15px; margin-bottom: 6px; font-size: 12px; }
+    .toc-list li { margin-bottom: 3px; color: #334155; }
+    h2.section-header { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 16px; font-weight: 800; color: #ffffff; background: linear-gradient(135deg, #0E6B5E, #0A4A41); padding: 9px 16px; border-radius: 8px; margin-top: 35px; margin-bottom: 14px; }
+    h3.chapter-header { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14.5px; font-weight: 700; color: #0E6B5E; margin-top: 22px; margin-bottom: 8px; border-bottom: 1.5px solid #E2E8F0; padding-bottom: 4px; }
+    .doc-img { max-width: 100%; height: auto; border-radius: 6px; border: 1.5px solid #CBD5E1; box-shadow: 0 4px 15px rgba(0,0,0,0.06); margin: 8px 0; }
+    .caption { font-size: 11px; color: #64748B; font-style: italic; text-align: center; margin-bottom: 15px; }
+    .callout { padding: 10px 16px; border-radius: 6px; font-size: 12.5px; margin: 12px 0; }
+    .callout-warn { background: #FFFBEB; border: 1.5px solid #FDE68A; color: #92400E; }
+    .callout-info { background: #F0FDF4; border: 1.5px solid #BBF7D0; color: #166534; }
+    .sig-table { width: 100%; margin-top: 35px; border-collapse: collapse; font-size: 12px; }
+    .sig-table td { width: 50%; text-align: center; padding: 20px 15px 5px 15px; }
+    .sig-line { width: 80%; margin: 0 auto; border-top: 1.5px solid #000; padding-top: 4px; font-weight: 700; }
+    .print-bar { position: fixed; bottom: 20px; right: 25px; z-index: 9999; }
+    .print-btn { background: linear-gradient(135deg,#10B981,#0E6B5E); color: #fff; border: none; border-radius: 50px; padding: 9px 20px; font-weight: 700; box-shadow: 0 4px 15px rgba(16,185,129,0.35); cursor: pointer; font-size: 13px; }
+    @media print { .print-bar { display: none !important; } body { background: #fff; padding: 0; } .manual-box { border: none; box-shadow: none; padding: 0; } }
+</style>
+</head>
+<body>
+<div class="print-bar"><button class="print-btn" onclick="window.print()">Print / Save PDF (Ctrl + P)</button></div>
+<div class="manual-box">
+<h1>ABALOS DENTAL CLINIC</h1>
+<div class="subtitle">Section 2: Dentist Portal User Manual</div>
+<table class="control-tbl">
+<tr><th>Project Title:</th><td>An AI-Based Intelligent Dental Appointment Scheduling System Using Machine Learning for Optimized Clinic Management</td></tr>
+<tr><th>Institution:</th><td>Global Reciprocal Colleges, Caloocan City</td></tr>
+<tr><th>Target Location:</th><td>Abalos Dental Clinic, Malolos Avenue, Bagong Barrio, Caloocan City</td></tr>
+<tr><th>Operating Schedule:</th><td>Monday – Saturday | 8:00 AM – 6:00 PM (Lunch Break: 12:00 PM – 1:00 PM)</td></tr>
+</table>
+<div class="toc-card">
+<div class="toc-title">Table of Contents</div>
+<div class="toc-section">SECTION 2: DENTIST PORTAL USER MANUAL</div>
+<ul class="toc-list">
+<li>• Chapter 1: Overview</li>
+<li>• Chapter 2: Dentist Dashboard & Daily Workload</li>
+<li>• Chapter 3: Daily Patient Schedule & History Access</li>
+<li>• Chapter 4: Live Queue Management & Consultation Charting</li>
+<li>• Chapter 5: Rest Days & Leave Protocol</li>
+</ul>
+</div>
+<h2 class="section-header">SECTION 2: DENTIST PORTAL USER MANUAL</h2>
+<h3 class="chapter-header">Chapter 1: Overview</h3>
+<p>The <strong>Dentist Portal</strong> provides attending dental practitioners with tools to review daily patient schedules, manage live treatment queues, access medical histories, and input clinical treatment notes.</p>
+<h3 class="chapter-header">Chapter 2: Dentist Dashboard & Daily Workload</h3>
+<p>Upon logging into the doctor account:</p>
+<p>• <strong>Today's Patient Count</strong>: Displays total assigned appointments for the day.</p>
+<p>• <strong>Active Waiting Queue</strong>: Real-time counter of patients checked in and waiting in the clinic lobby.</p>
+<p>• <strong>Schedule Summary</strong>: Visual timeline of assigned procedures from 8:00 AM to 6:00 PM.</p>
+<ol class="ps-3 mb-2">
+<li class="mb-1"><strong>Today's Patient Count [Arrow 1 - Blue]</strong>: Aggregates total booked appointments assigned to the doctor for today.</li>
+<li class="mb-1"><strong>Active Waiting Queue Counter [Arrow 2 - Green]</strong>: Real-time counter of patients checked in and waiting in the lobby.</li>
+<li class="mb-1"><strong>Clinical Navigation Sidebar [Arrow 3 - Purple]</strong>: Quick access to Daily Schedule, Live Queue, and Rest Day Settings.</li>
+</ol>
+<div class="text-center"><img src="clean_arrows/den_01_dashboard.png" class="doc-img"></div>
+<div class="caption">Figure 6: Dentist Clinical Dashboard Overview</div>
+<h3 class="chapter-header">Chapter 3: Daily Patient Schedule & History Access</h3>
+<p>Navigate to <strong>[Daily Schedule]</strong>.</p>
+<p>Click <strong>[View Details]</strong> next to any assigned patient to open their comprehensive medical background, previous treatment history, and chief complaint.</p>
+<ol class="ps-3 mb-2">
+<li class="mb-1"><strong>Daily Schedule Table [Arrow 1 - Blue]</strong>: Displays chronological schedule of booked patients from 8:00 AM to 6:00 PM.</li>
+<li class="mb-1"><strong>Patient Information [Arrow 2 - Green]</strong>: Displays patient name, contact number, and booked dental procedure.</li>
+<li class="mb-1"><strong>View Details & Action Menu [Arrow 3 - Orange]</strong>: Open medical records, chief complaints, and historical treatment notes.</li>
+</ol>
+<div class="text-center"><img src="clean_arrows/den_02_schedule.png" class="doc-img"></div>
+<div class="caption">Figure 7: Daily Patient Schedule & Treatment Roster</div>
+<h3 class="chapter-header">Chapter 4: Live Queue Management & Consultation Charting</h3>
+<p>Select <strong>[Live Queue]</strong> to manage active clinic visits.</p>
+<p>1. Click <strong>[Call / Serving]</strong> when ready to admit the next checked-in patient into the dental operatory chair.</p>
+<p>2. During or immediately following treatment:</p>
+<p>   • Record clinical diagnosis, treatment performed, and prescribed medication.</p>
+<p>   • Input follow-up recommendations if applicable.</p>
+<p>3. Click <strong>[Complete Session]</strong> to update the appointment status to Completed and release the queue slot.</p>
+<ol class="ps-3 mb-2">
+<li class="mb-1"><strong>Waiting Queue List [Arrow 1 - Blue]</strong>: Real-time sequence of checked-in lobby patients awaiting operatory admission.</li>
+<li class="mb-1"><strong>Current Serving Chair [Arrow 2 - Orange]</strong>: Patient currently in chair with active session timer and diagnosis notes.</li>
+<li class="mb-1"><strong>Consultation Charting [Arrow 3 - Green]</strong>: Enter diagnosis, procedure notes, and click Complete Session.</li>
+</ol>
+<div class="text-center"><img src="clean_arrows/den_03_queue.png" class="doc-img"></div>
+<div class="caption">Figure 8: Operatory Live Queue Management & Consultation Charting</div>
+<h3 class="chapter-header">Chapter 5: Rest Days & Leave Protocol</h3>
+<p>Dentists must coordinate planned time-off or emergency leave with the Clinic Administrator.</p>
+<p>When marked as <strong>Absent</strong> or <strong>On Leave</strong> in the system, dynamic conflict-checking automatically prevents new bookings for that dentist and prompts administrative reassignment for existing bookings.</p>
+<ol class="ps-3 mb-2">
+<li class="mb-1"><strong>Recurring Rest Day Selector [Arrow 1 - Blue]</strong>: Select recurring weekly off-day to automatically block booking availability.</li>
+<li class="mb-1"><strong>Scheduled Clinical Leave [Arrow 2 - Green]</strong>: Log planned conference or personal leave dates coordinated with administration.</li>
+</ol>
+<div class="text-center"><img src="clean_arrows/den_04_settings_restday.png" class="doc-img"></div>
+<div class="caption">Figure 9: Rest Days & Clinical Leave Protocol Settings</div>
+</div>
+</body>
+</html>

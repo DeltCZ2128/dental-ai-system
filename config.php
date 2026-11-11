@@ -192,6 +192,38 @@ function permanentQrUrl()
     return 'https://' . $d . '/dental-ai-system-fixed/walkin_qr.php';
 }
 
+function ensurePermanentQrTunnelRunning($forceCheck = false)
+{
+    try {
+        if (!defined('PERMANENT_QR_DOMAIN') || trim((string)PERMANENT_QR_DOMAIN) === '') {
+            return;
+        }
+        $lockFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'dental_qr_tunnel_tick.txt';
+        if (!$forceCheck && file_exists($lockFile) && (time() - @filemtime($lockFile)) < 15) {
+            return;
+        }
+        @file_put_contents($lockFile, (string)time());
+
+        // Fast check on local ngrok agent port (4040)
+        $sock = @fsockopen('127.0.0.1', 4040, $errno, $errstr, 0.15);
+        if ($sock) {
+            @fclose($sock);
+            return;
+        }
+
+        // Not running yet — launch silently in background via VBScript (no window)
+        $vbsPath = __DIR__ . DIRECTORY_SEPARATOR . 'start_qr_tunnel_silent.vbs';
+        if (is_file($vbsPath) && function_exists('popen')) {
+            @pclose(@popen('start /B wscript.exe //B "' . $vbsPath . '"', 'r'));
+        }
+    } catch (Throwable $e) {
+        // Never interrupt normal page execution
+    }
+}
+
+ensurePermanentQrTunnelRunning();
+
+
 /*
 |--------------------------------------------------------------------------
 | CLINIC GMAIL SENDER (REMINDERS)
@@ -442,6 +474,8 @@ function sendPatientVerificationOtp($userId, $toEmail, $fullName = '')
 
 /**
  * Validate a Philippine mobile number format and network authenticity.
+ * Ensures the number has genuine telco prefixes, realistic subscriber digits,
+ * is not a dummy/sequential/repeating pattern, and is not already registered.
  * Returns [bool $ok, string $error, string $cleanNumber].
  */
 function validatePhilippineMobileNumber($number, $pdo = null)
@@ -456,21 +490,7 @@ function validatePhilippineMobileNumber($number, $pdo = null)
     }
 
     if (!preg_match('/^09\d{9}$/', $clean)) {
-        return [false, "Please enter a valid 11-digit Philippine mobile number starting with 09 (e.g. 09171234567).", ""];
-    }
-
-    // Reject all-repeating identical digits (e.g. 09111111111, 09000000000)
-    if (preg_match('/^09(\d)\1{8}$/', $clean)) {
-        return [false, "The mobile number entered contains repeating dummy numbers. Please enter your genuine mobile number.", ""];
-    }
-
-    // Reject obvious dummy sequences
-    $dummySequences = [
-        '09123456789', '09876543210', '09012345678', '09987654321',
-        '09112233445', '09001122334', '09121212121', '09232323232'
-    ];
-    if (in_array($clean, $dummySequences, true)) {
-        return [false, "The mobile number entered appears to be a test/dummy sequence. Please provide your real mobile number.", ""];
+        return [false, "Please enter an 11-digit Philippine mobile number starting with 09 (e.g. 09171234567).", ""];
     }
 
     // Active Philippine telecom prefixes (Globe, TM, Smart, TNT, Sun, DITO, GOMO)
@@ -491,6 +511,46 @@ function validatePhilippineMobileNumber($number, $pdo = null)
         return [false, "Invalid network prefix ({$prefix}). Please enter an active Philippine mobile number from Globe, Smart, DITO, or TM.", ""];
     }
 
+    $subscriber = substr($clean, 4); // 7 subscriber digits
+
+    // Reject all-repeating identical subscriber digits (e.g. 0000000, 1111111)
+    if (preg_match('/^(\d)\1{6}$/', $subscriber)) {
+        return [false, "The mobile number entered consists of repeating identical digits. Please enter your genuine mobile number.", ""];
+    }
+
+    // Reject 4 or more consecutive identical digits (e.g. 0000, 1111, 9999)
+    if (preg_match('/(\d)\1{3,}/', $subscriber)) {
+        return [false, "The mobile number entered contains repeating dummy numbers. Please enter your genuine mobile number.", ""];
+    }
+
+    // Reject sequential ascending or descending sequences in subscriber part (e.g. 1234567, 7654321)
+    $asc = '0123456789012345';
+    $desc = '9876543210987654';
+    if (strpos($asc, $subscriber) !== false || strpos($desc, $subscriber) !== false) {
+        return [false, "The mobile number entered appears to be a sequential test pattern. Please provide your real mobile number.", ""];
+    }
+
+    // Reject low diversity subscriber numbers (fewer than 3 unique digits in subscriber part)
+    if (count(array_unique(str_split($subscriber))) < 3) {
+        return [false, "The mobile number entered is repetitive or invalid. Please enter your active mobile number.", ""];
+    }
+
+    // Entire number must contain at least 4 unique digits
+    if (count(array_unique(str_split($clean))) < 4) {
+        return [false, "The mobile number entered appears to be a test/dummy sequence. Please provide your real mobile number.", ""];
+    }
+
+    // Reject known dummy sequences
+    $dummySequences = [
+        '09123456789', '09876543210', '09012345678', '09987654321',
+        '09112233445', '09001122334', '09121212121', '09232323232',
+        '09111222333', '09123123123', '09998887776', '09171234567',
+        '09181234567', '09051234567', '09221234567'
+    ];
+    if (in_array($clean, $dummySequences, true)) {
+        return [false, "The mobile number entered appears to be a test/dummy sequence. Please provide your real mobile number.", ""];
+    }
+
     if ($pdo instanceof PDO) {
         $stmt = $pdo->prepare("SELECT id FROM users WHERE contact_number = ? LIMIT 1");
         $stmt->execute([$clean]);
@@ -503,8 +563,9 @@ function validatePhilippineMobileNumber($number, $pdo = null)
 }
 
 /**
- * Validate that an email is structurally valid, belongs to a real domain capable of receiving email,
- * is not a disposable address, and is not already registered.
+ * Validate that an email is structurally valid, belongs to a real domain with active MX records,
+ * is not a disposable address, exists in reality (verified via SMTP recipient check where possible),
+ * and is not already registered.
  * Returns [bool $ok, string $error, string $cleanEmail].
  */
 function validatePatientRegistrationEmail($email, $pdo = null)
@@ -519,19 +580,29 @@ function validatePatientRegistrationEmail($email, $pdo = null)
     if (count($parts) !== 2) {
         return [false, "Invalid email address structure.", ""];
     }
+    $local = $parts[0];
     $domain = strtolower($parts[1]);
+
+    // Block obvious dummy user parts
+    if (in_array($local, ['test', 'asdf', 'fake', 'dummy', 'sample', 'none', 'null', 'admin', 'tester', 'user'], true)) {
+        return [false, "Dummy or test email names are not permitted. Please enter your genuine personal email.", ""];
+    }
 
     $blockedDomains = [
         'mailinator.com', '10minutemail.com', 'tempmail.com', 'guerrillamail.com',
-        'throwawaymail.com', 'fake.com', 'test.com', 'example.com'
+        'throwawaymail.com', 'fake.com', 'test.com', 'example.com', 'asdf.com',
+        'sharklasers.com', 'grr.la', 'guerrillamailblock.com', 'yopmail.com', 'trashmail.com',
+        'dispostable.com', 'getairmail.com', 'mohmal.com', 'crazymailing.com'
     ];
     if (in_array($domain, $blockedDomains, true)) {
         return [false, "Temporary or disposable email addresses are not permitted. Please use your legitimate personal email.", ""];
     }
 
-    // Verify DNS MX / A records
-    if (!checkdnsrr($domain, 'MX') && !checkdnsrr($domain, 'A')) {
-        return [false, "The email domain (@{$domain}) does not exist or cannot receive mail. Please check for typos.", ""];
+    // Verify DNS MX records (strictly checking mail servers capable of receiving email)
+    $mxHosts = [];
+    $mxWeights = [];
+    if (!getmxrr($domain, $mxHosts, $mxWeights) || empty($mxHosts)) {
+        return [false, "The email domain (@{$domain}) does not exist or has no active mail server (MX) to receive emails.", ""];
     }
 
     if ($pdo instanceof PDO) {
@@ -539,6 +610,50 @@ function validatePatientRegistrationEmail($email, $pdo = null)
         $stmt->execute([$email]);
         if ($stmt->fetch()) {
             return [false, "An account with this email address already exists. Please sign in instead.", ""];
+        }
+    }
+
+    // Real-time SMTP mailbox check for providers that support recipient verification (e.g. Gmail)
+    $primaryMx = $mxHosts[0];
+    foreach ($mxHosts as $h) {
+        if (stripos($h, 'google.com') !== false || stripos($h, 'googlemail.com') !== false) {
+            $primaryMx = $h;
+            break;
+        }
+    }
+
+    // Fast check on port 25 (2 second timeout so registration remains fast)
+    $socket = @fsockopen($primaryMx, 25, $errno, $errstr, 2.0);
+    if ($socket) {
+        stream_set_timeout($socket, 2);
+        fgets($socket); // banner
+
+        fwrite($socket, "HELO localhost\r\n");
+        fgets($socket); // helo
+
+        fwrite($socket, "MAIL FROM:<verify@abalosdentalclinic.com>\r\n");
+        fgets($socket); // mail from
+
+        fwrite($socket, "RCPT TO:<{$email}>\r\n");
+        $rcpt = '';
+        while (($line = fgets($socket)) !== false) {
+            $rcpt .= $line;
+            if (preg_match('/^\d{3} /', $line)) break;
+        }
+
+        fwrite($socket, "QUIT\r\n");
+        fclose($socket);
+
+        // If the mail server explicitly indicates that the recipient account does not exist
+        if (
+            preg_match('/^550/i', $rcpt) ||
+            stripos($rcpt, 'does not exist') !== false ||
+            stripos($rcpt, 'NoSuchUser') !== false ||
+            stripos($rcpt, 'User unknown') !== false ||
+            stripos($rcpt, 'Invalid recipient') !== false ||
+            stripos($rcpt, 'Recipient address rejected') !== false
+        ) {
+            return [false, "This email account does not exist on {$domain}. Please check for typos or enter a legitimate email account.", ""];
         }
     }
 
@@ -618,17 +733,22 @@ function sendRegistrationPendingOtp($toEmail, $fullName, $otp)
 /* Patient reply tokens migration (kept for compatibility; reply links disabled). */
 
 /* Auto-mark missed appointments as No-Show (no manual click needed).
- * - Past dates still Pending/Confirmed -> No-Show
- * - Today: 30-min grace after end_time, then Pending/Confirmed -> No-Show */
+ * - Past dates still Pending/Confirmed/Approved -> No-Show
+ * - Today: past closing time, or end_time <= CURTIME() -> No-Show */
 function markClosedAppointmentsAsNoShow()
 {
     global $pdo;
 
     try {
-        /* If the system clock was moved forward for testing and then rewound,
-         * any appointment whose scheduled window is still in the future cannot
-         * yet be a No-Show. Restore it to Confirmed and remove the premature
-         * system No-Show notification. */
+        $closingTime = '18:00:00';
+        try {
+            $cRow = $pdo->query("SELECT closing_time FROM settings LIMIT 1")->fetchColumn();
+            if ($cRow) {
+                $closingTime = $cRow;
+            }
+        } catch (Throwable $e) {}
+
+        /* Safety net: if system clock was rewound or dates simulated, restore future & unexpired today appointments. */
         $futureNoShowStmt = $pdo->prepare("
             SELECT id
             FROM appointments
@@ -636,12 +756,16 @@ function markClosedAppointmentsAsNoShow()
                 appointment_date > CURDATE()
                 OR (
                     appointment_date = CURDATE()
-                    AND end_time > SUBTIME(CURTIME(), '0:30:00')
+                    AND CURTIME() < ?
+                    AND (
+                        (end_time IS NOT NULL AND end_time > CURTIME())
+                        OR (end_time IS NULL AND start_time > CURTIME())
+                    )
                 )
             )
             AND status = 'No-Show'
         ");
-        $futureNoShowStmt->execute();
+        $futureNoShowStmt->execute([$closingTime]);
         $futureNoShows = $futureNoShowStmt->fetchAll(PDO::FETCH_COLUMN);
 
         if (!empty($futureNoShows)) {
@@ -667,13 +791,17 @@ function markClosedAppointmentsAsNoShow()
                 appointment_date < CURDATE()
                 OR (
                     appointment_date = CURDATE()
-                    AND end_time <= SUBTIME(CURTIME(), '0:30:00')
+                    AND (
+                        CURTIME() >= ?
+                        OR end_time <= CURTIME()
+                        OR (end_time IS NULL AND start_time <= CURTIME())
+                    )
                 )
             )
-            AND status IN ('Confirmed', 'Approved')
+            AND status IN ('Pending', 'Confirmed', 'Approved')
         ");
 
-        $stmt->execute();
+        $stmt->execute([$closingTime]);
         $missed = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         if (empty($missed)) {
@@ -684,7 +812,7 @@ function markClosedAppointmentsAsNoShow()
             UPDATE appointments
             SET status = 'No-Show'
             WHERE id = ?
-            AND status IN ('Confirmed', 'Approved')
+            AND status IN ('Pending', 'Confirmed', 'Approved')
         ");
 
         $checkStmt = $pdo->prepare("
@@ -704,7 +832,7 @@ function markClosedAppointmentsAsNoShow()
         foreach ($missed as $appt) {
             $markStmt->execute([(int)$appt['id']]);
 
-            if ($markStmt->rowCount() > 0) {
+            if ($markStmt->rowCount() > 0 && !empty($appt['patient_id'])) {
                 try {
                     $checkStmt->execute([(int)$appt['id']]);
 
@@ -807,7 +935,7 @@ function autoAppointmentReminders()
 
         $cancelStmt = $pdo->prepare("
             UPDATE appointments
-            SET status = 'Cancelled'
+            SET status = 'Cancelled', cancelled_at = NOW()
             WHERE id = ?
             AND status IN ('Pending', 'Confirmed')
         ");
@@ -1309,13 +1437,51 @@ function autoSyncPatientProfiles()
                 if ($existingId > 0) {
                     $linkStmt->execute([$uid, $uEmail, $uPhone, $existingId]);
                 } else {
-                    $pNum = 'PAT-' . date('Ymd') . '-' . strtoupper(substr(md5($uid . uniqid('', true)), 0, 5));
+                    $pNum = generateShortPatientNumber($pdo);
                     $insertStmt->execute([$uid, $pNum, $fName, $lName, $uPhone, $uEmail]);
                 }
             }
         }
+
+        // Standardize patient_number to include creation year: PAT-YYYY-0001
+        $pdo->exec("
+            UPDATE patients
+            SET patient_number = CONCAT('PAT-', YEAR(COALESCE(created_at, NOW())), '-', LPAD(id, 4, '0'))
+            WHERE patient_number NOT LIKE 'PAT-____-____%' OR patient_number = '' OR patient_number IS NULL
+        ");
     } catch (Throwable $e) {
     }
+}
+
+/**
+ * Generates a sequential Patient ID with creation year (e.g. PAT-2026-0001, PAT-2026-0085).
+ */
+function generateShortPatientNumber($db = null, $prefix = 'PAT', $year = null)
+{
+    if (!$db) {
+        global $pdo;
+        $db = $pdo ?? null;
+    }
+    $prefix = strtoupper(trim($prefix)) ?: 'PAT';
+    $yearStr = $year ? (string)$year : date('Y');
+    if ($db) {
+        try {
+            $next = (int)$db->query("SELECT COALESCE(MAX(id), 0) + 1 FROM patients")->fetchColumn();
+            if ($next < 1) {
+                $next = 1;
+            }
+            $chk = $db->prepare("SELECT COUNT(*) FROM patients WHERE patient_number = ?");
+            for ($i = 0; $i < 200; $i++) {
+                $candidate = $prefix . '-' . $yearStr . '-' . str_pad((string)($next + $i), 4, '0', STR_PAD_LEFT);
+                $chk->execute([$candidate]);
+                if ((int)$chk->fetchColumn() === 0) {
+                    return $candidate;
+                }
+            }
+        } catch (Throwable $e) {
+        }
+    }
+    return $prefix . '-' . $yearStr . '-' . random_int(1000, 9999);
 }
 
 autoSyncPatientProfiles();

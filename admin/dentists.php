@@ -260,9 +260,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ON DUPLICATE KEY UPDATE reason = VALUES(reason)
             ");
             $stmt->execute([$dentistId, $offDate, $reason]);
-            flash("Rest day added for " . date('M d, Y (D)', strtotime($offDate)) . ".");
+
+            $cStmt = $pdo->prepare("SELECT COUNT(*) FROM appointments WHERE dentist_id = ? AND appointment_date = ? AND status IN ('Confirmed', 'Pending')");
+            $cStmt->execute([$dentistId, $offDate]);
+            $affCount = (int)$cStmt->fetchColumn();
+
+            if ($affCount > 0) {
+                flash("Day-off/leave recorded for " . date('M d, Y (D)', strtotime($offDate)) . ". ⚠️ ATTENTION: There are {$affCount} scheduled appointment(s) affected! Please go to Appointments to reassign them to an available doctor.", "warning");
+            } else {
+                flash("Rest day added for " . date('M d, Y (D)', strtotime($offDate)) . ".");
+            }
         } catch (Throwable $e) {
             flash("Unable to save rest day. (" . $e->getMessage() . ")", "danger");
+        }
+
+        redirect("dentists.php");
+    }
+
+    if ($action === 'mark_absent') {
+        $dentistId = (int)($_POST['dentist_id'] ?? 0);
+        $offDate = trim($_POST['off_date'] ?? date('Y-m-d'));
+        $leaveType = trim($_POST['leave_type'] ?? 'Medical Emergency / Sick Leave');
+        $notes = trim($_POST['absence_notes'] ?? '');
+        $combinedReason = 'ABSENT: ' . $leaveType . ($notes !== '' ? ' (' . $notes . ')' : '');
+
+        if ($dentistId <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $offDate)) {
+            flash("Please provide a valid absence date.", "danger");
+            redirect("dentists.php");
+        }
+
+        if ($offDate < date('Y-m-d')) {
+            flash("Absence date cannot be in the past.", "danger");
+            redirect("dentists.php");
+        }
+
+        $dnStmt = $pdo->prepare("SELECT dentist_name FROM dentists WHERE id = ?");
+        $dnStmt->execute([$dentistId]);
+        $rawDentistName = $dnStmt->fetchColumn() ?: 'The dentist';
+        $dentistName = preg_replace('/^Dr\.?\s+/i', '', $rawDentistName);
+
+        try {
+            $stmt = $pdo->prepare("
+                INSERT INTO dentist_day_offs (dentist_id, off_date, reason)
+                VALUES (?, ?, ?)
+                ON DUPLICATE KEY UPDATE reason = VALUES(reason)
+            ");
+            $stmt->execute([$dentistId, $offDate, $combinedReason]);
+
+            $cStmt = $pdo->prepare("
+                SELECT COUNT(*) 
+                FROM appointments 
+                WHERE dentist_id = ? 
+                  AND appointment_date = ? 
+                  AND status IN ('Confirmed', 'Pending')
+            ");
+            $cStmt->execute([$dentistId, $offDate]);
+            $affCount = (int)$cStmt->fetchColumn();
+
+            if ($affCount > 0) {
+                flash("Dr. {$dentistName} has been marked ABSENT on " . date('M d, Y (l)', strtotime($offDate)) . ". ⚠️ ATTENTION: There are {$affCount} scheduled appointment(s) affected! Please use the 'Reassign' feature in Appointments to transfer them to an available doctor.", "danger");
+            } else {
+                flash("Dr. {$dentistName} has been marked ABSENT on " . date('M d, Y (l)', strtotime($offDate)) . ". The calendar has been blocked for new bookings.", "warning");
+            }
+        } catch (Throwable $e) {
+            flash("Unable to record absence. (" . $e->getMessage() . ")", "danger");
         }
 
         redirect("dentists.php");
@@ -333,9 +394,7 @@ rel="stylesheet">
 /* Dentists — ibinase sa system design (tulad ng Settings/Patients) */
 body { background: linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22) !important; background-size: 300% 300% !important; animation: adminBgAnim 8s ease infinite !important; background-attachment: fixed !important; }
 @keyframes adminBgAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-.shared-sidebar { display: none !important; }
-.shared-topbar { left: 0 !important; right: 0 !important; }
-.main { margin-left: 0 !important; width: 100% !important; padding: 110px 24px 40px !important; background: transparent !important; min-height: 100vh; }
+.main { margin-left: 280px !important; width: calc(100% - 280px) !important; padding: 110px 24px 40px !important; background: transparent !important; min-height: 100vh; box-sizing: border-box !important; }
 .main > a.btn, .main > .alert { margin-left: 14px; margin-right: 14px; }
 .main > .alert { font-size: 13.5px; border-radius: 12px; }
 .main > .d-flex.justify-content-between { margin: 0 14px 16px 14px !important; padding-top: 0 !important; flex-wrap: wrap; gap: 12px; align-items: center !important; }
@@ -372,13 +431,19 @@ body { background: linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c2
 .main .btn-outline-success:hover { background: #e7f8ef !important; color: #15945a !important; border-color: #15945a !important; }
 .main .btn-outline-danger { color: #C0392B !important; border-color: #F5C6C6 !important; background: #fff !important; }
 .main .btn-outline-danger:hover { background: #C0392B !important; color: #fff !important; border-color: #C0392B !important; }
+/* Tooltip inside table: palaging sa ITAAS ng button lumitaw para hindi mag-overflow sa ilalim ng card na nagiging sanhi ng violent shaking */
+.main .table [data-tip]:hover::after,
+.main .table tbody tr:last-child [data-tip]:hover::after {
+    bottom: calc(100% + 8px) !important;
+    top: auto !important;
+}
 .main .modal-content { border-radius: 16px !important; border: 1px solid #C9E9DA !important; overflow: visible !important; }
 .main .modal-header, .modal-header { background: linear-gradient(135deg, #D9F2E6 0%, #EAF7F0 100%) !important; border-bottom: 1px solid #C9E9DA !important; border-top-left-radius: 15px !important; border-top-right-radius: 15px !important; }
 .main .modal-footer, .modal-footer { border-bottom-left-radius: 15px !important; border-bottom-right-radius: 15px !important; }
 .modal-title, .modal-header h5 { font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif; font-size: 17px; font-weight: 800; color: #143f51; }
 .modal-body label, .modal-body .form-label { font-size: 12.5px; font-weight: 700; color: #4d6873; font-family: "Inter", system-ui, sans-serif; }
 .modal-body .form-control, .modal-body .form-select { font-size: 13.5px; border-radius: 10px; border: 1px solid #D1E7DD; }
-@media (max-width: 991px) { .main { padding: 25px 16px 40px !important; } .main .card { margin-left: 0 !important; margin-right: 0 !important; } .main > a.btn, .main > .alert, .main > .d-flex.justify-content-between { margin-left: 0 !important; margin-right: 0 !important; } }
+@media (max-width: 991px) { .main { margin-left: 0 !important; width: 100% !important; padding: 100px 16px 40px !important; } .main .card { margin-left: 0 !important; margin-right: 0 !important; } .main > a.btn, .main > .alert, .main > .d-flex.justify-content-between { margin-left: 0 !important; margin-right: 0 !important; } }
 </style>
 
 </head>
@@ -472,10 +537,10 @@ try {
 ?>
 <?php if ($linkedEmail !== ''): ?>
 <span class="badge bg-success"><i class="bi bi-person-check-fill me-1"></i><?= e($linkedEmail) ?></span><br>
-<small class="text-muted">Makaka-login</small>
+<small class="text-muted">Login enabled</small>
 <?php else: ?>
 <span class="badge bg-secondary">No login</span><br>
-<small class="text-muted">I-edit para lagyan</small>
+<small class="text-muted">Edit to assign</small>
 <?php endif; ?>
 </td>
 
@@ -495,25 +560,51 @@ try {
 <div class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-1" style="background:#fff8f0;">
 <span>
 <strong><?= e(date('M d, Y', strtotime($off['off_date']))) ?></strong>
+<?php if (stripos($off['reason'] ?? '', 'ABSENT') !== false): ?>
+<span class="badge bg-danger text-white ms-1">ABSENT</span>
+<?php else: ?>
 <span class="badge bg-warning text-dark ms-1">REST</span>
+<?php endif; ?>
+<?php
+$affCount = 0;
+try {
+    $cStmt = $pdo->prepare("SELECT COUNT(*) FROM appointments WHERE dentist_id = ? AND appointment_date = ? AND status IN ('Confirmed', 'Pending')");
+    $cStmt->execute([$d['id'], $off['off_date']]);
+    $affCount = (int)$cStmt->fetchColumn();
+} catch (Throwable $e) {}
+?>
+<?php if ($affCount > 0): ?>
+<?php
+$isOffToday = ($off['off_date'] === date('Y-m-d'));
+$affReassignLink = $isOffToday
+    ? 'appointments.php?dentist_id=' . (int)$d['id'] . '&tab=today#today'
+    : 'appointments.php?dentist_id=' . (int)$d['id'] . '&udate=' . urlencode($off['off_date']) . '&tab=upcoming#upcoming';
+?>
+<a href="<?= e($affReassignLink) ?>" class="badge bg-danger text-white text-decoration-none ms-1" data-tip="Click to Reassign Appointments">
+<i class="bi bi-exclamation-triangle-fill"></i> <?= $affCount ?> Affected (Reassign)
+</a>
+<?php endif; ?>
 <?php if (!empty($off['reason'])): ?>
 <br><small class="text-muted"><?= e($off['reason']) ?></small>
 <?php endif; ?>
 </span>
-<form method="POST" onsubmit="return confirm('Remove this rest day?')">
+<form method="POST" class="js-delete-dayoff-form" data-date="<?= e(date('M d, Y', strtotime($off['off_date']))) ?>" data-dentist="<?= e($d['dentist_name']) ?>" data-type="<?= stripos($off['reason'] ?? '', 'ABSENT') !== false ? 'absence' : 'restday' ?>">
 <?= csrfField() ?>
 <input type="hidden" name="action" value="dayoff_delete">
 <input type="hidden" name="dayoff_id" value="<?= (int)$off['id'] ?>">
-<button class="btn btn-sm btn-outline-danger ms-2" title="Remove rest day" data-tip="Remove rest day"><i class="bi bi-trash"></i></button>
+<button type="button" class="btn btn-sm btn-outline-danger ms-2 js-dayoff-delete-trigger" title="Remove rest day" data-tip="Remove rest day"><i class="bi bi-trash"></i></button>
 </form>
 </div>
 <?php endforeach; ?>
 <?php else: ?>
 <span class="text-muted">No rest days</span>
 <?php endif; ?>
-<div>
-<button class="btn btn-sm btn-outline-warning mt-1" data-tip="Add Rest Day" data-bs-toggle="modal" data-bs-target="#dayoff<?= $d['id'] ?>">
+<div class="d-flex flex-wrap gap-1 mt-2">
+<button type="button" class="btn btn-sm btn-outline-warning" data-tip="Add Rest Day" data-bs-toggle="modal" data-bs-target="#dayoff<?= $d['id'] ?>" style="font-size:11.5px; border-radius:6px;">
 <i class="bi bi-moon"></i> Add Rest Day
+</button>
+<button type="button" class="btn btn-sm btn-danger text-white fw-bold" data-tip="Mark as Absent / Emergency Leave" data-bs-toggle="modal" data-bs-target="#absentModal<?= $d['id'] ?>" style="font-size:11.5px; border-radius:6px; box-shadow:0 2px 6px rgba(220,53,69,.25);">
+<i class="bi bi-person-x-fill me-1"></i>Mark as Absent
 </button>
 </div>
 </td>
@@ -532,11 +623,11 @@ try {
 <strong><?= e(date('D, M d, Y', strtotime($s['schedule_date']))) ?></strong><br>
 <small class="text-muted"><?= e(date('h:i A', strtotime($s['start_time']))) ?> - <?= e(date('h:i A', strtotime($s['end_time']))) ?></small>
 </span>
-<form method="POST" onsubmit="return confirm('Remove this availability?')">
+<form method="POST" class="js-delete-dayoff-form" data-date="<?= e(date('D, M d, Y', strtotime($s['schedule_date']))) ?>" data-dentist="<?= e($d['dentist_name']) ?>" data-type="schedule">
 <?= csrfField() ?>
 <input type="hidden" name="action" value="delete_schedule">
 <input type="hidden" name="schedule_id" value="<?= (int) $s['id'] ?>">
-<button class="btn btn-sm btn-outline-danger ms-2" title="Remove availability" data-tip="Remove availability"><i class="bi bi-trash"></i></button>
+<button type="button" class="btn btn-sm btn-outline-danger ms-2 js-dayoff-delete-trigger" title="Remove availability" data-tip="Remove availability"><i class="bi bi-trash"></i></button>
 </form>
 </div>
 <?php endforeach; ?>
@@ -607,9 +698,9 @@ try {
                     } catch (Throwable $e) {}
                     ?>
                     <input name="login_email" type="email" class="form-control mb-1" placeholder="dentist@example.com" value="<?= e($editEmail) ?>">
-                    <small class="text-muted d-block mb-3">Blank = walang babaguhin sa login. Lagyan + password para gumawa/mag-link ng account.</small>
-                    <label class="form-label">Password (blank = huwag palitan)</label>
-                    <input name="login_password" type="password" class="form-control mb-3" placeholder="Bagong password (min. 6)" minlength="6" autocomplete="new-password">
+                    <small class="text-muted d-block mb-3">Leave blank to keep existing login credentials. Provide email + password to create or link an account.</small>
+                    <label class="form-label">Password (leave blank to keep current)</label>
+                    <input name="login_password" type="password" class="form-control mb-3" placeholder="New password (min. 6)" minlength="6" autocomplete="new-password">
                     <label class="form-label">Rest Day (weekly)</label>
                     <?php $currentRest = array_key_exists('rest_day', $d) ? $d['rest_day'] : null; ?>
                     <select name="rest_day" class="form-select">
@@ -708,7 +799,7 @@ Save
                 <input type="hidden" name="action" value="dayoff_add">
                 <input type="hidden" name="dentist_id" value="<?= $d['id'] ?>">
                 <div class="modal-header">
-                    <h5>Add Rest Day - <?= e($d['dentist_name']) ?></h5>
+                    <h5>Add Rest Day - Dr. <?= e(preg_replace('/^Dr\.?\s+/i', '', $d['dentist_name'])) ?></h5>
 <button type="button" class="btn-close" data-bs-dismiss="modal" data-tip="Close"></button>
 </div>
 <div class="modal-body">
@@ -718,6 +809,69 @@ Save
                     <input name="reason" class="form-control" placeholder="Reason">
                 </div>
                 <div class="modal-footer"><button class="btn btn-primary" data-tip="Save Rest Day">Save Rest Day</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Mark Absent Modal -->
+<div class="modal fade" id="absentModal<?= $d['id'] ?>" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+            <form method="POST">
+                <?= csrfField() ?>
+                <input type="hidden" name="action" value="mark_absent">
+                <input type="hidden" name="dentist_id" value="<?= (int)$d['id'] ?>">
+                
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title fw-bold" style="font-size:16px;">
+                        <i class="bi bi-person-x-fill me-2"></i>Mark as Absent / Emergency Leave
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" data-tip="Close"></button>
+                </div>
+                
+                <div class="modal-body p-4" style="background:#fff;">
+                    <div class="p-3 mb-3 rounded-3" style="background:#FDF2F2; border:1px solid #F8D7DA;">
+                        <div class="fw-bold" style="color:#B91C1C; font-size:14px;">
+                            <i class="bi bi-person-badge-fill me-1"></i>Dr. <?= e(preg_replace('/^Dr\.?\s+/i', '', $d['dentist_name'])) ?>
+                        </div>
+                        <small class="text-muted"><?= e($d['specialization']) ?> &bull; Contact: <?= e($d['contact_number'] ?: 'Not provided') ?></small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">DATE OF ABSENCE / LEAVE</label>
+                        <input type="date" name="off_date" class="form-control" value="<?= date('Y-m-d') ?>" min="<?= date('Y-m-d') ?>" required>
+                        <small class="text-muted" style="font-size:11.5px;">Default is set to Today (<?= date('M d, Y') ?>). You can pick a future date if advance notice was given.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">TYPE OF ABSENCE / EMERGENCY</label>
+                        <select name="leave_type" class="form-select" required>
+                            <option value="Medical Emergency / Sick Leave" selected>Medical Emergency / Sick Leave</option>
+                            <option value="Personal / Family Emergency">Personal / Family Emergency</option>
+                            <option value="Official Business / Dental Seminar">Official Business / Dental Seminar</option>
+                            <option value="Unplanned Personal Leave">Unplanned Personal Leave</option>
+                            <option value="Other Emergency">Other Emergency</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">ADMIN / RECEPTION NOTES (OPTIONAL)</label>
+                        <input type="text" name="absence_notes" class="form-control" placeholder="e.g. Called reception via mobile phone at 7:30 AM with fever">
+                    </div>
+
+                    <div class="alert alert-warning py-2 px-3 small mb-0" style="border-radius:8px; font-size:12px;">
+                        <i class="bi bi-exclamation-triangle-fill me-1 text-warning"></i>
+                        <strong>Automatic Calendar Blocking:</strong> New patient bookings for this doctor will be locked on this date. If there are active appointments, the system will prompt you to reassign them to an available doctor.
+                    </div>
+                </div>
+
+                <div class="modal-footer" style="background:#F8FAFC; border-top:1px solid #E2E8F0;">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger fw-bold" style="padding:8px 20px; border-radius:8px; box-shadow:0 4px 12px rgba(220,53,69,.3);">
+                        <i class="bi bi-check2-circle me-1"></i>Confirm Absence
+                    </button>
+                </div>
             </form>
         </div>
     </div>
@@ -772,7 +926,7 @@ name="contact_number"
 class="form-control mb-3">
 
 <hr>
-<p class="text-muted small mb-2"><i class="bi bi-person-lock me-1"></i>Dentist login account (optional — kapag nilagyan, makaka-login agad ang dentist).</p>
+<p class="text-muted small mb-2"><i class="bi bi-person-lock me-1"></i>Dentist login account (optional — allows dentist to immediately log in to the portal).</p>
 
 <label>Login Email</label>
 
@@ -827,8 +981,63 @@ Save
 
 </div>
 
-<script
-src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js">
+<script src="../assets/bootstrap.bundle.min.js"></script>
+<script>
+if (typeof bootstrap === 'undefined') {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"><\/script>');
+}
+</script>
+<script>
+/* Guaranteed modal trigger handler: ensures Add Rest Day, Mark as Absent, and other modals open smoothly even if CDN or Bootstrap data-api is delayed */
+document.addEventListener('click', function(e) {
+    var trigger = e.target.closest('[data-bs-toggle="modal"]');
+    if (!trigger) return;
+    var targetSel = trigger.getAttribute('data-bs-target') || trigger.getAttribute('href');
+    if (!targetSel || !targetSel.startsWith('#')) return;
+    var modalEl = document.querySelector(targetSel);
+    if (!modalEl) return;
+
+    e.preventDefault();
+    if (window.bootstrap && window.bootstrap.Modal) {
+        try {
+            var m = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+            m.show();
+            return;
+        } catch (err) {
+            console.warn('Bootstrap modal error, using direct open fallback:', err);
+        }
+    }
+    modalEl.classList.add('show');
+    modalEl.style.display = 'block';
+    modalEl.removeAttribute('aria-hidden');
+    modalEl.setAttribute('aria-modal', 'true');
+    document.body.classList.add('modal-open');
+    if (!document.querySelector('.modal-backdrop')) {
+        var bd = document.createElement('div');
+        bd.className = 'modal-backdrop fade show';
+        document.body.appendChild(bd);
+    }
+});
+
+document.addEventListener('click', function(e) {
+    var closeBtn = e.target.closest('[data-bs-dismiss="modal"]');
+    if (!closeBtn) return;
+    var modal = closeBtn.closest('.modal');
+    if (!modal) return;
+    e.preventDefault();
+    if (window.bootstrap && window.bootstrap.Modal) {
+        try {
+            var m = bootstrap.Modal.getInstance(modal);
+            if (m) { m.hide(); return; }
+        } catch (err) {}
+    }
+    modal.classList.remove('show');
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
+    modal.removeAttribute('aria-modal');
+    document.body.classList.remove('modal-open');
+    document.querySelectorAll('.modal-backdrop').forEach(function(b){ b.remove(); });
+});
 </script>
 
 <!-- =========================================================
@@ -849,6 +1058,30 @@ src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.j
         <div class="admin-logout-foot">
             <button type="button" class="btn admin-delete-btn-cancel" id="dentistDeleteCancel">Cancel</button>
             <button type="button" class="btn admin-delete-btn-danger" id="dentistDeleteYes"><i class="bi bi-trash me-1"></i>Yes, Delete</button>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================
+     REMOVE REST DAY / LEAVE CONFIRM MODAL
+     ========================================================= -->
+<div id="dayoffDeleteConfirm" class="admin-logout-overlay" style="display:none;">
+    <div class="admin-logout-box">
+        <div class="admin-logout-head">
+            <span class="admin-logout-head-icon" style="background:linear-gradient(135deg,#E74C3C,#922B21);"><i class="bi bi-trash3-fill"></i></span>
+            <h5 id="dayoffDeleteHeadTitle">Remove Rest Day</h5>
+            <button type="button" class="admin-logout-x" id="dayoffDeleteClose" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="admin-logout-body">
+            <div class="admin-logout-icon" style="background:#FDECEC;color:#C0392B;border-color:#F5C6C6;">
+                <i class="bi bi-calendar-x"></i>
+            </div>
+            <h5 id="dayoffDeleteSubTitle">Remove this schedule record?</h5>
+            <p id="dayoffDeleteDesc">You are about to remove the rest day scheduled for <strong id="dayoffDeleteDate">this date</strong> for <strong id="dayoffDeleteDentist">Dr. Dentist</strong>. The dentist will be available for bookings again on this date.</p>
+        </div>
+        <div class="admin-logout-foot">
+            <button type="button" class="btn admin-delete-btn-cancel" id="dayoffDeleteCancel">Cancel</button>
+            <button type="button" class="btn admin-delete-btn-danger" id="dayoffDeleteYes"><i class="bi bi-trash me-1"></i>Yes, Remove</button>
         </div>
     </div>
 </div>
@@ -951,6 +1184,103 @@ src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.j
         document.addEventListener("DOMContentLoaded", initDentistDeleteConfirm);
     } else {
         initDentistDeleteConfirm();
+    }
+})();
+
+(function()
+{
+    var pendingForm = null;
+
+    function closeDayoffDelete()
+    {
+        var overlay = document.getElementById("dayoffDeleteConfirm");
+        if (!overlay) return;
+        overlay.style.display = "none";
+        document.body.style.overflow = "";
+        pendingForm = null;
+    }
+
+    function initDayoffDeleteConfirm()
+    {
+        var overlay = document.getElementById("dayoffDeleteConfirm");
+        if (!overlay || overlay.dataset.bound === "1") return;
+        overlay.dataset.bound = "1";
+
+        var dateEl = document.getElementById("dayoffDeleteDate");
+        var dentistEl = document.getElementById("dayoffDeleteDentist");
+        var headTitleEl = document.getElementById("dayoffDeleteHeadTitle");
+        var subTitleEl = document.getElementById("dayoffDeleteSubTitle");
+        var descEl = document.getElementById("dayoffDeleteDesc");
+
+        document.querySelectorAll(".js-dayoff-delete-trigger").forEach(function(btn)
+        {
+            btn.addEventListener("click", function(e)
+            {
+                e.preventDefault();
+                pendingForm = this.closest("form");
+                if (!pendingForm) return;
+
+                var dDate = pendingForm.dataset.date || "this date";
+                var dName = pendingForm.dataset.dentist || "this dentist";
+                var dType = pendingForm.dataset.type || "restday";
+
+                if (dateEl) dateEl.textContent = dDate;
+                if (dentistEl) dentistEl.textContent = "Dr. " + dName;
+
+                if (dType === "absence") {
+                    if (headTitleEl) headTitleEl.textContent = "Remove Absence Record";
+                    if (subTitleEl) subTitleEl.textContent = "Cancel absence / leave?";
+                    if (descEl) descEl.innerHTML = 'You are about to remove the marked absence on <strong>' + dDate + '</strong> for <strong>Dr. ' + dName + '</strong>. Regular appointment slots will be reopened.';
+                } else if (dType === "schedule") {
+                    if (headTitleEl) headTitleEl.textContent = "Remove Custom Availability";
+                    if (subTitleEl) subTitleEl.textContent = "Remove custom shift schedule?";
+                    if (descEl) descEl.innerHTML = 'You are about to remove the custom shift on <strong>' + dDate + '</strong> for <strong>Dr. ' + dName + '</strong>.';
+                } else {
+                    if (headTitleEl) headTitleEl.textContent = "Remove Rest Day";
+                    if (subTitleEl) subTitleEl.textContent = "Remove this rest day?";
+                    if (descEl) descEl.innerHTML = 'You are about to remove the rest day scheduled for <strong>' + dDate + '</strong> for <strong>Dr. ' + dName + '</strong>. The dentist will be available for bookings again on this date.';
+                }
+
+                overlay.style.display = "flex";
+                document.body.style.overflow = "hidden";
+                var yes = document.getElementById("dayoffDeleteYes");
+                if (yes) {
+                    yes.classList.remove("is-busy");
+                    yes.innerHTML = '<i class="bi bi-trash me-1"></i>Yes, Remove';
+                    yes.focus();
+                }
+            });
+        });
+
+        document.getElementById("dayoffDeleteCancel").addEventListener("click", closeDayoffDelete);
+        document.getElementById("dayoffDeleteClose").addEventListener("click", closeDayoffDelete);
+        overlay.addEventListener("click", function(e)
+        {
+            if (e.target === overlay) closeDayoffDelete();
+        });
+        document.addEventListener("keydown", function(e)
+        {
+            if (overlay.style.display === "none") return;
+            if (e.key === "Escape") closeDayoffDelete();
+        });
+
+        document.getElementById("dayoffDeleteYes").addEventListener("click", function()
+        {
+            if (!pendingForm) { closeDayoffDelete(); return; }
+            var f = pendingForm;
+            pendingForm = null;
+
+            this.classList.add("is-busy");
+            this.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Removing…';
+
+            f.submit();
+        });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initDayoffDeleteConfirm);
+    } else {
+        initDayoffDeleteConfirm();
     }
 })();
 </script>

@@ -1317,7 +1317,7 @@ foreach ($notifications as $countNotif) {
             </h5>
 
             <p>
-                Walang notification sa napiling filter.
+                No notifications found for the selected filter.
             </p>
 
         </div>

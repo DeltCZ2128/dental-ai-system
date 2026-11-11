@@ -1122,7 +1122,9 @@ button {
     border-bottom-right-radius: 16px !important;
 }
 
-/* Tooltip inside modal body, modal footer, and status action cards: display ABOVE the button */
+/* Tooltip inside modal body, modal footer, tables, and status action cards: display ABOVE the button */
+.table [data-tip]:hover::after,
+.table tbody tr:last-child [data-tip]:hover::after,
 .modal-body [data-tip]:hover::after,
 .modal-footer [data-tip]:hover::after,
 .status-action-body [data-tip]:hover::after,

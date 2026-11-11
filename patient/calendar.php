@@ -9,7 +9,8 @@
  * 3. Patient selects dentist + service.
  * 4. The system shows available hourly slots.
  * 5. Patient clicks an available slot.
- * 6. The selected date/time is sent to book_appointment.php.
+ * 6. Patient reviews and confirms the booking directly in the modal (no redirect to book_appointment.php form).
+ * 7. The appointment is saved automatically as Pending and awaits confirmation.
  *
  * IMPORTANT:
  * - Uses the existing appointments and dentist_schedules tables.
@@ -42,6 +43,235 @@ $userId = (int)($_SESSION['user_id'] ?? 0);
 $stmt = $pdo->prepare("SELECT id FROM patients WHERE user_id = ? LIMIT 1");
 $stmt->execute([$userId]);
 $patientId = (int)($stmt->fetchColumn() ?: 0);
+
+if ($patientId <= 0 && !empty($_SESSION['email'])) {
+    $stmt = $pdo->prepare("SELECT id FROM patients WHERE email = ? LIMIT 1");
+    $stmt->execute([$_SESSION['email']]);
+    $patientId = (int)($stmt->fetchColumn() ?: 0);
+}
+if ($patientId <= 0 && $userId > 0) {
+    $stmt = $pdo->prepare("SELECT email, first_name, last_name, username FROM users WHERE id = ? LIMIT 1");
+    $stmt->execute([$userId]);
+    $u = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($u) {
+        $uEmail = !empty($u['email']) ? $u['email'] : (strpos($u['username'] ?? '', '@') !== false ? $u['username'] : '');
+        if ($uEmail) {
+            $stmt = $pdo->prepare("SELECT id FROM patients WHERE email = ? LIMIT 1");
+            $stmt->execute([$uEmail]);
+            $patientId = (int)($stmt->fetchColumn() ?: 0);
+        }
+        if ($patientId <= 0) {
+            require_once __DIR__ . '/../functions.php';
+            $pNum = function_exists('generateShortPatientNumber') ? generateShortPatientNumber($pdo) : ('PAT-' . date('Y') . '-' . sprintf('%04d', $userId));
+            $fn = !empty($u['first_name']) ? $u['first_name'] : 'Patient';
+            $ln = !empty($u['last_name']) ? $u['last_name'] : '';
+            $ins = $pdo->prepare("INSERT INTO patients (patient_number, first_name, last_name, email, user_id) VALUES (?, ?, ?, ?, ?)");
+            $ins->execute([$pNum, $fn, $ln, $uEmail, $userId]);
+            $patientId = (int)$pdo->lastInsertId();
+        }
+    }
+}
+
+/* -------------------------------------------------------------
+   HANDLE DIRECT BOOKING FROM CALENDAR (AJAX POST)
+------------------------------------------------------------- */
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'book_from_calendar') {
+    header('Content-Type: application/json; charset=utf-8');
+
+    if (!csrfValid()) {
+        echo json_encode(['success' => false, 'message' => 'Security token invalid or session expired. Please refresh the page.']);
+        exit;
+    }
+
+    if ($patientId <= 0) {
+        echo json_encode(['success' => false, 'message' => 'Patient record could not be found. Please contact clinic support.']);
+        exit;
+    }
+
+    $dentistId = (int)($_POST['dentist_id'] ?? 0);
+    $selectedDate = trim($_POST['appointment_date'] ?? '');
+    $service = trim($_POST['service'] ?? '');
+    $startTime = trim($_POST['start_time'] ?? '');
+    $endTime = trim($_POST['end_time'] ?? '');
+    $notes = trim($_POST['notes'] ?? '');
+
+    if ($dentistId <= 0 || $selectedDate === '' || $service === '' || $startTime === '') {
+        echo json_encode(['success' => false, 'message' => 'Please provide all required appointment details.']);
+        exit;
+    }
+
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $selectedDate)) {
+        echo json_encode(['success' => false, 'message' => 'Invalid appointment date format.']);
+        exit;
+    }
+
+    if ($selectedDate < date('Y-m-d')) {
+        echo json_encode(['success' => false, 'message' => 'You cannot book an appointment on a past date.']);
+        exit;
+    }
+
+    if ((int)date('w', strtotime($selectedDate)) === 0) {
+        echo json_encode(['success' => false, 'message' => 'The clinic is closed on Sundays. Please choose another date.']);
+        exit;
+    }
+
+    // Verify dentist
+    $dentStmt = $pdo->prepare("SELECT id, dentist_name, rest_day FROM dentists WHERE id = ? AND status = 'Active' LIMIT 1");
+    $dentStmt->execute([$dentistId]);
+    $dentistRow = $dentStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$dentistRow) {
+        echo json_encode(['success' => false, 'message' => 'The selected dentist is currently unavailable.']);
+        exit;
+    }
+
+    // Check dentist rest day
+    $dayOfWeek = (int)date('w', strtotime($selectedDate));
+    $restDay = function_exists('getDentistRestDay') ? getDentistRestDay($dentistId) : null;
+    if ($restDay === null && isset($dentistRow['rest_day']) && $dentistRow['rest_day'] !== null && $dentistRow['rest_day'] !== '') {
+        $restDay = (int)$dentistRow['rest_day'];
+    }
+    if ($restDay !== null && $dayOfWeek === (int)$restDay) {
+        $restName = function_exists('dentistRestDayName') ? dentistRestDayName($restDay) : date('l', strtotime($selectedDate));
+        echo json_encode(['success' => false, 'message' => $dentistRow['dentist_name'] . ' is on rest day every ' . $restName . '. Please choose another date or dentist.']);
+        exit;
+    }
+    if (function_exists('isDentistDayOff') && isDentistDayOff($dentistId, $selectedDate)) {
+        echo json_encode(['success' => false, 'message' => $dentistRow['dentist_name'] . ' is on rest day on ' . date('M d, Y', strtotime($selectedDate)) . '.']);
+        exit;
+    }
+
+    // Calculate end time if missing
+    if (strlen($startTime) === 5) {
+        $startTime .= ':00';
+    }
+    if ($endTime === '' || strlen($endTime) < 5) {
+        $durStmt = $pdo->prepare("SELECT duration_minutes FROM clinic_services WHERE service_name = ? AND status = 'Active' LIMIT 1");
+        $durStmt->execute([$service]);
+        $duration = (int)($durStmt->fetchColumn() ?: 60);
+        $startDt = DateTime::createFromFormat('Y-m-d H:i:s', $selectedDate . ' ' . $startTime);
+        if (!$startDt) {
+            $startDt = DateTime::createFromFormat('Y-m-d H:i', $selectedDate . ' ' . substr($startTime, 0, 5));
+        }
+        $endDt = clone $startDt;
+        $endDt->modify('+' . $duration . ' minutes');
+        $endTime = $endDt->format('H:i:s');
+    } else if (strlen($endTime) === 5) {
+        $endTime .= ':00';
+    }
+
+    $startHm = substr($startTime, 0, 5);
+    $endHm = substr($endTime, 0, 5);
+    if ($startHm < '08:00' || $endHm > '18:00' || $startHm >= $endHm) {
+        echo json_encode(['success' => false, 'message' => 'Appointments must fall within clinic operating hours (8:00 AM to 6:00 PM).']);
+        exit;
+    }
+
+    if ($startHm >= '12:00' && $startHm < '13:00') {
+        echo json_encode(['success' => false, 'message' => '12:00 PM - 1:00 PM is clinic lunch break. Please choose another slot.']);
+        exit;
+    }
+
+    if ($selectedDate === date('Y-m-d') && $startHm <= date('H:i')) {
+        echo json_encode(['success' => false, 'message' => 'You cannot book a time slot that has already passed today.']);
+        exit;
+    }
+
+    // Check dentist conflict
+    $conflictDentist = $pdo->prepare("
+        SELECT id, start_time, end_time FROM appointments
+        WHERE dentist_id = ?
+          AND appointment_date = ?
+          AND status NOT IN ('Cancelled', 'Canceled', 'No-Show')
+          AND start_time < ?
+          AND end_time > ?
+        LIMIT 1
+    ");
+    $conflictDentist->execute([$dentistId, $selectedDate, $endTime, $startTime]);
+    if ($conflictDentist->fetch()) {
+        echo json_encode(['success' => false, 'message' => 'Schedule Conflict: This dentist already has a booking during this time slot. Please choose another slot.']);
+        exit;
+    }
+
+    // Check patient conflict
+    $conflictPatient = $pdo->prepare("
+        SELECT id, start_time, end_time FROM appointments
+        WHERE patient_id = ?
+          AND appointment_date = ?
+          AND status NOT IN ('Cancelled', 'Canceled', 'No-Show')
+          AND start_time < ?
+          AND end_time > ?
+        LIMIT 1
+    ");
+    $conflictPatient->execute([$patientId, $selectedDate, $endTime, $startTime]);
+    if ($conflictPatient->fetch()) {
+        echo json_encode(['success' => false, 'message' => 'Schedule Conflict: You already have an active appointment scheduled during this time window.']);
+        exit;
+    }
+
+    // Check patient daily maximum appointments (limit: 2 appointments per day per patient)
+    $dailyPatientCountStmt = $pdo->prepare("
+        SELECT COUNT(*) FROM appointments
+        WHERE patient_id = ?
+          AND appointment_date = ?
+          AND status NOT IN ('Cancelled', 'Canceled', 'No-Show')
+    ");
+    $dailyPatientCountStmt->execute([$patientId, $selectedDate]);
+    $dailyAppointmentsCount = (int)$dailyPatientCountStmt->fetchColumn();
+    if ($dailyAppointmentsCount >= 2) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Appointment Limit Reached: You already have 2 appointments scheduled on ' . date('M d, Y', strtotime($selectedDate)) . '. Each patient account is limited to a maximum of 2 appointments per day.'
+        ]);
+        exit;
+    }
+
+    try {
+        $insStmt = $pdo->prepare("
+            INSERT INTO appointments (
+                patient_id, dentist_id, appointment_date, start_time, end_time, service_type, status, notes
+            ) VALUES (
+                ?, ?, ?, ?, ?, ?, 'Pending', ?
+            )
+        ");
+        $insStmt->execute([
+            $patientId,
+            $dentistId,
+            $selectedDate,
+            $startTime,
+            $endTime,
+            $service,
+            $notes
+        ]);
+
+        $newAppointmentId = (int)$pdo->lastInsertId();
+
+        require_once __DIR__ . '/../functions.php';
+        if (function_exists('createNotification')) {
+            try {
+                createNotification(
+                    $patientId,
+                    $newAppointmentId,
+                    'Appointment Request Submitted',
+                    'Your appointment request for ' . date('M d, Y', strtotime($selectedDate)) . ' at ' . date('h:i A', strtotime($startTime)) . ' has been submitted and is waiting for confirmation.',
+                    'Confirmation'
+                );
+            } catch (Throwable $e) {}
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Your appointment has been submitted successfully!',
+            'appointment_id' => $newAppointmentId,
+            'date_display' => date('M d, Y', strtotime($selectedDate)),
+            'time_display' => date('h:i A', strtotime($startTime)) . ' - ' . date('h:i A', strtotime($endTime))
+        ]);
+        exit;
+
+    } catch (Throwable $e) {
+        echo json_encode(['success' => false, 'message' => 'Unable to save appointment. Error: ' . $e->getMessage()]);
+        exit;
+    }
+}
 
 /* -------------------------------------------------------------
    CLINIC SETTINGS
@@ -196,6 +426,26 @@ foreach ($events as $ev) {
     if ($d && $d >= $todayStr) $appointmentDates[] = $d;
 }
 $appointmentDates = array_values(array_unique($appointmentDates));
+
+// Dates where current patient already reached the 2-appointment limit
+$maxedDates = [];
+if ($patientId > 0) {
+    try {
+        $maxStmt = $pdo->prepare("
+            SELECT appointment_date, COUNT(*) as cnt
+            FROM appointments
+            WHERE patient_id = ?
+              AND status NOT IN ('Cancelled', 'Canceled', 'No-Show')
+              AND appointment_date >= ?
+            GROUP BY appointment_date
+            HAVING cnt >= 2
+        ");
+        $maxStmt->execute([$patientId, $todayStr]);
+        $maxedDates = $maxStmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+    } catch (Throwable $e) {
+        $maxedDates = [];
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -241,10 +491,12 @@ body { font-family:"DM Sans",sans-serif; background:linear-gradient(135deg,#022c
     font-weight: 800 !important;
 }
 /* Header kulay: Sunday pula (CLOSED), Mon-Sat green (OPEN) */
-.fc-col-header-cell:first-child {
+.fc-col-header-cell:first-child,
+.fc-col-header-cell.fc-day-sun {
     background: #FDECEC !important;
 }
-.fc-col-header-cell:first-child .fc-col-header-cell-cushion {
+.fc-col-header-cell:first-child .fc-col-header-cell-cushion,
+.fc-col-header-cell.fc-day-sun .fc-col-header-cell-cushion {
     color: #B91C1C !important;
 }
 .fc-col-header-cell:not(:first-child) {
@@ -257,7 +509,7 @@ body { font-family:"DM Sans",sans-serif; background:linear-gradient(135deg,#022c
     border: 1.5px solid #0E6B5E !important;
 }
 /* Mon-Sat box loob: soft mint green (hindi masakit sa mata). Sunday hindi kasama. */
-.fc-daygrid-body td.fc-daygrid-day:not(:first-child):not(.fc-day-today):not(.has-appointment) {
+.fc-daygrid-body td.fc-daygrid-day:not(:first-child):not(.fc-day-sun):not(.fc-day-closed-sunday):not(.fc-day-today):not(.has-appointment) {
     background: #E9F5EE;
 }
 .fc-daygrid-day-number {
@@ -270,6 +522,58 @@ body { font-family:"DM Sans",sans-serif; background:linear-gradient(135deg,#022c
     overflow: hidden;
 }
 #calendar { min-height:500px; }
+
+/* Sunday styling — strictly CLOSED & non-clickable */
+.fc-day-sun,
+.fc-day-closed-sunday,
+.fc-day-sun .fc-daygrid-day-frame,
+.fc-day-closed-sunday .fc-daygrid-day-frame,
+.fc-daygrid-body td.fc-daygrid-day:first-child {
+    background: #FFF5F5 !important;
+    cursor: not-allowed !important;
+}
+.fc-day-sun:hover,
+.fc-day-closed-sunday:hover,
+.fc-day-sun:hover .fc-daygrid-day-frame,
+.fc-day-closed-sunday:hover .fc-daygrid-day-frame {
+    background: #FEE2E2 !important;
+    cursor: not-allowed !important;
+}
+.fc-day-sun .fc-daygrid-day-number,
+.fc-day-closed-sunday .fc-daygrid-day-number,
+.fc-daygrid-body td.fc-daygrid-day:first-child .fc-daygrid-day-number {
+    color: #DC2626 !important;
+    font-weight: 700 !important;
+    opacity: 0.8;
+}
+.fc-day-sun .fc-daygrid-day-top,
+.fc-day-closed-sunday .fc-daygrid-day-top {
+    flex-direction: row-reverse;
+    justify-content: space-between;
+    padding: 3px 6px;
+}
+.fc-day-sun .fc-daygrid-day-top::after,
+.fc-day-closed-sunday .fc-daygrid-day-top::after {
+    content: "CLOSED";
+    font-size: 9px;
+    font-weight: 800;
+    color: #DC2626;
+    background: #FEE2E2;
+    border: 1px solid #FECACA;
+    padding: 1px 5px;
+    border-radius: 4px;
+    letter-spacing: .4px;
+    line-height: 1.2;
+}
+
+/* Cursor pointers for available days only */
+.fc-daygrid-day:not(.fc-day-disabled):not(.fc-day-sun):not(.fc-day-closed-sunday):not(.fc-day-past) {
+    cursor: pointer;
+}
+.fc-day-past,
+.fc-day-past .fc-daygrid-day-frame {
+    cursor: not-allowed !important;
+}
 .day-help {
     background: linear-gradient(135deg,#ecfdf5,#d1fae5);
     border:1px solid #6ee7b7;
@@ -319,7 +623,6 @@ body { font-family:"DM Sans",sans-serif; background:linear-gradient(135deg,#022c
     background: linear-gradient(135deg,#047857,#064e3b);
     border-color:#047857;
 }
-.fc-daygrid-day:not(.fc-day-disabled) { cursor:pointer; }
 /* Kulay sa date na may appointment — green patient theme */
 .fc-daygrid-day.has-appointment {
     background: linear-gradient(180deg, #EAF7F0 0%, #D9F2E6 100%) !important;
@@ -338,6 +641,30 @@ body { font-family:"DM Sans",sans-serif; background:linear-gradient(135deg,#022c
     border: 1px solid rgba(201,162,39,.35);
 }
 .fc-daygrid-day.has-appointment .fc-daygrid-day-top { opacity: 1; }
+/* Date where patient already reached 2 appointments limit */
+.fc-daygrid-day.has-max-appointments {
+    background: #FFFBEB !important;
+}
+.fc-daygrid-day.has-max-appointments .fc-daygrid-day-frame {
+    border: 1px dashed #F59E0B !important;
+}
+.fc-daygrid-day.has-max-appointments .fc-daygrid-day-top {
+    flex-direction: row-reverse;
+    justify-content: space-between;
+    padding: 3px 6px;
+}
+.fc-daygrid-day.has-max-appointments .fc-daygrid-day-top::after {
+    content: "2/2 LIMIT";
+    font-size: 8.5px;
+    font-weight: 800;
+    color: #92400E;
+    background: #FEF3C7;
+    border: 1px solid #FDE68A;
+    padding: 1px 4px;
+    border-radius: 4px;
+    line-height: 1.2;
+    letter-spacing: .3px;
+}
 .fc-event {
     border-radius: 6px !important;
     font-size: 11px !important;
@@ -382,8 +709,9 @@ body { font-family:"DM Sans",sans-serif; background:linear-gradient(135deg,#022c
 #dayBookingModal .form-select:focus { border-color:#0E6B5E; box-shadow:0 0 0 3px rgba(20,154,114,.15); }
 #dayBookingModal #slotSummary { background:#EAF7F0; border:1px solid #B9E4CF; color:#0A4A41; font-weight:600; border-radius:10px; padding:8px 12px; }
 #dayBookingModal #slotSummary:empty { display:none; }
-#dayBookingModal .slot-btn { border:1px solid #B9E4CF; background:#fff; color:#0A4A41; border-radius:12px; box-shadow:0 2px 8px rgba(10,74,65,.06); transition:.18s; }
+#dayBookingModal .slot-btn { border:1px solid #B9E4CF; background:#fff; color:#0A4A41; border-radius:12px; box-shadow:0 2px 8px rgba(10,74,65,.06); transition:.18s; cursor:pointer; }
 #dayBookingModal .slot-btn:hover { background:linear-gradient(135deg,#149A72,#0A4A41); border-color:#0A4A41; color:#fff; transform:translateY(-2px); box-shadow:0 8px 20px rgba(10,74,65,.25); }
+#dayBookingModal .slot-btn.slot-selected { background:linear-gradient(135deg,#149A72,#0A4A41) !important; border-color:#0A4A41 !important; color:#fff !important; font-weight:700 !important; box-shadow:0 6px 18px rgba(10,74,65,.3) !important; }
 @media(max-width:767px) {
     .slot-grid { grid-template-columns:repeat(2,1fr); }
     .calendar-card { padding:14px; }
@@ -439,16 +767,18 @@ body { font-family:"DM Sans",sans-serif; background:linear-gradient(135deg,#022c
         <div class="day-help mb-3">
             <i class="bi bi-info-circle me-1"></i>
             <strong>How booking works:</strong> Click a future date → select dentist and dental service → choose an available time → review the booking → confirm.
-            Monday-Saturday: 8:00 AM-6:00 PM. Sunday: CLOSED. Each dentist also has his/her own weekly rest day.
+            Monday-Saturday: 8:00 AM-6:00 PM. Sunday: CLOSED. Each patient is limited to a maximum of 2 appointments per day.
         </div>
 
         <div id="calendar"></div>
 
         <div class="calendar-legend">
             <span style="font-weight:800; color:#143f51;"><i class="bi bi-info-circle me-1" style="color:#0E6B5E;"></i>Legend:</span>
-            <span><span class="calendar-legend-dot appointment"></span> May appointment</span>
-            <span><span class="calendar-legend-dot today"></span> Today / Available</span>
-            <span><span class="calendar-legend-dot closed"></span> Closed / Past</span>
+            <span><span class="calendar-legend-dot appointment"></span> Your Appointment</span>
+            <span><span class="calendar-legend-dot" style="background:#FEF3C7; border:1px solid #F59E0B;"></span> Limit Reached (2/2)</span>
+            <span><span class="calendar-legend-dot today"></span> Available Slot</span>
+            <span><span class="calendar-legend-dot" style="background:#FFF5F5; border:1px solid #FECACA;"></span> Sunday (Closed)</span>
+            <span><span class="calendar-legend-dot closed"></span> Past Date</span>
         </div>
 
     </div>
@@ -479,59 +809,180 @@ body { font-family:"DM Sans",sans-serif; background:linear-gradient(135deg,#022c
 
     <div id="dayMessage" class="alert d-none"></div>
 
-    <div class="row g-3 mb-3">
+    <!-- Booking form area -->
+    <div id="dayBookingFormArea">
+        <div class="row g-3 mb-3">
 
-        <div class="col-md-6">
-            <label class="form-label fw-bold small"><i class="bi bi-person-badge me-1" style="color:#0E6B5E;"></i>Dentist</label>
-            <select id="slotDentist" class="form-select">
-                <option value="">Select Dentist</option>
-                <?php foreach ($dentists as $d): ?>
-                    <?php
-                    $restLabel = '';
-                    if (array_key_exists('rest_day', $d) && $d['rest_day'] !== null && $d['rest_day'] !== '') {
-                        $dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-                        $restLabel = $dayNames[(int)$d['rest_day']] ?? '';
-                    }
-                    ?>
-                    <option value="<?= (int)$d['id'] ?>">
-                        <?= calendar_escape($d['dentist_name']) ?>
-                        <?php if (!empty($d['specialization'])): ?>
-                            - <?= calendar_escape($d['specialization']) ?>
-                        <?php endif; ?>
-                        <?php if ($restLabel !== ''): ?>
-                            (Rest day: <?= calendar_escape($restLabel) ?>)
-                        <?php endif; ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
+            <div class="col-md-6">
+                <label class="form-label fw-bold small"><i class="bi bi-person-badge me-1" style="color:#0E6B5E;"></i>Dentist</label>
+                <select id="slotDentist" class="form-select">
+                    <option value="">Select Dentist</option>
+                    <?php foreach ($dentists as $d): ?>
+                        <?php
+                        $restLabel = '';
+                        if (array_key_exists('rest_day', $d) && $d['rest_day'] !== null && $d['rest_day'] !== '') {
+                            $dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+                            $restLabel = $dayNames[(int)$d['rest_day']] ?? '';
+                        }
+                        ?>
+                        <option value="<?= (int)$d['id'] ?>">
+                            <?= calendar_escape($d['dentist_name']) ?>
+                            <?php if (!empty($d['specialization'])): ?>
+                                - <?= calendar_escape($d['specialization']) ?>
+                            <?php endif; ?>
+                            <?php if ($restLabel !== ''): ?>
+                                (Rest day: <?= calendar_escape($restLabel) ?>)
+                            <?php endif; ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label fw-bold small"><i class="bi bi-clipboard2-pulse me-1" style="color:#0E6B5E;"></i>Dental Service</label>
+                <select id="slotService" class="form-select">
+                    <option value="">Select Service</option>
+                    <?php foreach ($services as $service): ?>
+                        <option value="<?= calendar_escape($service['service_name']) ?>">
+                            <?= calendar_escape($service['service_name']) ?>
+                            (<?= (int)$service['duration_minutes'] ?> min)
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
         </div>
 
-        <div class="col-md-6">
-            <label class="form-label fw-bold small"><i class="bi bi-clipboard2-pulse me-1" style="color:#0E6B5E;"></i>Dental Service</label>
-            <select id="slotService" class="form-select">
-                <option value="">Select Service</option>
-                <?php foreach ($services as $service): ?>
-                    <option value="<?= calendar_escape($service['service_name']) ?>">
-                        <?= calendar_escape($service['service_name']) ?>
-                        (<?= (int)$service['duration_minutes'] ?> min)
-                    </option>
-                <?php endforeach; ?>
-            </select>
+        <div id="slotSummary" class="text-muted small mb-2"></div>
+
+        <div id="slotGrid" class="slot-grid">
+            <div class="text-muted small">
+                Select a dentist and service to see available hours.
+            </div>
         </div>
 
+        <!-- Book appointment button -->
+        <div id="bookingConfirmSection" style="display:none;" class="mt-3">
+            <button type="button" id="submitBookingBtn" class="btn w-100 py-2 fw-bold text-white shadow-sm" style="background:linear-gradient(135deg,#149A72,#0A4A41); border-radius:10px; font-size:15px; border:none;">
+                <i class="bi bi-calendar2-check-fill me-2"></i>Book Appointment
+            </button>
+        </div>
     </div>
 
-    <div id="slotSummary" class="text-muted small mb-2"></div>
-
-    <div id="slotGrid" class="slot-grid">
-        <div class="text-muted small">
-            Select a dentist and service to see available hours.
+    <!-- Booking success area -->
+    <div id="bookingSuccessSection" style="display:none;" class="py-4 text-center">
+        <div style="width:68px; height:68px; border-radius:50%; background:#d1fae5; color:#059669; display:inline-flex; align-items:center; justify-content:center; font-size:36px; margin-bottom:14px; box-shadow:0 8px 24px rgba(5,150,105,.22);">
+            <i class="bi bi-check-lg"></i>
+        </div>
+        <h4 class="fw-bold mb-1" style="color:#065f46;">Appointment Booked Successfully!</h4>
+        <p class="text-muted small mb-2" id="successMessageDetail">Your appointment has been submitted and is awaiting clinic confirmation.</p>
+        <div class="mb-3">
+            <span class="badge bg-warning text-dark px-3 py-2" style="font-size:12px; font-weight:700; border-radius:20px;">
+                <i class="bi bi-hourglass-split me-1"></i>Status: Pending Confirmation
+            </span>
+        </div>
+        <div class="d-flex justify-content-center gap-2 mt-4">
+            <button type="button" class="btn btn-outline-secondary px-3" data-bs-dismiss="modal" onclick="window.location.reload();">
+                <i class="bi bi-calendar3 me-1"></i>Return to Calendar
+            </button>
+            <a href="my_appointments.php" class="btn btn-success px-3" style="background:#0E6B5E; border-color:#0E6B5E;">
+                <i class="bi bi-card-checklist me-1"></i>View in My Appointments
+            </a>
         </div>
     </div>
 
 </div>
 </div>
 </div>
+</div>
+
+<!-- APPOINTMENT LIMIT REACHED POPUP MODAL -->
+<div class="modal fade" id="appointmentLimitModal" tabindex="-1" aria-labelledby="appointmentLimitModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
+        <div class="modal-content" style="border-radius: 24px; border: 1.5px solid #F59E0B; box-shadow: 0 25px 60px rgba(10,74,65,0.30); overflow: hidden; background: #ffffff;">
+            
+            <div class="modal-header border-0 pb-0 pt-3 px-4 d-flex justify-content-end">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="opacity: 0.55;"></button>
+            </div>
+
+            <div class="modal-body text-center px-4 pt-1 pb-4">
+                <div style="width: 76px; height: 76px; margin: 0 auto 16px; border-radius: 50%; background: linear-gradient(135deg, #FEF3C7, #FDE68A); color: #B45309; display: flex; align-items: center; justify-content: center; font-size: 36px; box-shadow: 0 10px 25px rgba(245,158,11,.24); border: 2px solid #FCD34D;">
+                    <i class="bi bi-calendar-x-fill"></i>
+                </div>
+
+                <h5 class="fw-bold mb-1" id="appointmentLimitModalLabel" style="color: #0A4A41; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 20px;">
+                    Appointment Limit Reached
+                </h5>
+
+                <div class="mb-3">
+                    <span id="limitModalDateBadge" class="badge" style="background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 20px;">
+                        <i class="bi bi-calendar2-event me-1"></i> <span id="limitModalDateText">--</span>
+                    </span>
+                </div>
+
+                <p class="mb-3 text-muted" id="limitModalMessage" style="font-size: 14px; line-height: 1.55; color: #4b636e !important;">
+                    You already have 2 appointments scheduled on this date. Each patient account is limited to a maximum of 2 appointments per day.
+                </p>
+
+                <div style="background: #FFFBEB; border: 1px dashed #F59E0B; border-radius: 12px; padding: 10px 14px; font-size: 12.5px; color: #92400E; font-weight: 600; margin-bottom: 22px;">
+                    <i class="bi bi-info-circle-fill me-1" style="color: #D97706;"></i> Please select another available date on the calendar.
+                </div>
+
+                <button type="button" class="btn w-100 py-2 fw-bold text-white shadow-sm" data-bs-dismiss="modal" style="background: linear-gradient(135deg, #149A72, #0A4A41); border: none; border-radius: 12px; font-size: 15px; letter-spacing: .2px; transition: .18s;">
+                    <i class="bi bi-check2-circle me-1"></i> Okay, Got It
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- APPOINTMENT DETAILS POPUP MODAL -->
+<div class="modal fade" id="appointmentDetailModal" tabindex="-1" aria-labelledby="appointmentDetailTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
+        <div class="modal-content" style="border-radius: 24px; border: 1.5px solid #0E6B5E; box-shadow: 0 25px 60px rgba(10,74,65,0.30); overflow: hidden; background: #ffffff;">
+            
+            <div class="modal-header border-0 pb-0 pt-3 px-4 d-flex justify-content-end">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="opacity: 0.55;"></button>
+            </div>
+
+            <div class="modal-body text-center px-4 pt-1 pb-4">
+                <div style="width: 72px; height: 72px; margin: 0 auto 16px; border-radius: 50%; background: linear-gradient(135deg, #D1FAE5, #A7F3D0); color: #047857; display: flex; align-items: center; justify-content: center; font-size: 34px; box-shadow: 0 10px 25px rgba(5,150,105,.20); border: 2px solid #6EE7B7;">
+                    <i class="bi bi-calendar2-check-fill"></i>
+                </div>
+
+                <h5 class="fw-bold mb-1" id="appointmentDetailTitle" style="color: #0A4A41; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 20px;">
+                    Appointment Details
+                </h5>
+                <p class="text-muted small mb-3" id="appointmentDetailDate">--</p>
+
+                <div class="text-start p-3 mb-3" style="background: #F6FBF8; border: 1px solid #C9E9DA; border-radius: 14px;">
+                    <div class="d-flex justify-content-between align-items-center mb-2 pb-2" style="border-bottom: 1px solid #E6F2EC;">
+                        <span class="text-muted small fw-semibold"><i class="bi bi-clipboard2-pulse me-1 text-success"></i>Service</span>
+                        <strong id="detailService" class="text-dark small">--</strong>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2 pb-2" style="border-bottom: 1px solid #E6F2EC;">
+                        <span class="text-muted small fw-semibold"><i class="bi bi-person-badge me-1 text-success"></i>Dentist</span>
+                        <strong id="detailDentist" class="text-dark small">--</strong>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted small fw-semibold"><i class="bi bi-clock-history me-1 text-success"></i>Status</span>
+                        <span id="detailStatus" class="badge bg-warning text-dark px-2 py-1">--</span>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary w-50 py-2 fw-semibold" data-bs-dismiss="modal" style="border-radius: 12px; font-size: 14px;">
+                        Close
+                    </button>
+                    <a href="my_appointments.php" class="btn w-50 py-2 fw-bold text-white shadow-sm" style="background: linear-gradient(135deg, #149A72, #0A4A41); border: none; border-radius: 12px; font-size: 14px;">
+                        <i class="bi bi-eye-fill me-1"></i> View All
+                    </a>
+                </div>
+            </div>
+
+        </div>
+    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -544,12 +995,16 @@ const calendarEvents = <?= json_encode(
 ) ?>;
 const appointmentDates = <?= json_encode($appointmentDates, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
 const appointmentDateSet = new Set(appointmentDates);
+const maxedDates = <?= json_encode($maxedDates, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+const maxedDateSet = new Set(maxedDates);
 const todayStr = <?= json_encode($todayStr, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
 
 const clinicSlotInterval = <?= (int)$slotInterval ?>;
 const clinicDailyCapacity = <?= (int)$dailyCapacity ?>;
 
 let selectedDate = '';
+let selectedSlot = null;
+let appointmentJustBooked = false;
 
 const modalElement = document.getElementById('dayBookingModal');
 const bookingModal = new bootstrap.Modal(modalElement);
@@ -559,6 +1014,77 @@ const serviceSelect = document.getElementById('slotService');
 const slotGrid = document.getElementById('slotGrid');
 const slotSummary = document.getElementById('slotSummary');
 const dayMessage = document.getElementById('dayMessage');
+const bookingConfirmSection = document.getElementById('bookingConfirmSection');
+const bookingSuccessSection = document.getElementById('bookingSuccessSection');
+const dayBookingFormArea = document.getElementById('dayBookingFormArea');
+const submitBookingBtn = document.getElementById('submitBookingBtn');
+
+let limitModalInstance = null;
+let detailModalInstance = null;
+
+function showLimitModal(dateStr) {
+    const modalEl = document.getElementById('appointmentLimitModal');
+    if (!modalEl) {
+        alert("Appointment Limit Reached: You already have 2 appointments scheduled on " + dateStr + ". Each patient is limited to a maximum of 2 appointments per day. Please select another date.");
+        return;
+    }
+
+    let readableDate = dateStr;
+    try {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+            const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+            readableDate = d.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }
+    } catch (e) {}
+
+    const textEl = document.getElementById('limitModalDateText');
+    if (textEl) textEl.textContent = readableDate;
+
+    if (!limitModalInstance && typeof bootstrap !== 'undefined') {
+        limitModalInstance = new bootstrap.Modal(modalEl);
+    }
+    if (limitModalInstance) {
+        limitModalInstance.show();
+    } else {
+        alert("Appointment Limit Reached: You already have 2 appointments scheduled on " + dateStr + ". Each patient is limited to a maximum of 2 appointments per day. Please select another date.");
+    }
+}
+
+function showAppointmentDetailModal(service, dentist, status, dateDisplay) {
+    const modalEl = document.getElementById('appointmentDetailModal');
+    if (!modalEl) {
+        alert('Service: ' + service + '\nDentist: ' + dentist + '\nStatus: ' + status);
+        return;
+    }
+
+    document.getElementById('detailService').textContent = service || 'General Service';
+    document.getElementById('detailDentist').textContent = dentist || 'Assigned Dentist';
+
+    const statusBadge = document.getElementById('detailStatus');
+    if (statusBadge) {
+        statusBadge.textContent = status || 'Pending';
+        if (status === 'Confirmed') {
+            statusBadge.className = 'badge bg-success text-white px-2 py-1';
+        } else if (status === 'Pending') {
+            statusBadge.className = 'badge bg-warning text-dark px-2 py-1';
+        } else {
+            statusBadge.className = 'badge bg-secondary text-white px-2 py-1';
+        }
+    }
+
+    const dateEl = document.getElementById('appointmentDetailDate');
+    if (dateEl) dateEl.textContent = dateDisplay || '';
+
+    if (!detailModalInstance && typeof bootstrap !== 'undefined') {
+        detailModalInstance = new bootstrap.Modal(modalEl);
+    }
+    if (detailModalInstance) {
+        detailModalInstance.show();
+    } else {
+        alert('Service: ' + service + '\nDentist: ' + dentist + '\nStatus: ' + status);
+    }
+}
 
 function showMessage(message, type = 'info') {
     dayMessage.className = 'alert alert-' + type;
@@ -571,9 +1097,22 @@ function hideMessage() {
 }
 
 function openDate(dateStr) {
-    selectedDate = dateStr;
+    if (!dateStr) return;
 
     const dateObj = new Date(dateStr + 'T00:00:00');
+    // Sunday (0) is closed — hindi clickable
+    if (dateObj.getDay() === 0) {
+        return;
+    }
+
+    if (maxedDateSet.has(dateStr)) {
+        showLimitModal(dateStr);
+        return;
+    }
+
+    selectedDate = dateStr;
+    selectedSlot = null;
+    appointmentJustBooked = false;
     document.getElementById('selectedDateText').textContent =
         dateObj.toLocaleDateString(undefined, {
             weekday:'long',
@@ -589,12 +1128,18 @@ function openDate(dateStr) {
     slotSummary.textContent = '';
     hideMessage();
 
+    dayBookingFormArea.style.display = 'block';
+    bookingConfirmSection.style.display = 'none';
+    bookingSuccessSection.style.display = 'none';
+
     bookingModal.show();
 }
 
 async function loadSlots() {
-
     if (!selectedDate) return;
+
+    selectedSlot = null;
+    bookingConfirmSection.style.display = 'none';
 
     const dentistId = dentistSelect.value;
     const service = serviceSelect.value;
@@ -621,7 +1166,6 @@ async function loadSlots() {
         encodeURIComponent(service);
 
     try {
-
         const response = await fetch(url, {
             headers: {'X-Requested-With':'XMLHttpRequest'}
         });
@@ -634,8 +1178,7 @@ async function loadSlots() {
             return;
         }
 
-        slotSummary.textContent =
-            data.message || '';
+        slotSummary.textContent = data.message || '';
 
         if (!data.slots || data.slots.length === 0) {
             slotGrid.innerHTML =
@@ -646,32 +1189,25 @@ async function loadSlots() {
         slotGrid.innerHTML = '';
 
         data.slots.forEach(slot => {
-
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'slot-btn';
-
-            button.textContent =
-                slot.start_display + ' - ' + slot.end_display;
+            button.textContent = slot.start_display + ' - ' + slot.end_display;
 
             button.addEventListener('click', function () {
+                document.querySelectorAll('#slotGrid .slot-btn').forEach(b => b.classList.remove('slot-selected'));
+                button.classList.add('slot-selected');
 
-                const params = new URLSearchParams({
-                    appointment_date: selectedDate,
-                    start_time: slot.start,
-                    dentist_id: dentistId,
-                    service: service
-                });
+                selectedSlot = slot;
 
-                window.location.href =
-                    'book_appointment.php?' + params.toString();
+                bookingConfirmSection.style.display = 'block';
+                bookingConfirmSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             });
 
             slotGrid.appendChild(button);
         });
 
     } catch (error) {
-
         slotGrid.innerHTML = '';
         showMessage(
             'Unable to check the schedule. Please try again.',
@@ -682,6 +1218,69 @@ async function loadSlots() {
 
 dentistSelect.addEventListener('change', loadSlots);
 serviceSelect.addEventListener('change', loadSlots);
+
+submitBookingBtn.addEventListener('click', async function () {
+    if (!selectedDate || !selectedSlot) {
+        showMessage('Please choose an available time slot.', 'warning');
+        return;
+    }
+
+    const dentistId = dentistSelect.value;
+    const service = serviceSelect.value;
+
+    if (!dentistId || !service) {
+        showMessage('Please select a dentist and dental service.', 'danger');
+        return;
+    }
+
+    const btn = this;
+    const origHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Booking Appointment...';
+    hideMessage();
+
+    try {
+        const formData = new FormData();
+        formData.append('action', 'book_from_calendar');
+        formData.append('csrf_token', <?= json_encode(csrfToken()) ?>);
+        formData.append('appointment_date', selectedDate);
+        formData.append('dentist_id', dentistId);
+        formData.append('service', service);
+        formData.append('start_time', selectedSlot.start);
+        formData.append('end_time', selectedSlot.end || '');
+        formData.append('notes', '');
+
+        const res = await fetch('calendar.php', {
+            method: 'POST',
+            body: formData,
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        });
+
+        const data = await res.json();
+        if (data.success) {
+            appointmentJustBooked = true;
+            dayBookingFormArea.style.display = 'none';
+            const dentistText = dentistSelect.options[dentistSelect.selectedIndex].text.replace(/\s*\(Rest day:.*?\)/, '').trim();
+            document.getElementById('successMessageDetail').innerHTML = 
+                'Your appointment request for <strong>' + data.date_display + ' (' + data.time_display + ')</strong> with <strong>' + dentistText + '</strong> has been submitted and is awaiting confirmation.';
+            bookingSuccessSection.style.display = 'block';
+        } else {
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+            showMessage(data.message || 'Unable to save appointment. Please try again.', 'danger');
+        }
+    } catch (e) {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+        showMessage('An unexpected error occurred. Please try again.', 'danger');
+    }
+});
+
+modalElement.addEventListener('hidden.bs.modal', function () {
+    if (appointmentJustBooked) {
+        window.location.reload();
+    }
+});
 
 document.addEventListener('DOMContentLoaded', function () {
 
@@ -702,26 +1301,46 @@ document.addEventListener('DOMContentLoaded', function () {
 
             events: calendarEvents,
 
-            // Kulayan ang date na may appointment — future/today lang, hindi na kapag tapos na
+            // Mark Sunday as closed and color dates with appointments
             dayCellClassNames: function(arg) {
+                var classes = [];
+                var dayOfWeek = arg.date.getDay();
+                if (dayOfWeek === 0) {
+                    classes.push('fc-day-closed-sunday');
+                }
                 var y = arg.date.getFullYear();
                 var m = String(arg.date.getMonth()+1).padStart(2,'0');
                 var d = String(arg.date.getDate()).padStart(2,'0');
                 var localIso = y + '-' + m + '-' + d;
-                if (localIso < todayStr) return [];
-                var iso = arg.date.toISOString().slice(0,10);
-                // arg.date is local midnight, toISOString may shift; use dateStr fallback if available
-                if (arg.dateStr && appointmentDateSet.has(arg.dateStr)) return ['has-appointment'];
-                if (appointmentDateSet.has(iso)) return ['has-appointment'];
-                if (appointmentDateSet.has(localIso)) return ['has-appointment'];
-                return [];
+                if (localIso < todayStr) {
+                    classes.push('fc-day-past');
+                    return classes;
+                }
+                if (maxedDateSet.has(localIso)) {
+                    classes.push('has-max-appointments');
+                }
+                if (appointmentDateSet.has(localIso)) {
+                    classes.push('has-appointment');
+                }
+                return classes;
             },
 
             dateClick: function(info) {
-
                 const clickedDate = info.dateStr;
+                const dateObj = new Date(clickedDate + 'T00:00:00');
+                const dayOfWeek = (info.date ? info.date.getDay() : dateObj.getDay());
+
+                // Sunday (0) is strictly CLOSED — hindi clickable
+                if (dayOfWeek === 0) {
+                    return;
+                }
 
                 if (clickedDate < '<?= date('Y-m-d') ?>') {
+                    return;
+                }
+
+                if (maxedDateSet.has(clickedDate)) {
+                    showLimitModal(clickedDate);
                     return;
                 }
 
@@ -729,14 +1348,16 @@ document.addEventListener('DOMContentLoaded', function () {
             },
 
             eventClick: function(info) {
-
-                const props = info.event.extendedProps;
-
-                alert(
-                    'Service: ' + props.service +
-                    '\nDentist: ' + props.dentist +
-                    '\nStatus: ' + props.status
-                );
+                const props = info.event.extendedProps || {};
+                let dateDisplay = '';
+                if (info.event.start) {
+                    try {
+                        dateDisplay = info.event.start.toLocaleDateString(undefined, {
+                            weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+                        }) + ' at ' + info.event.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    } catch (e) {}
+                }
+                showAppointmentDetailModal(props.service, props.dentist, props.status, dateDisplay);
             }
         }
     );

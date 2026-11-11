@@ -552,29 +552,11 @@ try {
 
 
 /* ============================================================
-   DAILY CAPACITY CHECK
+   DAILY CAPACITY CHECK (REMOVED PER CLINIC & PANEL REQUIREMENT)
+   Allow unlimited total daily clinic appointments as long as
+   individual attending dentist time slots remain open/available.
    ============================================================ */
-
-if (
-    $dayAppointmentCount >=
-    $dailyCapacity
-) {
-
-    slot_json(
-        true,
-        'This date has reached the clinic daily patient limit of ' .
-        $dailyCapacity .
-        '.',
-        [
-            'slots' => [],
-            'service_id' => $serviceId,
-            'service_name' => $serviceName,
-            'duration_minutes' => $duration,
-            'daily_capacity' => $dailyCapacity,
-            'booked_today' => $dayAppointmentCount
-        ]
-    );
-}
+// Daily capacity limit has been removed.
 
 
 /* ============================================================
@@ -639,7 +621,7 @@ try {
                 FROM appointments
                 WHERE patient_id = ?
                   AND appointment_date = ?
-                  AND status NOT IN ('Cancelled', 'No-Show')
+                  AND status NOT IN ('Cancelled', 'Canceled', 'No-Show')
                 ORDER BY start_time ASC
                 "
             );
@@ -649,6 +631,13 @@ try {
     }
 } catch (Throwable $e) {
     $patientBooked = [];
+}
+
+if ($currentPatientId > 0 && count($patientBooked) >= 2) {
+    slot_json(
+        false,
+        'Appointment Limit Reached: You already have 2 appointments scheduled on ' . date('M d, Y', strtotime($date)) . '. Each patient is limited to a maximum of 2 appointments per day. Please choose another date.'
+    );
 }
 
 

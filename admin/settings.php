@@ -125,7 +125,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $settings = getSetting();
 $services = $pdo->query('SELECT * FROM clinic_services ORDER BY service_name')->fetchAll(PDO::FETCH_ASSOC);
-$users = $pdo->query('SELECT id, username, full_name, role, created_at FROM users ORDER BY full_name')->fetchAll(PDO::FETCH_ASSOC);
+
+/* User Accounts Pagination: 10 per page */
+$userPerPage = 10;
+$totalUsers = (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
+$totalUserPages = max(1, (int) ceil($totalUsers / $userPerPage));
+$userPage = max(1, min((int) ($_GET['user_page'] ?? ($_GET['page'] ?? 1)), $totalUserPages));
+$userOffset = ($userPage - 1) * $userPerPage;
+
+$userStmt = $pdo->prepare('SELECT id, username, full_name, role, created_at FROM users ORDER BY full_name LIMIT ? OFFSET ?');
+$userStmt->bindValue(1, $userPerPage, PDO::PARAM_INT);
+$userStmt->bindValue(2, $userOffset, PDO::PARAM_INT);
+$userStmt->execute();
+$users = $userStmt->fetchAll(PDO::FETCH_ASSOC);
+
+$isUsersTabActive = isset($_GET['user_page']);
+
 $editService = null;
 if (isset($_GET['edit_service'])) {
     $stmt = $pdo->prepare('SELECT * FROM clinic_services WHERE id = ? LIMIT 1');
@@ -147,9 +162,7 @@ if (isset($_GET['edit_service'])) {
     <style>
         body { background: linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22) !important; background-size: 300% 300% !important; animation: adminBgAnim 8s ease infinite !important; background-attachment: fixed !important; }
 @keyframes adminBgAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-        .shared-sidebar { display: none !important; }
-        .shared-topbar { left: 0 !important; right: 0 !important; }
-        .settings-page { margin-left: 0 !important; width: 100% !important; min-height: 100vh; padding: 110px 24px 40px !important; background: transparent !important; }
+        .settings-page { margin-left: 280px !important; width: calc(100% - 280px) !important; min-height: 100vh; padding: 110px 24px 40px !important; background: transparent !important; box-sizing: border-box !important; }
         .settings-page > a.btn, .settings-page > .alert { margin-left: 14px; margin-right: 14px; }
         .settings-page > .alert { font-size: 13.5px; border-radius: 12px; }
         .settings-page > .mb-4 { margin: 0 14px 16px 14px !important; }
@@ -196,7 +209,60 @@ if (isset($_GET['edit_service'])) {
         #settingsAccordion .accordion-button:not(.collapsed) { background:linear-gradient(135deg,#D9F2E6 0%,#EAF7F0 100%) !important; color:#143f51 !important; }
         #settingsAccordion .accordion-button i { color:#0E6B5E; font-size:18px; margin-right:8px; }
         #settingsAccordion .accordion-body { padding:20px !important; }
-        @media (max-width: 991px) { .settings-page { padding: 25px 16px 40px !important; } .settings-page > section.settings-card { margin-left: 0 !important; margin-right: 0 !important; } .settings-page > a.btn, .settings-page > .alert, .settings-page > .mb-4 { margin-left: 0 !important; margin-right: 0 !important; } }
+
+        /* User Accounts Pagination */
+        .history-pagination {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            background: #F6FBF8;
+            border-top: 1px solid #E6F2EC;
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
+            margin-top: 12px;
+        }
+        .pagination-info {
+            font-size: 13px;
+            color: #3F525B;
+            font-family: "Inter", system-ui, sans-serif;
+            font-weight: 600;
+        }
+        .page-notation {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .page-link-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 34px;
+            height: 34px;
+            padding: 0 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #143F51;
+            background: #ffffff;
+            border: 1px solid #C9E9DA;
+            text-decoration: none;
+            transition: all .15s ease;
+        }
+        .page-link-btn:hover {
+            background: #EAF7F0;
+            color: #0E6B5E;
+            border-color: #0E6B5E;
+        }
+        .page-link-btn.active {
+            background: #0E6B5E !important;
+            color: #ffffff !important;
+            border-color: #0E6B5E !important;
+        }
+
+        @media (max-width: 991px) { .settings-page { margin-left: 0 !important; width: 100% !important; padding: 100px 16px 40px !important; } .settings-page > section.settings-card { margin-left: 0 !important; margin-right: 0 !important; } .settings-page > a.btn, .settings-page > .alert, .settings-page > .mb-4 { margin-left: 0 !important; margin-right: 0 !important; } }
     </style>
 </head>
 <body>
@@ -290,26 +356,58 @@ if (isset($_GET['edit_service'])) {
 
     <div class="accordion-item">
         <h2 class="accordion-header" id="headingUsers">
-            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseUsers" aria-expanded="false" aria-controls="collapseUsers">
-                <i class="bi bi-people-fill"></i>User Accounts
+            <button class="accordion-button <?= $isUsersTabActive ? '' : 'collapsed' ?>" type="button" data-bs-toggle="collapse" data-bs-target="#collapseUsers" aria-expanded="<?= $isUsersTabActive ? 'true' : 'false' ?>" aria-controls="collapseUsers">
+                <i class="bi bi-people-fill"></i>User Accounts (<?= (int)$totalUsers ?>)
             </button>
         </h2>
-        <div id="collapseUsers" class="accordion-collapse collapse" aria-labelledby="headingUsers" data-bs-parent="#settingsAccordion">
+        <div id="collapseUsers" class="accordion-collapse collapse <?= $isUsersTabActive ? 'show' : '' ?>" aria-labelledby="headingUsers" data-bs-parent="#settingsAccordion">
             <div class="accordion-body">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <span class="small text-muted">Manage user accounts.</span>
+            <span class="small text-muted">Manage user accounts (10 accounts per page).</span>
             <button class="btn btn-primary btn-sm" data-tip="Add User" data-bs-toggle="modal" data-bs-target="#userModal"><i class="bi bi-person-plus"></i> Add User</button>
         </div>
         <div class="table-responsive">
             <table class="table settings-table mb-0">
                 <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Date Created</th></tr></thead>
                 <tbody>
-                <?php foreach ($users as $user): ?>
-                    <tr><td><?= e($user['full_name']) ?></td><td><?= e($user['username']) ?></td><td><span class="badge bg-info text-dark"><?= e($user['role']) ?></span></td><td><?= e(date('M d, Y', strtotime($user['created_at']))) ?></td></tr>
-                <?php endforeach; ?>
+                <?php if (empty($users)): ?>
+                    <tr><td colspan="4" class="text-center text-muted">No user accounts found.</td></tr>
+                <?php else: ?>
+                    <?php foreach ($users as $user): ?>
+                        <tr><td><?= e($user['full_name']) ?></td><td><?= e($user['username']) ?></td><td><span class="badge bg-info text-dark"><?= e($user['role']) ?></span></td><td><?= e(date('M d, Y', strtotime($user['created_at']))) ?></td></tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
                 </tbody>
             </table>
         </div>
+
+        <?php if ($totalUserPages > 1): ?>
+        <?php
+        $uFrom = $totalUsers > 0 ? $userOffset + 1 : 0;
+        $uTo = min($userOffset + $userPerPage, $totalUsers);
+        $uStart = max(1, min($userPage - 2, $totalUserPages - 4));
+        $uEnd = min($totalUserPages, $uStart + 4);
+        $uStart = max(1, $uEnd - 4);
+        ?>
+        <div class="history-pagination">
+            <span class="pagination-info">Showing <strong><?= (int) $uFrom ?></strong>-<strong><?= (int) $uTo ?></strong> of <strong><?= (int) $totalUsers ?></strong> accounts</span>
+            <nav class="page-notation" aria-label="User accounts pages">
+                <?php if ($userPage > 1): ?>
+                    <a href="settings.php?user_page=<?= (int) ($userPage - 1) ?>#collapseUsers" class="page-link-btn" aria-label="Previous page"><i class="bi bi-chevron-left"></i></a>
+                <?php endif; ?>
+                <?php for ($p = $uStart; $p <= $uEnd; $p++): ?>
+                    <a href="settings.php?user_page=<?= (int) $p ?>#collapseUsers" class="page-link-btn <?= $p === $userPage ? 'active' : '' ?>"><?= (int) $p ?></a>
+                <?php endfor; ?>
+                <?php if ($userPage < $totalUserPages): ?>
+                    <a href="settings.php?user_page=<?= (int) ($userPage + 1) ?>#collapseUsers" class="page-link-btn" aria-label="Next page"><i class="bi bi-chevron-right"></i></a>
+                <?php endif; ?>
+            </nav>
+        </div>
+        <?php elseif ($totalUsers > 0): ?>
+        <div class="history-pagination">
+            <span class="pagination-info">Showing 1-<?= (int) $totalUsers ?> of <?= (int) $totalUsers ?> accounts</span>
+        </div>
+        <?php endif; ?>
             </div>
         </div>
     </div>

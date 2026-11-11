@@ -40,7 +40,7 @@ if (!$patient) {
     $parts = preg_split('/\s+/', trim($user['full_name'] ?? 'Patient'));
     $firstName = $parts[0] ?? 'Patient';
     $lastName = count($parts) > 1 ? implode(' ', array_slice($parts, 1)) : '';
-    $patientNumber = 'PAT-' . date('Ymd') . '-' . strtoupper(substr(md5(uniqid('', true)), 0, 5));
+    $patientNumber = generateShortPatientNumber($pdo);
     $stmt = $pdo->prepare("INSERT INTO patients (user_id, patient_number, first_name, last_name, email) VALUES (?, ?, ?, ?, ?)");
     $stmt->execute([$userId, $patientNumber, $firstName, $lastName, $user['email'] ?? '']);
     $patientId = (int) $pdo->lastInsertId();

@@ -356,7 +356,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!in_array($reason, $validReasons, true)) {
             $errorMessage = 'Please select a valid reason.';
         } elseif ($message === '') {
-            $errorMessage = 'Please type your concern below para maipadala kay admin.';
+            $errorMessage = 'Please type your concern below to send it to the clinic administrator.';
         } elseif (mb_strlen($message) < 3) {
             $errorMessage = 'Your concern message is too short. Please explain further.';
         } elseif (mb_strlen($message) > 1000) {
@@ -508,6 +508,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
 >
 
+<link rel="stylesheet" href="patient.css?v=8">
+
 <link
     rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
@@ -528,105 +530,11 @@ body {
 }
 
 
-/* SIDEBAR */
-
-.patient-sidebar {
-    width: 245px;
-    min-height: 100vh;
-    background: #ffffff;
-    border-right: 1px solid #e4edf0;
-    position: fixed;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    z-index: 100;
-}
-
-.patient-brand {
-    height: 86px;
-    padding: 20px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    border-bottom: 1px solid #edf2f4;
-}
-
-.brand-icon {
-    width: 42px;
-    height: 42px;
-    border-radius: 12px;
-    background: #e5f7fb;
-    color: #0E6B5E;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-}
-
-.brand-title {
-    font-size: 15px;
-    font-weight: 800;
-}
-
-.brand-subtitle {
-    color: #8aa0aa;
-    font-size: 8px;
-    font-weight: 700;
-    letter-spacing: .8px;
-}
-
-.patient-menu {
-    padding: 20px 13px;
-}
-
-.menu-label {
-    padding: 0 12px 9px;
-    color: #9aadb5;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 1px;
-}
-
-.patient-menu a {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 13px;
-    margin-bottom: 4px;
-    border-radius: 10px;
-    color: #69808b;
-    text-decoration: none;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.patient-menu a:hover,
-.patient-menu a.active {
-    background: #e6f7fb;
-    color: #0E6B5E;
-}
-
-.patient-menu a i {
-    width: 19px;
-    text-align: center;
-}
-
-.menu-divider {
-    height: 1px;
-    background: #edf2f4;
-    margin: 15px 8px;
-}
-
-.logout-link {
-    color: #dc6d6d !important;
-}
-
-
 /* MAIN */
 
 .patient-main {
-    margin-left: 245px;
-    width: calc(100% - 245px);
+    margin-left: 255px;
+    width: calc(100% - 255px);
     min-height: 100vh;
 }
 
@@ -913,31 +821,13 @@ textarea {
 }
 
 
+@media (max-width: 991px) {
+    .patient-topbar {
+        padding-left: 68px !important;
+    }
+}
+
 @media (max-width: 800px) {
-
-    .patient-sidebar {
-        width: 70px;
-    }
-
-    .brand-title,
-    .brand-subtitle,
-    .patient-menu span,
-    .menu-label {
-        display: none;
-    }
-
-    .patient-brand {
-        justify-content: center;
-    }
-
-    .patient-menu a {
-        justify-content: center;
-    }
-
-    .patient-main {
-        margin-left: 70px;
-        width: calc(100% - 70px);
-    }
 
     .patient-content {
         padding: 15px;
@@ -956,6 +846,7 @@ textarea {
 
 <body>
 
+<div class="patient-layout">
 
 <!-- =========================================================
      PATIENT SIDEBAR
@@ -981,7 +872,7 @@ textarea {
             </h1>
 
             <div class="page-small">
-                I-type ang concern mo dito — ipapadala ito sa clinic administrator.
+                Submit your concern here — it will be forwarded directly to the clinic administrator.
             </div>
 
         </div>
@@ -1022,7 +913,7 @@ textarea {
                     </h2>
 
                     <div class="concern-subtitle">
-                        Pumili ng appointment (o General Concern), piliin ang dahilan, at i-type ang mensahe mo kay admin.
+                        Select an appointment (or General Concern), choose a reason, and type your message for the administrator.
                     </div>
 
                 </div>
@@ -1226,7 +1117,7 @@ textarea {
                 <?php if ($selectedCategory === 'history'): ?>
                 <div class="alert alert-light border mt-3 mb-0" style="font-size:12px; color:#475569; background:#ffffff;">
                     <i class="bi bi-clock-history text-secondary me-1"></i>
-                    <strong>Appointment History:</strong> Ito ay nakaraang appointment mo na tapos na. Pwede mong balikan at tignan ang mga detalye nito, o mag-iwan ng follow-up concern sa clinic gamit ang form sa ibaba.
+                    <strong>Appointment History:</strong> This is a past appointment that has already concluded. You can review its details or submit a follow-up concern to the clinic using the form below.
                 </div>
                 <?php endif; ?>
 
@@ -1234,7 +1125,7 @@ textarea {
             <?php elseif (empty($myAppointments)): ?>
             <div class="alert alert-info">
                 <i class="bi bi-info-circle-fill me-1"></i>
-                Wala ka pang appointment. Pwede ka pa rin mag-send ng <strong>General Concern</strong> sa ibaba — hal. magtatanong tungkol sa services, schedule, o presyo.
+                You have no appointments yet. You can still submit a <strong>General Concern</strong> below — for example, inquiring about services, schedules, or pricing.
             </div>
             <?php endif; ?>
 
@@ -1260,14 +1151,14 @@ textarea {
             <?php endif; ?>
 
             <!-- =====================================================
-                 INPUT FORM — dito nagta-type si patient ng concern
+                 INPUT FORM — message input
             ====================================================== -->
             <div class="chat-input-wrap">
                 <div class="d-flex align-items-center gap-2 mb-3">
                     <div style="width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg, #0E6B5E, #0A4A41); color:#fff; display:flex; align-items:center; justify-content:center; font-size:16px;"><i class="bi bi-send-fill"></i></div>
                     <div>
                         <div style="font-weight:800; color:#143f51; font-size:14px;">Message to Admin</div>
-                        <div style="font-size:11px; color:#8aa0a8;">I-type ang concern mo — parang nagme-message ka kay admin</div>
+                        <div style="font-size:11px; color:#8aa0a8;">Type your concern — direct message to the clinic administrator</div>
                     </div>
                 </div>
 
@@ -1277,9 +1168,9 @@ textarea {
                     <div class="mb-3">
                         <label for="appointment_id" class="form-label">Related Appointment</label>
                         <select name="appointment_id" id="appointment_id" class="form-select" onchange="this.form.method='GET'; this.form.querySelector('[name=reason]') && null; window.location.href='appointment_concern.php?appointment_id='+this.value;">
-                            <option value="0" <?= ($requestedAppointmentId <= 0) ? 'selected' : '' ?>>General Concern (walang specific appointment)</option>
+                            <option value="0" <?= ($requestedAppointmentId <= 0) ? 'selected' : '' ?>>General Concern (no specific appointment)</option>
                             <?php if (!empty($todayAppointments)): ?>
-                                <optgroup label="📅 Today's Appointments (Ngayong Araw)">
+                                <optgroup label="📅 Today's Appointments">
                                     <?php foreach ($todayAppointments as $a): ?>
                                         <option value="<?= (int)$a['id'] ?>" <?= ($requestedAppointmentId === (int)$a['id']) ? 'selected' : '' ?>>
                                             [TODAY] <?= concern_e(date('h:i A', strtotime($a['start_time']))) ?> — <?= concern_e($a['service_type'] ?? 'Appointment') ?> (<?= concern_e($a['status'] ?? '') ?>)
@@ -1288,7 +1179,7 @@ textarea {
                                 </optgroup>
                             <?php endif; ?>
                             <?php if (!empty($upcomingAppointments)): ?>
-                                <optgroup label="⏰ Upcoming Appointments (Darating)">
+                                <optgroup label="⏰ Upcoming Appointments">
                                     <?php foreach ($upcomingAppointments as $a): ?>
                                         <option value="<?= (int)$a['id'] ?>" <?= ($requestedAppointmentId === (int)$a['id']) ? 'selected' : '' ?>>
                                             <?= concern_e(date('M d, Y', strtotime($a['appointment_date']))) ?> <?= concern_e(date('h:i A', strtotime($a['start_time']))) ?> — <?= concern_e($a['service_type'] ?? 'Appointment') ?> (<?= concern_e($a['status'] ?? '') ?>)
@@ -1297,7 +1188,7 @@ textarea {
                                 </optgroup>
                             <?php endif; ?>
                             <?php if (!empty($historyAppointments)): ?>
-                                <optgroup label="📜 Appointment History (Mga Tapos / Nakaraang Appointment)">
+                                <optgroup label="📜 Appointment History (Past Appointments)">
                                     <?php foreach ($historyAppointments as $a): ?>
                                         <option value="<?= (int)$a['id'] ?>" <?= ($requestedAppointmentId === (int)$a['id']) ? 'selected' : '' ?>>
                                             [HISTORY] <?= concern_e(date('M d, Y', strtotime($a['appointment_date']))) ?> — <?= concern_e($a['service_type'] ?? 'Appointment') ?> (<?= concern_e($a['status'] ?? '') ?>)
@@ -1306,11 +1197,11 @@ textarea {
                                 </optgroup>
                             <?php endif; ?>
                         </select>
-                        <div class="text-muted mt-1" style="font-size:10px;">Pumili kung tungkol saan ang concern mo: Today's Appointments, Upcoming Appointments, Appointment History, o General Concern.</div>
+                        <div class="text-muted mt-1" style="font-size:10px;">Select what your concern is about: Today's Appointments, Upcoming Appointments, Appointment History, or General Concern.</div>
                     </div>
 
                     <div class="mb-3">
-                        <label for="reason" class="form-label">Reason / Dahilan *</label>
+                        <label for="reason" class="form-label">Reason *</label>
                         <select name="reason" id="reason" class="form-select" required>
                             <option value="">— Select a reason —</option>
                             <?php foreach ($validReasons as $validReason): ?>
@@ -1320,10 +1211,10 @@ textarea {
                     </div>
 
                     <div class="mb-3">
-                        <label for="message" class="form-label">Your Concern / Mensahe *</label>
-                        <textarea name="message" id="message" class="form-control" maxlength="1000" required placeholder="Hal. Doc, hindi po ako makakapunta sa appointment ko bukas dahil may emergency... Pakiresched po sana..." rows="4"><?= concern_e($_POST['message'] ?? '') ?></textarea>
+                        <label for="message" class="form-label">Your Concern / Message *</label>
+                        <textarea name="message" id="message" class="form-control" maxlength="1000" required placeholder="e.g. Doctor, I might not be able to attend my appointment tomorrow due to an emergency. Could I please request a reschedule..." rows="4"><?= concern_e($_POST['message'] ?? '') ?></textarea>
                         <div class="d-flex justify-content-between mt-1">
-                            <div class="text-muted" style="font-size:10px;">I-type dito ang concern mo. Required ito.</div>
+                            <div class="text-muted" style="font-size:10px;">Please type your concern here. Required.</div>
                             <div class="text-muted" style="font-size:10px;"><span id="charCount">0</span>/1000</div>
                         </div>
                     </div>
@@ -1368,6 +1259,7 @@ textarea {
 
 </main>
 
+</div>
 
 </body>
 

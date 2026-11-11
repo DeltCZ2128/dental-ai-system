@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Abalos Dental Clinic - Patient Portal User Manual</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1e293b; max-width: 900px; margin: 0 auto; padding: 24px; background: #f8fafc; }
+  .container { background: #ffffff; padding: 40px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+  h1 { color: #0e6b5e; text-align: center; margin-bottom: 4px; font-size: 26px; }
+  h2.subtitle { color: #0a4a41; text-align: center; margin-top: 0; font-size: 18px; }
+  .meta-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px; }
+  .meta-table td { padding: 8px 12px; border: 1px solid #cbd5e1; }
+  .meta-table td.label { background: #f1f5f9; font-weight: bold; color: #475569; width: 25%; }
+  .toc { background: #f8fafc; border-left: 4px solid #0e6b5e; padding: 16px; margin: 24px 0; }
+  .toc h3 { margin-top: 0; color: #0e6b5e; font-size: 15px; }
+  .toc ul { list-style-type: none; padding-left: 10px; font-size: 13px; }
+  .toc li { margin-bottom: 4px; }
+  .toc .sec-item { font-weight: bold; color: #0a4a41; margin-top: 8px; }
+  .section-title { color: #0e6b5e; border-bottom: 2px solid #0e6b5e; padding-bottom: 6px; margin-top: 36px; font-size: 20px; text-transform: uppercase; }
+  .subsection-title { color: #0a4a41; margin-top: 20px; font-size: 16px; }
+  .callout { border-radius: 4px; padding: 12px 16px; margin: 16px 0; font-size: 13.5px; }
+  .callout-info { background: #f0fdf4; border-left: 4px solid #166534; color: #14532d; }
+  .callout-warning { background: #fffbeb; border-left: 4px solid #92400e; color: #78350f; }
+  .callout-ai { background: #eff6ff; border-left: 4px solid #1e40af; color: #1e3a8a; }
+  .callout-title { font-weight: bold; margin-bottom: 4px; text-transform: uppercase; font-size: 12px; }
+  .figure-box { text-align: center; margin: 24px 0; }
+  .figure-box img { max-width: 100%; height: auto; border: 1px solid #cbd5e1; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+  .caption { font-size: 12.5px; color: #475569; font-style: italic; margin-top: 6px; }
+  ol { padding-left: 20px; }
+  ol li { margin-bottom: 6px; }
+  .signature-table { width: 100%; margin-top: 40px; border-collapse: collapse; text-align: center; }
+  .signature-table td { width: 50%; padding: 20px 10px; border: none; }
+  .sig-line { font-weight: bold; }
+  .sig-name { font-weight: bold; color: #0e6b5e; font-size: 14px; margin-top: 4px; }
+  .sig-role { font-size: 12px; color: #475569; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>ABALOS DENTAL CLINIC</h1>
+  <h2 class="subtitle">Patient Portal User Manual</h2>
+  
+  <table class="meta-table">
+    <tr><td class="label">Project Title:</td><td>An AI-Based Intelligent Dental Appointment Scheduling System Using Machine Learning for Optimized Clinic Management</td></tr>
+    <tr><td class="label">Institution:</td><td>Global Reciprocal Colleges, Caloocan City</td></tr>
+    <tr><td class="label">Target Location:</td><td>Abalos Dental Clinic, Malolos Avenue, Bagong Barrio, Caloocan City</td></tr>
+    <tr><td class="label">Operating Schedule:</td><td>Monday – Saturday | 8:00 AM – 6:00 PM (Lunch Break: 12:00 PM – 1:00 PM)</td></tr>
+  </table>
+
+  <div class="toc">
+    <h3>TABLE OF CONTENTS</h3>
+    <ul>
+<li class='sec-item'>SECTION 1: PATIENT PORTAL USER MANUAL</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 1.1 Overview & System Access</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 1.2 Account Registration & Password Standards</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 1.3 Email One-Time Password (OTP) Verification</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 1.4 Account Sign In & Safe Session Management</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 1.5 Password Recovery Protocol</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 1.6 Patient Dashboard & Metric Counters</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 1.7 Step-by-Step Appointment Booking Procedure</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 1.8 Managing Bookings, Attendance Confirmation & Cancellation Protocol</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 1.9 In-Portal Notifications & Appointment Concerns</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 1.10 Walk-In Fast QR Check-In Protocol</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 1.11 Profile Management & Troubleshooting</li>
+    </ul>
+  </div>
+<h2 class='section-title'>Section 1: Patient Portal User Manual</h2>
+<h3 class='subsection-title'>1.1 Overview & System Access</h3>
+<p>The <strong>Patient Portal</strong> provides patients of Abalos Dental Clinic with a modern, self-service online gateway to register accounts, schedule dental appointments, review clinical booking histories, submit inquiries, and monitor live queue statuses in real time.</p>
+<p>By enabling digital self-scheduling, the system eliminates prolonged waiting room queues, prevents procedural scheduling conflicts, and provides patients with transparent 24/7 access to dental healthcare services.</p>
+<p><strong>Technical & Browser Requirements:</strong> The portal is accessible on desktop computers, laptops, tablets, and smartphones using any standard, modern web browser (Google Chrome, Microsoft Edge, Mozilla Firefox, or Apple Safari). An active internet connection is required to communicate with clinic scheduling servers.</p>
+<div class='callout callout-info'>
+  <div class='callout-title'>[System Access]</div>
+  <div>Access the official clinic scheduling portal via the secure web domain provided by Abalos Dental Clinic. Ensure your browser is up to date to guarantee proper calendar rendering.</div>
+</div>
+<h3 class='subsection-title'>1.2 Account Registration & Password Standards</h3>
+<p>First-time patients must register an official user account before booking appointments. To create an account, open the portal login page and click the <strong>'Register here'</strong> hyperlink located beneath the sign-in form.</p>
+<p>Complete all required registration fields accurately to facilitate patient record matching:</p>
+<ol>
+<li><strong>Full Legal Name (Arrow 1 - Blue):</strong> Enter your complete legal name (First Name, Middle Name, and Last Name) as it appears on government identification.</li>
+<li><strong>Contact Number (Arrow 2 - Purple):</strong> Provide an active 11-digit Philippine mobile number (e.g., 09171234567) to receive automated SMS appointment reminders.</li>
+<li><strong>Email Address (Arrow 3 - Orange):</strong> Enter a valid personal email address. This email serves as your primary login identifier, OTP verification channel, and electronic notice delivery address.</li>
+<li><strong>Password Security Standards (Arrow 4 - Red):</strong> Create a strong, private password. The system strictly enforces the following complexity standard: <strong>the password must be between 8 and 16 characters in length and must include at least one uppercase letter, one lowercase letter, one numeric digit, and one special character (e.g., !@#$%^&*)</strong>.</li>
+<li><strong>Password Confirmation:</strong> Re-type your password in the confirmation field to prevent typing errors.</li>
+<li>Click the <strong>[Register]</strong> or <strong>[Create Account]</strong> button to submit your registration form.</li>
+</ol>
+<div class='figure-box'>
+  <img src='../clean_arrows/pat_02_register.png' alt='Figure 1: Patient Account Registration Form with Step-by-Step Highlights'>
+  <div class='caption'>Figure 1: Patient Account Registration Form with Step-by-Step Highlights</div>
+</div>
+<h3 class='subsection-title'>1.3 Email One-Time Password (OTP) Verification</h3>
+<p>To safeguard patient data and prevent unauthorized automated registrations, the clinic system incorporates mandatory <strong>Email One-Time Password (OTP) Verification</strong>.</p>
+<p>Upon submitting the registration form, the server immediately generates a secure <strong>6-digit numeric OTP</strong> and transmits it to your registered email address.</p>
+<ol>
+<li><strong>Email OTP Input Fields (Arrow 1 - Blue):</strong> Open your email inbox, retrieve the 6-digit verification code, and enter the digits into the verification boxes on screen.</li>
+<li><strong>Verify Account Button (Arrow 2 - Green):</strong> Click <strong>[Verify Account]</strong> to finalize registration. The OTP code remains valid for ten (10) minutes.</li>
+<li><strong>Resend OTP Cooldown (Arrow 3 - Orange):</strong> If the verification email is not received within two minutes, check your Spam or Junk filter. Click <strong>[Resend OTP]</strong> after the 60-second countdown timer elapses.</li>
+<li>Upon successful activation, your official Patient ID (format: <strong>PAT-YYYY-XXXX</strong>, e.g., <strong>PAT-2026-0001</strong>) is generated and permanently linked to your medical profile.</li>
+</ol>
+<div class='callout callout-warning'>
+  <div class='callout-title'>[Verification Security]</div>
+  <div>Never share your 6-digit OTP with anyone. Clinic staff will never ask for your verification code or account password.</div>
+</div>
+<div class='figure-box'>
+  <img src='../clean_arrows/pat_06_verify_otp.png' alt='Figure 2: 6-Digit Email OTP Account Verification Screen'>
+  <div class='caption'>Figure 2: 6-Digit Email OTP Account Verification Screen</div>
+</div>
+<h3 class='subsection-title'>1.4 Account Sign In & Safe Session Management</h3>
+<p>Once activated, patients can sign in securely at any time to book and monitor appointments.</p>
+<p><strong>Sign-In Procedure:</strong></p>
+<ol>
+<li><strong>Email Address Field (Arrow 1 - Blue):</strong> Input your registered email address.</li>
+<li><strong>Password Field (Arrow 2 - Purple):</strong> Input your secure account password.</li>
+<li><strong>Login Button (Arrow 3 - Green):</strong> Click the <strong>[Login]</strong> button to authenticate and load your dashboard.</li>
+<li><strong>Registration Shortcut (Arrow 4 - Red):</strong> New patients can click the <strong>'Register here'</strong> link to launch the registration module.</li>
+<li><strong>Safe Session Termination (Logout):</strong> When accessing the portal on shared or public devices, always click your account initials or name in the upper-right corner and select <strong>[Logout]</strong>. This terminates your active session token and protects your personal health records.</li>
+</ol>
+<div class='figure-box'>
+  <img src='../clean_arrows/pat_01_login.png' alt='Figure 3: Patient Portal Sign-In Interface'>
+  <div class='caption'>Figure 3: Patient Portal Sign-In Interface</div>
+</div>
+<h3 class='subsection-title'>1.5 Password Recovery Protocol</h3>
+<p>If you forget your account password, you can regain access immediately through the automated self-service password recovery protocol without visiting the clinic in person.</p>
+<ol>
+<li><strong>Registered Email Input (Arrow 1 - Blue):</strong> Enter your account email address and submit the reset request.</li>
+<li><strong>Submit Reset Request (Arrow 2 - Green):</strong> Click the verification button to dispatch a secure password reset code to your email inbox.</li>
+<li>Input the received code on the confirmation screen, and define a new password satisfying the 8–16 character complexity requirements (uppercase, lowercase, number, special character).</li>
+<li>Confirm the new password and click <strong>[Update Password]</strong> to restore immediate account access.</li>
+</ol>
+<div class='figure-box'>
+  <img src='../clean_arrows/pat_07_forgot_password.png' alt='Figure 4: Patient Account Password Recovery Interface'>
+  <div class='caption'>Figure 4: Patient Account Password Recovery Interface</div>
+</div>
+<h3 class='subsection-title'>1.6 Patient Dashboard & Metric Counters</h3>
+<p>Upon authentication, the <strong>Patient Dashboard</strong> serves as your primary clinical status center. The user interface features clear, high-contrast metric summary cards providing an instant overview of your booking history and upcoming appointments:</p>
+<ol>
+<li><strong>Patient Profile & Account ID Badge (Arrow 1 - Purple):</strong> Positioned on the upper-left sidebar, displaying your registered full legal name, verified email, and permanent Patient ID (e.g., <strong>PAT-2026-0001</strong>).</li>
+<li><strong>Welcome Banner & Quick Action (Arrow 2 - Blue):</strong> Displays a personalized clinical welcome header with fast-action booking shortcuts.</li>
+<li><strong>Summary Metric Cards Grid (Arrow 3 - Green):</strong> High-contrast metric cards providing real-time tallies of <strong>Today's Appointments</strong>, <strong>Upcoming Appointments</strong>, <strong>Pending Approvals</strong>, <strong>Confirmed Appointments</strong>, <strong>Completed Visits</strong>, and <strong>No-Show & Cancelled</strong> visits.</li>
+<li><strong>Sidebar Navigation Menu (Arrow 4 - Orange):</strong> Direct navigation links to access <strong>Dashboard</strong>, <strong>My Appointments</strong>, <strong>Calendar</strong>, <strong>Notifications</strong>, <strong>Appointment Concern</strong>, <strong>My Profile</strong>, and <strong>Settings</strong>.</li>
+</ol>
+<div class='figure-box'>
+  <img src='../clean_arrows/pat_03_dashboard.png' alt='Figure 5: Patient Dashboard Overview & Metric Cards'>
+  <div class='caption'>Figure 5: Patient Dashboard Overview & Metric Cards</div>
+</div>
+<h3 class='subsection-title'>1.7 Step-by-Step Appointment Booking Procedure</h3>
+<p>Scheduling an appointment at Abalos Dental Clinic is fully automated and governed by intelligent clinical constraints to guarantee balanced chair utilization and patient safety.</p>
+<p><strong>Operational Constraints & Safety Rules Enforced:</strong></p>
+<p>• <strong>Daily Booking Limit:</strong> A strict limit of <strong>maximum two (2) appointments per day per patient account</strong> is enforced across the system. This rule prevents slot-hoarding, avoids excessive procedural fatigue, and ensures patient safety regarding local anesthesia thresholds.</p>
+<p>• <strong>Operating Clinic Hours:</strong> Appointments can only be booked from <strong>Monday to Saturday between 8:00 AM and 6:00 PM</strong>. The clinic is closed on Sundays.</p>
+<p>• <strong>Mandatory Lunch Break Exclusion:</strong> The <strong>12:00 PM – 1:00 PM</strong> time slot is automatically blocked across all doctor schedules to ensure mandatory facility sanitation and clinical rest.</p>
+<p>• <strong>Dynamic Procedure Time Allotment:</strong> Time slots dynamically allocate required chair durations based on procedure complexity (e.g., Consultation: 30 mins, Oral Prophylaxis: 45 mins, Tooth Restoration / Pasta: 45 mins, Dental Extraction: 60 mins).</p>
+<ol>
+<li><strong>Interactive Calendar (Arrow 1 - Blue):</strong> Click an open date on the calendar. Sundays, clinic holidays, and fully-booked dates are automatically disabled (greyed out).</li>
+<li><strong>Dental Service Selection (Arrow 2 - Purple):</strong> Choose your required clinical procedure (e.g., Dental Extraction, Cleaning / Oral Prophylaxis, Consultation, Dental Fillings / Pasta, Orthodontic Adjustment).</li>
+<li><strong>Attending Dentist Selection (Arrow 3 - Green):</strong> Select your preferred licensed dental practitioner from the dropdown list. The system checks their active duty schedule in real time.</li>
+<li><strong>Time Slot & Confirmation (Arrow 4 - Red):</strong> The scheduling engine dynamically generates open time blocks matching the practitioner's chair availability. Select your preferred start time, review the booking summary modal, and click <strong>[Confirm Booking]</strong>.</li>
+</ol>
+<div class='callout callout-info'>
+  <div class='callout-title'>[Booking Policy]</div>
+  <div>Each booking undergoes automated schedule conflict-checking to ensure no overlapping chair reservations occur across operating dentists.</div>
+</div>
+<div class='figure-box'>
+  <img src='../clean_arrows/pat_04_booking_calendar.png' alt='Figure 6: Interactive Appointment Booking Calendar with Time Slot Engine'>
+  <div class='caption'>Figure 6: Interactive Appointment Booking Calendar with Time Slot Engine</div>
+</div>
+<h3 class='subsection-title'>1.8 Managing Bookings, Attendance Confirmation & Cancellation Protocol</h3>
+<p>The <strong>My Appointments</strong> module enables patients to track the lifecycle of their bookings, confirm physical attendance, and manage cancellations.</p>
+<p><strong>Appointment Status Lifecycle:</strong></p>
+<p>• <strong>Pending:</strong> Initial booking request submitted and undergoing administrative validation.
+• <strong>Confirmed:</strong> Booking verified by clinic administration; operatory chair reserved.
+• <strong>Serving:</strong> Patient called into the clinical operatory chair and currently undergoing treatment.
+• <strong>Completed:</strong> Procedure successfully finished with clinical charting archived.
+• <strong>Cancelled:</strong> Booking revoked by patient or administration prior to treatment.
+• <strong>No-Show:</strong> Patient failed to arrive within the mandatory 30-minute grace period.</p>
+<ol>
+<li><strong>Filter Tabs & Search Controls (Arrow 1 - Blue):</strong> Filter your bookings across status categories (All, Confirmed, Pending, Completed, Cancelled).</li>
+<li><strong>Action Buttons (Arrow 2 - Green):</strong> Use action controls to confirm attendance or execute self-service cancellation.</li>
+<li><strong>Appointment Tracking Cards (Arrow 3 - Purple):</strong> Chronological cards displaying booking reference, attending doctor, procedure details, scheduled date/time, and live status.</li>
+<li><strong>Self-Service Cancellation Policy:</strong> Patients may cancel upcoming appointments up to <strong>two (2) hours prior</strong> to the scheduled start time. Cancelling immediately releases the reserved operatory chair back into the public scheduling inventory.</li>
+<li><strong>30-Minute Grace Period Rule:</strong> Patients must check in at the clinic desk no later than thirty (30) minutes after their scheduled start time. Arrival beyond 30 minutes results in automatic marking as <strong>No-Show</strong> to prevent subsequent patient delays.</li>
+</ol>
+<div class='callout callout-warning'>
+  <div class='callout-title'>[Grace Period Rule]</div>
+  <div>Arriving more than 30 minutes late forfeits your reserved chair slot and marks the booking as No-Show. Please cancel in advance if you cannot arrive on time.</div>
+</div>
+<div class='figure-box'>
+  <img src='../clean_arrows/pat_05_my_appointments.png' alt='Figure 7: My Appointments Tracking & Status Management Interface'>
+  <div class='caption'>Figure 7: My Appointments Tracking & Status Management Interface</div>
+</div>
+<h3 class='subsection-title'>1.9 In-Portal Notifications & Appointment Concerns</h3>
+<p>Patients receive real-time alerts for appointment approvals, schedule modifications, attending dentist reassignments, and clinical reminders. The <strong>Appointment Concern</strong> module enables patients to communicate directly with clinic management without visiting the facility in person.</p>
+<ol>
+<li><strong>Appointment Category and Details Selector (Arrow 1 - Blue):</strong> Select the target appointment and specify the query category (Rescheduling Request, Procedure Inquiry, Post-Treatment Follow-up).</li>
+<li><strong>Concern Message Input Field and Send Button (Arrow 2 - Green):</strong> Type your detailed medical inquiry or scheduling clarification into the input area and click the submission control to transmit your concern directly to the front-desk administration.</li>
+<li>Clinic administrators review submitted concerns in real time and deliver official responses directly to the patient's in-portal notification box.</li>
+</ol>
+<div class='figure-box'>
+  <img src='../clean_arrows/pat_09_patient_concern.png' alt='Figure 8: Appointment Concern Submission Interface'>
+  <div class='caption'>Figure 8: Appointment Concern Submission Interface</div>
+</div>
+<h3 class='subsection-title'>1.10 Walk-In Fast QR Check-In Protocol</h3>
+<p>Patients visiting as walk-ins can scan the QR code displayed at the reception desk using a smartphone or reception tablet to receive a digital queue ticket (e.g., #Q-005) and monitor lobby waiting sequence in real time.</p>
+<ol>
+<li><strong>QR Code Instruction Banner (Arrow 1 - Blue):</strong> Displays instructions and QR scanning guidelines for fast front-desk intake.</li>
+<li><strong>Patient Name Input Field (Arrow 2 - Purple):</strong> Input your complete full legal name or registered Patient ID.</li>
+<li><strong>Dental Service Selection and Queue Submission Control (Arrow 3 - Green):</strong> Choose required dental procedure from the dropdown list and submit to register into the operatory lobby waiting queue.</li>
+<li>Take your seat in the patient waiting lounge; your queue number will be called when your attending dentist is ready.</li>
+</ol>
+<div class='figure-box'>
+  <img src='../clean_arrows/pat_08_walkin_qr.png' alt='Figure 9: Walk-In Fast QR Check-In Interface'>
+  <div class='caption'>Figure 9: Walk-In Fast QR Check-In Interface</div>
+</div>
+<h3 class='subsection-title'>1.11 Profile Management & Troubleshooting</h3>
+<p>Patients can update personal contact details, manage residential addresses, and change account passwords via <strong>[My Profile]</strong>. If an OTP verification code is delayed during login or password reset, check spam folders or click <strong>[Resend OTP]</strong> after the 60-second cooldown period.</p>
+<ol>
+<li><strong>Personal Details & Contact Information (Arrow 1 - Blue):</strong> Manage your registered legal name, 11-digit mobile number, email address, and home address.</li>
+<li><strong>Password Security & Credential Update Controls (Arrow 2 - Green):</strong> Input current password and establish a new 8–16 character password conforming to complexity requirements.</li>
+</ol>
+<div class='figure-box'>
+  <img src='../clean_arrows/pat_10_patient_profile.png' alt='Figure 10: Patient Profile & Account Settings Interface'>
+  <div class='caption'>Figure 10: Patient Profile & Account Settings Interface</div>
+</div>
+<table class="signature-table">
+  <tr>
+    <td>
+      <div class="sig-line">_________________________________________</div>
+      <div class="sig-name">CLINIC ADMINISTRATOR</div>
+      <div class="sig-role">Operations & Facilities Management<br>Abalos Dental Clinic<br><em>Date: October 2026 | Approved</em></div>
+    </td>
+    <td>
+      <div class="sig-line">_________________________________________</div>
+      <div class="sig-name">HEAD DENTIST / MEDICAL DIRECTOR</div>
+      <div class="sig-role">Clinical Quality & Practice Governance<br>Abalos Dental Clinic<br><em>Date: October 2026 | Approved</em></div>
+    </td>
+  </tr>
+</table>
+</div>
+</body>
+</html>

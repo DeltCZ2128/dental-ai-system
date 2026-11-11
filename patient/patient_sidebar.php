@@ -507,6 +507,7 @@ function patientSidebarActive($pages)
 .patient-menu a {
     display: flex;
     align-items: center;
+    justify-content: flex-start !important;
     gap: 12px;
     min-height: auto;
     padding: 12px 13px;
@@ -517,6 +518,19 @@ function patientSidebarActive($pages)
     font-size: 14px;
     font-weight: 600;
     transition: .2s;
+}
+
+.patient-menu span {
+    display: inline !important;
+    visibility: visible !important;
+}
+
+.patient-brand .brand-title {
+    display: block !important;
+}
+
+.patient-brand .brand-subtitle {
+    display: block !important;
 }
 
 .patient-menu a i {
@@ -824,15 +838,26 @@ function patientSidebarActive($pages)
         transform: translateX(0) !important;
         display: flex !important;
         pointer-events: auto !important;
+        z-index: 2200 !important;
     }
 
     .patient-sidebar-overlay.show {
         display: block;
-        z-index: 1400;
+        z-index: 2150 !important;
+    }
+
+    body.patient-sidebar-open .patient-hamburger,
+    .patient-sidebar.open ~ .patient-hamburger {
+        display: none !important;
+        pointer-events: none !important;
     }
 
     .patient-sidebar-close {
         display: inline-flex;
+    }
+
+    .patient-topbar {
+        padding-left: 68px !important;
     }
 
     /* Kahit may sariling margin ang bawat page, sa mobile tanggalin para hindi matakpan */
@@ -996,8 +1021,11 @@ function patientSidebarActive($pages)
     {
         var sidebar = getSidebar();
         var overlay = document.getElementById("patientSidebarOverlay");
+        var hamburger = document.getElementById("patientHamburger");
         if (sidebar) sidebar.classList.add("open");
         if (overlay) overlay.classList.add("show");
+        if (hamburger) hamburger.style.display = "none";
+        document.body.classList.add("patient-sidebar-open");
         try { document.body.style.overflow = "hidden"; } catch (e) {}
     }
 
@@ -1005,8 +1033,11 @@ function patientSidebarActive($pages)
     {
         var sidebar = getSidebar();
         var overlay = document.getElementById("patientSidebarOverlay");
+        var hamburger = document.getElementById("patientHamburger");
         if (sidebar) sidebar.classList.remove("open");
         if (overlay) overlay.classList.remove("show");
+        if (hamburger) hamburger.style.display = "";
+        document.body.classList.remove("patient-sidebar-open");
         try { document.body.style.overflow = ""; } catch (e) {}
     }
 

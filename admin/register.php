@@ -88,8 +88,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $message = "Passwords do not match. Please re-enter your password.";
             $message_type = "danger";
 
-        } elseif (strlen($password) < 6) {
-            $message = "Password must be at least 6 characters long.";
+        } elseif (strlen($password) < 8 || strlen($password) > 16) {
+            $message = "Password must be 8 to 16 characters long.";
+            $message_type = "danger";
+
+        } elseif (!preg_match('/[A-Z]/', $password)) {
+            $message = "Password must contain at least one uppercase letter (A-Z).";
+            $message_type = "danger";
+
+        } elseif (!preg_match('/[a-z]/', $password)) {
+            $message = "Password must contain at least one lowercase letter (a-z).";
+            $message_type = "danger";
+
+        } elseif (!preg_match('/[0-9]/', $password)) {
+            $message = "Password must contain at least one number (0-9).";
+            $message_type = "danger";
+
+        } elseif (!preg_match('/[^A-Za-z0-9]/', $password)) {
+            $message = "Password must contain at least one special character (e.g. !@#$%^&*).";
             $message_type = "danger";
 
         } else {
@@ -126,13 +142,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             // Send Verification Code to patient's email via Gmail SMTP
             list($sentOk, $sendErr) = sendRegistrationPendingOtp($cleanEmail, $fullName, $otp);
 
-            if (!$sentOk && !empty($sendErr)) {
-                $_SESSION['pending_verify_error'] = $sendErr;
+            if (!$sentOk) {
+                unset($_SESSION['pending_registration'], $_SESSION['last_otp_resend_time'], $_SESSION['pending_verify_error']);
+                $message = !empty($sendErr)
+                    ? "Unable to send verification code: " . $sendErr
+                    : "This email address does not exist or cannot be reached. Please make sure your email account is active and genuine.";
+                $message_type = "danger";
+            } else {
+                $redirectUrl = (strpos($_SERVER['REQUEST_URI'] ?? '', '/admin/') !== false) ? '../verify_otp.php' : 'verify_otp.php';
+                header("Location: " . $redirectUrl);
+                exit;
             }
-
-            $redirectUrl = (strpos($_SERVER['REQUEST_URI'] ?? '', '/admin/') !== false) ? '../verify_otp.php' : 'verify_otp.php';
-            header("Location: " . $redirectUrl);
-            exit;
         }
     }
 }
@@ -740,6 +760,12 @@ a {
 
 }
 
+#validationModalBtn:hover {
+    background: linear-gradient(135deg, #0E6B5E, #06372F) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(14,107,94,.35) !important;
+}
+
 </style>
 
 </head>
@@ -955,6 +981,7 @@ a {
                     <form
                         method="POST"
                         action="register.php"
+                        id="registerForm"
                         autocomplete="off"
                     >
 <?= csrfField() ?>
@@ -1134,6 +1161,9 @@ a {
                                             id="password"
                                             class="form-control"
                                             placeholder="Create password"
+                                            minlength="8"
+                                            maxlength="16"
+                                            style="padding-right: 42px;"
                                             required
                                         >
 
@@ -1178,6 +1208,9 @@ a {
                                             id="confirm_password"
                                             class="form-control"
                                             placeholder="Confirm password"
+                                            minlength="8"
+                                            maxlength="16"
+                                            style="padding-right: 42px;"
                                             required
                                         >
 
@@ -1200,6 +1233,30 @@ a {
                             </div>
 
 
+                        </div>
+
+                        <!-- PASSWORD REQUIREMENTS LIVE CHECKLIST -->
+                        <div class="mb-3 p-2 rounded-3" style="background: #f4faf7; border: 1px solid #d5ebe0; font-size: 11.5px; color: #56737e;">
+                            <div class="fw-semibold mb-1" style="color: #173b4d;">
+                                <i class="bi bi-key-fill me-1" style="color: #059669;"></i> Password Requirements:
+                            </div>
+                            <div class="row g-1">
+                                <div class="col-sm-6" id="pw-rule-len">
+                                    <i class="bi bi-circle me-1"></i> 8–16 characters
+                                </div>
+                                <div class="col-sm-6" id="pw-rule-upper">
+                                    <i class="bi bi-circle me-1"></i> At least 1 uppercase letter (A–Z)
+                                </div>
+                                <div class="col-sm-6" id="pw-rule-lower">
+                                    <i class="bi bi-circle me-1"></i> At least 1 lowercase letter (a–z)
+                                </div>
+                                <div class="col-sm-6" id="pw-rule-num">
+                                    <i class="bi bi-circle me-1"></i> At least 1 number (0–9)
+                                </div>
+                                <div class="col-12" id="pw-rule-spec">
+                                    <i class="bi bi-circle me-1"></i> At least 1 special character (!@#$%^&*)
+                                </div>
+                            </div>
                         </div>
 
 
@@ -1241,9 +1298,10 @@ a {
                         <button
                             type="submit"
                             class="register-btn"
+                            id="registerSubmitBtn"
                         >
 
-                            Create Patient Account
+                            <span>Create Patient Account</span>
 
                             <i class="bi bi-arrow-right"></i>
 
@@ -1278,6 +1336,47 @@ a {
 
 </div>
 
+
+<!-- =========================================================
+     VALIDATION POPUP MODAL
+========================================================= -->
+<div class="modal fade" id="registerValidationModal" tabindex="-1" aria-labelledby="validationModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
+        <div class="modal-content" style="border-radius: 24px; border: 1px solid rgba(14,107,94,0.18); box-shadow: 0 25px 60px rgba(2,44,34,0.32); overflow: hidden; background: #ffffff;">
+            
+            <div class="modal-header border-0 pb-0 pt-3 px-4 d-flex justify-content-end">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="opacity: 0.55;"></button>
+            </div>
+
+            <div class="modal-body text-center px-4 pt-1 pb-4">
+                <div style="width: 76px; height: 76px; margin: 0 auto 16px; border-radius: 50%; background: linear-gradient(135deg, #FEF3C7, #FDE68A); color: #D97706; display: flex; align-items: center; justify-content: center; font-size: 36px; box-shadow: 0 10px 25px rgba(217,119,6,.22); border: 2px solid #FCD34D;">
+                    <i class="bi bi-telephone-exclamation-fill" id="validationModalIcon"></i>
+                </div>
+
+                <h5 class="fw-bold mb-2" id="validationModalTitle" style="color: #0A4A41; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 20px;">
+                    Invalid Mobile Number
+                </h5>
+
+                <p class="mb-3 text-muted" id="validationModalMessage" style="font-size: 14px; line-height: 1.55; color: #4b636e !important;">
+                    Please enter a genuine mobile number. Dummy or repeating sequences are not permitted.
+                </p>
+
+                <div id="validationModalHint" style="background: #F0FDF4; border: 1px dashed #86EFAC; border-radius: 12px; padding: 10px 14px; font-size: 12.5px; color: #166534; font-weight: 600; margin-bottom: 22px;">
+                    <i class="bi bi-info-circle-fill me-1" style="color: #16a34a;"></i> Standard format: <strong>09xxxxxxxxx</strong> (11 digits)
+                </div>
+
+                <button type="button" class="btn w-100 py-2 fw-bold text-white shadow-sm" data-bs-dismiss="modal" id="validationModalBtn" style="background: linear-gradient(135deg, #149A72, #0A4A41); border: none; border-radius: 12px; font-size: 15px; letter-spacing: .2px; transition: .18s;">
+                    <i class="bi bi-check2-circle me-1"></i> Okay, Got It
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+<!-- Bootstrap Bundle JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <!-- =========================================================
      JAVASCRIPT
@@ -1333,6 +1432,144 @@ if (contactNumber) {
 
     });
 
+}
+
+/*
+|--------------------------------------------------------------------------
+| PASSWORD LIVE VALIDATION
+|--------------------------------------------------------------------------
+| 8-16 characters, >=1 uppercase, >=1 lowercase, >=1 number, >=1 special char
+|--------------------------------------------------------------------------
+*/
+const passwordInput = document.getElementById("password");
+
+function updateRuleUI(elId, passed, isEmpty) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    const icon = el.querySelector("i");
+    if (isEmpty) {
+        el.style.color = "#56737e";
+        el.style.fontWeight = "400";
+        if (icon) icon.className = "bi bi-circle me-1";
+    } else if (passed) {
+        el.style.color = "#059669";
+        el.style.fontWeight = "600";
+        if (icon) icon.className = "bi bi-check-circle-fill me-1";
+    } else {
+        el.style.color = "#dc2626";
+        el.style.fontWeight = "600";
+        if (icon) icon.className = "bi bi-x-circle-fill me-1";
+    }
+}
+
+if (passwordInput) {
+    passwordInput.addEventListener("input", function () {
+        const val = this.value;
+        const isEmpty = val.length === 0;
+        const okLen = val.length >= 8 && val.length <= 16;
+        const okUpper = /[A-Z]/.test(val);
+        const okLower = /[a-z]/.test(val);
+        const okNum = /[0-9]/.test(val);
+        const okSpec = /[^A-Za-z0-9]/.test(val);
+
+        updateRuleUI("pw-rule-len", okLen, isEmpty);
+        updateRuleUI("pw-rule-upper", okUpper, isEmpty);
+        updateRuleUI("pw-rule-lower", okLower, isEmpty);
+        updateRuleUI("pw-rule-num", okNum, isEmpty);
+        updateRuleUI("pw-rule-spec", okSpec, isEmpty);
+
+        if (isEmpty) {
+            this.setCustomValidity("");
+        } else if (!okLen) {
+            this.setCustomValidity("Password must be 8 to 16 characters long.");
+        } else if (!okUpper) {
+            this.setCustomValidity("Password must contain at least one uppercase letter.");
+        } else if (!okLower) {
+            this.setCustomValidity("Password must contain at least one lowercase letter.");
+        } else if (!okNum) {
+            this.setCustomValidity("Password must contain at least one number.");
+        } else if (!okSpec) {
+            this.setCustomValidity("Password must contain at least one special character (e.g. !@#$%^&*).");
+        } else {
+            this.setCustomValidity("");
+        }
+    });
+}
+
+/*
+|--------------------------------------------------------------------------
+| VALIDATION POPUP MODAL HELPER
+|--------------------------------------------------------------------------
+*/
+let validationModalInstance = null;
+
+function showValidationModal(title, message, hintText) {
+    const modalEl = document.getElementById("registerValidationModal");
+    if (!modalEl) {
+        alert(message);
+        return;
+    }
+
+    if (title) document.getElementById("validationModalTitle").textContent = title;
+    if (message) document.getElementById("validationModalMessage").textContent = message;
+
+    const hintEl = document.getElementById("validationModalHint");
+    if (hintEl) {
+        if (hintText) {
+            hintEl.innerHTML = '<i class="bi bi-info-circle-fill me-1" style="color: #16a34a;"></i> ' + hintText;
+            hintEl.style.display = "block";
+        } else {
+            hintEl.style.display = "none";
+        }
+    }
+
+    if (!validationModalInstance && typeof bootstrap !== "undefined") {
+        validationModalInstance = new bootstrap.Modal(modalEl);
+        modalEl.addEventListener("hidden.bs.modal", function () {
+            if (contactNumber) {
+                contactNumber.focus();
+                try { contactNumber.select(); } catch (e) {}
+            }
+        });
+    }
+
+    if (validationModalInstance) {
+        validationModalInstance.show();
+    } else {
+        alert(message);
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| FORM SUBMISSION SPINNER & CLIENT CHECK
+|--------------------------------------------------------------------------
+*/
+const registerForm = document.getElementById("registerForm");
+const registerSubmitBtn = document.getElementById("registerSubmitBtn");
+
+if (registerForm && registerSubmitBtn) {
+    registerForm.addEventListener("submit", function (e) {
+        // Quick check on contact number pattern
+        if (contactNumber) {
+            const rawPhone = contactNumber.value.trim();
+            if (rawPhone.length === 11) {
+                const sub = rawPhone.substring(4);
+                if (/^(\d)\1{6}$/.test(sub) || /(\d)\1{3,}/.test(sub)) {
+                    e.preventDefault();
+                    showValidationModal(
+                        "Invalid Mobile Number",
+                        "Please enter a genuine mobile number. Dummy or repeating sequences are not permitted.",
+                        "Standard format: <strong>09xxxxxxxxx</strong> (11 digits)"
+                    );
+                    return;
+                }
+            }
+        }
+
+        registerSubmitBtn.disabled = true;
+        registerSubmitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Verifying details & sending code...';
+    });
 }
 
 </script>

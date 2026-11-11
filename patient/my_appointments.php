@@ -61,10 +61,10 @@ $cancelError = '';
 | session before any handler of this page runs. A submission that carries
 | no token, or a token that does not match, is refused.
 */
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     requireCsrf();
 }
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($patientId > 0)) {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($patientId > 0)) {
     $cancelAction = trim($_POST['action'] ?? '');
     if ($cancelAction === 'confirm_attendance') {
         $confirmId = (int)($_POST['appointment_id'] ?? 0);
@@ -115,25 +115,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($patientId > 0)) {
             $cancelError = 'Reason must not exceed 500 characters.';
         } else {
             try {
-                $stmt = $pdo->prepare("SELECT id, appointment_date, start_time, status FROM appointments WHERE id = ? AND patient_id = ? LIMIT 1");
+                $stmt = $pdo->prepare("SELECT id, appointment_date, start_time, end_time, status, rescheduled_at, dentist_id FROM appointments WHERE id = ? AND patient_id = ? LIMIT 1");
                 $stmt->execute([$reschedId, $patientId]);
                 $toResched = $stmt->fetch(PDO::FETCH_ASSOC);
                 if (!$toResched) {
                     $cancelError = 'Appointment not found.';
+                } elseif (!empty($toResched['rescheduled_at'])) {
+                    $cancelError = 'This appointment has already been rescheduled and cannot be rescheduled again.';
                 } elseif (!in_array($toResched['status'], ['Pending', 'Confirmed'], true)) {
                     $cancelError = 'Only Pending or Confirmed appointments can be rescheduled.';
                 } elseif ($toResched['appointment_date'] < date('Y-m-d')) {
                     $cancelError = 'Past appointments cannot be rescheduled.';
                 } else {
+                    $origDuration = 3600;
+                    if (!empty($toResched['start_time']) && !empty($toResched['end_time'])) {
+                        $calcDur = strtotime($toResched['end_time']) - strtotime($toResched['start_time']);
+                        if ($calcDur > 0) $origDuration = $calcDur;
+                    }
                     $prefTimeShort = substr($prefTime, 0, 5);
-                    $insStmt = $pdo->prepare("INSERT INTO appointment_concerns (appointment_id, patient_id, reason, message, status) VALUES (?, ?, ?, ?, 'New')");
-                    $insStmt->execute([
-                        $reschedId,
-                        $patientId,
-                        'Reschedule Request',
-                        'Patient requests reschedule of appointment on ' . $toResched['appointment_date'] . ' at ' . date('h:i A', strtotime($toResched['start_time'])) . ' to ' . $prefDate . ' at ' . date('h:i A', strtotime($prefTimeShort)) . '.' . ($reschedReason !== '' ? ' Reason: ' . $reschedReason : '')
-                    ]);
-                    $cancelSuccess = 'Reschedule request sent. It is now visible in the admin system.';
+                    $newStartTime = $prefTimeShort . ':00';
+                    $newEndTime = date('H:i:s', strtotime($newStartTime) + $origDuration);
+                    if ($newEndTime > '18:00:00') $newEndTime = '18:00:00';
+
+                    require_once __DIR__ . '/../functions.php';
+                    if (function_exists('appointmentConflict') && appointmentConflict((int)$toResched['dentist_id'], $prefDate, $newStartTime, $newEndTime, $reschedId)) {
+                        $cancelError = 'The selected date and time has a conflict with an existing appointment. Please choose a different schedule.';
+                    } else {
+                        $oldDateFmt = date('M d, Y', strtotime($toResched['appointment_date']));
+                        $oldTimeFmt = date('h:i A', strtotime($toResched['start_time']));
+                        $newDateFmt = date('M d, Y', strtotime($prefDate));
+                        $newTimeFmt = date('h:i A', strtotime($newStartTime));
+
+                        $notesEntry = "\n[Rescheduled by patient on " . date('Y-m-d H:i:s') . " from {$oldDateFmt} {$oldTimeFmt} to {$newDateFmt} {$newTimeFmt}" . ($reschedReason !== '' ? " - Reason: {$reschedReason}" : "") . "]";
+
+                        $upd = $pdo->prepare("
+                            UPDATE appointments
+                            SET appointment_date = ?,
+                                start_time = ?,
+                                end_time = ?,
+                                status = 'Pending',
+                                confirmed_at = NULL,
+                                rescheduled_at = NOW(),
+                                notes = CONCAT(COALESCE(notes, ''), ?)
+                            WHERE id = ? AND patient_id = ?
+                        ");
+                        $upd->execute([$prefDate, $newStartTime, $newEndTime, $notesEntry, $reschedId, $patientId]);
+
+                        try {
+                            $notif = $pdo->prepare("
+                                INSERT INTO notifications (patient_id, appointment_id, title, message, type)
+                                VALUES (?, ?, ?, ?, 'Appointment')
+                            ");
+                            $notif->execute([
+                                $patientId,
+                                $reschedId,
+                                'Appointment Rescheduled',
+                                'Your appointment has been successfully rescheduled to ' . $newDateFmt . ' at ' . $newTimeFmt . '.'
+                            ]);
+                        } catch (Throwable $e) {}
+
+                        try {
+                            $insStmt = $pdo->prepare("INSERT INTO appointment_concerns (appointment_id, patient_id, reason, message, status) VALUES (?, ?, ?, ?, 'Resolved')");
+                            $insStmt->execute([
+                                $reschedId,
+                                $patientId,
+                                'Reschedule Request',
+                                'Patient rescheduled appointment on ' . $toResched['appointment_date'] . ' at ' . $oldTimeFmt . ' to ' . $prefDate . ' at ' . $newTimeFmt . '.' . ($reschedReason !== '' ? ' Reason: ' . $reschedReason : '')
+                            ]);
+                        } catch (Throwable $e) {}
+
+                        $cancelSuccess = 'Your appointment has been rescheduled to ' . $newDateFmt . ' at ' . $newTimeFmt . '.';
+                    }
                 }
             } catch (Throwable $e) {
                 $cancelError = 'Unable to send reschedule request. Please try again.';
@@ -197,7 +249,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($patientId > 0)) {
                     }
                     $stmt = $pdo->prepare("
                         UPDATE appointments
-                        SET status = 'Cancelled', notes = ?
+                        SET status = 'Cancelled', notes = ?, cancelled_at = NOW()
                         WHERE id = ?
                         AND patient_id = ?
                         AND status IN ('Pending', 'Confirmed')
@@ -276,7 +328,9 @@ if ($patientId > 0) {
 
 $initialTab = trim($_GET['tab'] ?? '');
 if (!in_array($initialTab, ['today', 'upcoming', 'history', 'all'], true)) {
-    if (!empty($todayAppointments)) {
+    if (!empty($cancelSuccess) && isset($prefDate) && $prefDate > date('Y-m-d')) {
+        $initialTab = 'upcoming';
+    } elseif (!empty($todayAppointments)) {
         $initialTab = 'today';
     } elseif (!empty($upcomingAppointments)) {
         $initialTab = 'upcoming';
@@ -712,12 +766,6 @@ View all your dental appointments
     </small>
 </div>
 
-<div class="d-flex align-items-center gap-2">
-    <a href="book_appointment.php" class="btn btn-sm" style="background:linear-gradient(135deg,#0E6B5E,#0A4A41); color:#ffffff; font-weight:700; border-radius:8px; padding:7px 15px; border:none; text-decoration:none;">
-        <i class="bi bi-calendar-plus me-1"></i> Book Appointment
-    </a>
-</div>
-
 </div>
 
 <?php if (empty($appointments)): ?>
@@ -731,10 +779,10 @@ You don't have any appointments yet.
 </p>
 
 <a
-href="book_appointment.php"
+href="calendar.php"
 class="btn btn-primary btn-sm"
 >
-Book Appointment
+<i class="bi bi-calendar3 me-1"></i> Book via Calendar
 </a>
 
 </div>
@@ -748,12 +796,11 @@ Book Appointment
     </div>
     <h5 style="font-weight:800; color:#143f51; margin-bottom:6px;">No appointments for today</h5>
     <p class="text-muted small mb-3">You don't have any appointments scheduled for today (<?= date('F d, Y') ?>).</p>
+    <?php if (!empty($upcomingAppointments)): ?>
     <div class="d-flex justify-content-center gap-2 flex-wrap">
-        <?php if (!empty($upcomingAppointments)): ?>
         <button type="button" class="btn btn-sm btn-outline-success" onclick="selectApptCategory('upcoming')"><i class="bi bi-calendar2-plus-fill me-1"></i> View Upcoming Appointments (<?= count($upcomingAppointments) ?>)</button>
-        <?php endif; ?>
-        <a href="book_appointment.php" class="btn btn-sm btn-success" style="background:#0E6B5E; border-color:#0E6B5E;"><i class="bi bi-calendar-plus me-1"></i> Book Appointment</a>
     </div>
+    <?php endif; ?>
 </div>
 
 <div class="appt-empty-category" id="emptyUpcoming" style="display:none; padding:48px 24px; text-align:center;">
@@ -761,8 +808,7 @@ Book Appointment
         <i class="bi bi-calendar2-plus-fill"></i>
     </div>
     <h5 style="font-weight:800; color:#143f51; margin-bottom:6px;">No upcoming appointments</h5>
-    <p class="text-muted small mb-3">You have no upcoming appointments scheduled yet.</p>
-    <a href="book_appointment.php" class="btn btn-sm btn-primary" style="background:#0E6B5E; border-color:#0E6B5E;"><i class="bi bi-calendar-plus me-1"></i> Book New Appointment</a>
+    <p class="text-muted small mb-0">You have no upcoming appointments scheduled yet.</p>
 </div>
 
 <div class="appt-empty-category" id="emptyHistory" style="display:none; padding:48px 24px; text-align:center;">
@@ -888,6 +934,10 @@ $appointment['start_time']
 
 </small>
 
+<?php if (!empty($appointment['rescheduled_at'])): ?>
+<br><span class="badge bg-warning text-dark mt-1" style="font-size:10px;font-weight:700;"><i class="bi bi-calendar2-week me-1"></i>Rescheduled</span>
+<?php endif; ?>
+
 </td>
 
 <td>
@@ -953,6 +1003,7 @@ data-status="<?= myAppointmentsEscape($appointment['status']) ?>"
 data-status-class="<?= $statusClass ?>"
 data-category="<?= $category ?>"
 data-booked="<?= myAppointmentsEscape(!empty($appointment['created_at']) ? date('M d, Y · h:i A', strtotime($appointment['created_at'])) : '') ?>"
+data-rescheduled="<?= myAppointmentsEscape(!empty($appointment['rescheduled_at']) ? date('M d, Y · h:i A', strtotime($appointment['rescheduled_at'])) : '') ?>"
 data-notes="<?= myAppointmentsEscape($appointment['notes'] ?? '') ?>"
 >
 <i class="bi bi-eye"></i> View
@@ -963,6 +1014,8 @@ type="button"
 class="btn btn-sm manage-btn"
 data-appointment-id="<?= (int)$appointment['id'] ?>"
 data-status="<?= myAppointmentsEscape($appointment['status']) ?>"
+data-rescheduled="<?= !empty($appointment['rescheduled_at']) ? '1' : '0' ?>"
+data-rescheduled-at="<?= myAppointmentsEscape(!empty($appointment['rescheduled_at']) ? date('M d, Y · h:i A', strtotime($appointment['rescheduled_at'])) : '') ?>"
 data-date="<?= myAppointmentsEscape($appointment['appointment_date']) ?>"
 data-time="<?= myAppointmentsEscape(date('h:i A', strtotime($appointment['start_time']))) ?>"
 data-dentist="<?= myAppointmentsEscape($appointment['dentist_name'] ?? 'Not assigned') ?>"
@@ -1093,6 +1146,9 @@ title="Have a concern about this past appointment? Send a message"
 <div class="modal-body">
 <p class="small mb-1"><strong id="manageDate"></strong> · <strong id="manageTime"></strong></p>
 <p class="small mb-3 text-muted">Dentist: <strong id="manageDentist"></strong> · Service: <strong id="manageService"></strong></p>
+<div id="maRescheduledNotice" class="alert alert-warning py-2 px-3 small mb-3" style="display:none;border-radius:10px;font-weight:600;">
+<i class="bi bi-info-circle-fill me-1"></i> This appointment has already been rescheduled and cannot be rescheduled again.
+</div>
 <input type="hidden" id="manageAppointmentId" value="">
 <input type="hidden" id="manageMailto" value="">
 <div class="manage-action-grid">
@@ -1149,6 +1205,10 @@ title="Have a concern about this past appointment? Send a message"
 <td style="padding:10px 0;font-weight:700;color:#0f172a;"><i class="bi bi-clock me-1 text-primary"></i> Time</td>
 <td style="padding:10px 0;font-weight:600;color:#0f172a;" id="viewApptTime">—</td>
 </tr>
+<tr id="viewApptRescheduledRow" style="border-bottom:1px solid #edf2f7; display:none;">
+<td style="padding:10px 0;font-weight:700;color:#0f172a;"><i class="bi bi-calendar2-week me-1 text-warning"></i> Rescheduled On</td>
+<td style="padding:10px 0;font-weight:600;color:#0f172a;" id="viewApptRescheduled">—</td>
+</tr>
 <tr style="border-bottom:1px solid #edf2f7;">
 <td style="padding:10px 0;font-weight:700;color:#0f172a;"><i class="bi bi-bookmark-check me-1 text-primary"></i> Booked On</td>
 <td style="padding:10px 0;font-weight:600;color:#0f172a;" id="viewApptBooked">—</td>
@@ -1159,8 +1219,7 @@ title="Have a concern about this past appointment? Send a message"
 </tr>
 </table>
 </div>
-<div class="modal-footer d-flex justify-content-between align-items-center">
-<a id="viewApptConcernLink" href="appointment_concern.php" class="btn btn-outline-success btn-sm" style="font-weight:700;"><i class="bi bi-chat-dots-fill me-1"></i> Send Concern</a>
+<div class="modal-footer d-flex justify-content-end align-items-center">
 <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Close</button>
 </div>
 </div>
@@ -1185,14 +1244,17 @@ document.querySelectorAll('.view-btn').forEach(function(btn){
     document.getElementById('viewApptDate').textContent = btn.getAttribute('data-date') || '—';
     document.getElementById('viewApptTime').textContent = btn.getAttribute('data-time') || '—';
     document.getElementById('viewApptBooked').textContent = btn.getAttribute('data-booked') || '—';
+    var reschedAt = btn.getAttribute('data-rescheduled') || '';
+    var reschedRow = document.getElementById('viewApptRescheduledRow');
+    if (reschedRow) {
+      reschedRow.style.display = reschedAt ? '' : 'none';
+      var reschedVal = document.getElementById('viewApptRescheduled');
+      if (reschedVal) reschedVal.textContent = reschedAt || '—';
+    }
     var notes = btn.getAttribute('data-notes') || '';
     var notesRow = document.getElementById('viewApptNotesRow');
     document.getElementById('viewApptNotes').textContent = notes !== '' ? notes : '—';
     notesRow.style.display = notes !== '' ? '' : 'none';
-    var concernLink = document.getElementById('viewApptConcernLink');
-    if (concernLink) {
-      concernLink.href = 'appointment_concern.php?appointment_id=' + encodeURIComponent(apptId);
-    }
     new bootstrap.Modal(document.getElementById('viewModal')).show();
   });
 });
@@ -1204,6 +1266,7 @@ document.querySelectorAll('.manage-btn').forEach(function(btn){
   btn.addEventListener('click', function(){
     var id = btn.getAttribute('data-appointment-id') || '';
     var st = (btn.getAttribute('data-status') || '').toLowerCase();
+    var isResched = btn.getAttribute('data-rescheduled') === '1';
     document.getElementById('manageAppointmentId').value = id;
     document.getElementById('manageDate').textContent = btn.getAttribute('data-date') || '';
     document.getElementById('manageTime').textContent = btn.getAttribute('data-time') || '';
@@ -1213,6 +1276,10 @@ document.querySelectorAll('.manage-btn').forEach(function(btn){
     document.getElementById('maComingApptId').value = id;
     var comingBtn = document.getElementById('maComingBtn');
     if (comingBtn) comingBtn.style.display = (st === 'confirmed') ? '' : 'none';
+    var reschedBtn = document.getElementById('maReschedBtn');
+    if (reschedBtn) reschedBtn.style.display = isResched ? 'none' : '';
+    var reschedNotice = document.getElementById('maRescheduledNotice');
+    if (reschedNotice) reschedNotice.style.display = isResched ? '' : 'none';
     manageModalInstance = new bootstrap.Modal(document.getElementById('manageModal'));
     manageModalInstance.show();
   });

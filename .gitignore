@@ -9,3 +9,4 @@ backup_*/
 *.tmp
 __pycache__/
 *.pyc
+*_backup_*.php

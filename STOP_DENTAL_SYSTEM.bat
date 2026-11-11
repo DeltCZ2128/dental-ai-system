@@ -17,13 +17,21 @@ if "%ERRORLEVEL%"=="0" (
 )
 
 echo.
-echo  [*] Stopping MySQL database...
-taskkill /F /IM mysqld.exe >nul 2>&1
-if "%ERRORLEVEL%"=="0" (
-    echo      [OK] MySQL stopped.
-) else (
-    echo      [i] MySQL was not running.
+echo  [*] Gracefully stopping MySQL database...
+if exist "C:\xampp\mysql\bin\mysqladmin.exe" (
+    "C:\xampp\mysql\bin\mysqladmin.exe" -u root shutdown >nul 2>&1
 )
+ping 127.0.0.1 -n 3 >nul
+tasklist /FI "IMAGENAME eq mysqld.exe" 2>NUL | find /I /N "mysqld.exe" >NUL
+if "%ERRORLEVEL%"=="0" (
+    taskkill /IM mysqld.exe >nul 2>&1
+    ping 127.0.0.1 -n 2 >nul
+)
+tasklist /FI "IMAGENAME eq mysqld.exe" 2>NUL | find /I /N "mysqld.exe" >NUL
+if "%ERRORLEVEL%"=="0" (
+    taskkill /F /IM mysqld.exe >nul 2>&1
+)
+echo      [OK] MySQL cleanly stopped.
 
 echo.
 echo  ================================================================

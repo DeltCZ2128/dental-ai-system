@@ -3171,7 +3171,7 @@ include __DIR__ . '/dentist_sidebar.php';
 
         <div style="margin:0 0 8px;text-align:left;display:flex;gap:8px;flex-wrap:wrap;">
             <?php if (($_GET['from'] ?? '') === 'notifications'): ?>
-            <a href="notifications.php<?= (($_GET['nosidebar'] ?? '') === '1' ? '?nosidebar=1' : '') ?>" data-tip="Back to Notifications" style="display:inline-flex;align-items:center;gap:6px;background:#ffffff;border:1.5px solid #0E6B5E;color:#0E6B5E;font-weight:700;font-size:13px;padding:9px 16px;border-radius:10px;text-decoration:none;box-shadow:0 4px 12px rgba(14,107,94,.15);font-family:'Plus Jakarta Sans','Inter',system-ui,sans-serif;">
+            <a href="notifications.php" data-tip="Back to Notifications" style="display:inline-flex;align-items:center;gap:6px;background:#ffffff;border:1.5px solid #0E6B5E;color:#0E6B5E;font-weight:700;font-size:13px;padding:9px 16px;border-radius:10px;text-decoration:none;box-shadow:0 4px 12px rgba(14,107,94,.15);font-family:'Plus Jakarta Sans','Inter',system-ui,sans-serif;">
                 <i class="bi bi-bell-fill"></i>Back to Notifications
             </a>
             <?php endif; ?>
@@ -3188,10 +3188,10 @@ include __DIR__ . '/dentist_sidebar.php';
         <?php endif; ?>
 
         <?php if (isset($_GET['saved'])): ?>
-        <div style="margin:0 0 12px;background:#EAF7F0;border:1.5px solid #0E6B5E;border-radius:12px;padding:11px 16px;color:#0A4A41;font-size:13px;font-weight:700;"><i class="bi bi-check-circle-fill"></i> Appointment status updated — makikita na ito ni admin.</div>
+        <div style="margin:0 0 12px;background:#EAF7F0;border:1.5px solid #0E6B5E;border-radius:12px;padding:11px 16px;color:#0A4A41;font-size:13px;font-weight:700;"><i class="bi bi-check-circle-fill"></i> Appointment status updated successfully.</div>
         <?php endif; ?>
         <?php if (isset($_GET['save_failed'])): ?>
-        <div style="margin:0 0 12px;background:#FDECEC;border:1.5px solid #b42318;border-radius:12px;padding:11px 16px;color:#7a271a;font-size:13px;font-weight:700;"><i class="bi bi-exclamation-triangle-fill"></i> Hindi na-save ang status — pakisubukang muli o i-report sa admin.</div>
+        <div style="margin:0 0 12px;background:#FDECEC;border:1.5px solid #b42318;border-radius:12px;padding:11px 16px;color:#7a271a;font-size:13px;font-weight:700;"><i class="bi bi-exclamation-triangle-fill"></i> Failed to save status — please try again or contact the administrator.</div>
         <?php endif; ?>
 
 
@@ -3249,7 +3249,7 @@ include __DIR__ . '/dentist_sidebar.php';
 
             <?php if (empty($completedListAppt)): ?>
 
-            <div class="sumcard-list-empty">Wala pang completed appointment.</div>
+            <div class="sumcard-list-empty">No completed appointments yet.</div>
 
             <?php else: ?>
 
@@ -3303,7 +3303,7 @@ include __DIR__ . '/dentist_sidebar.php';
 
             <?php if (empty($cancelNoShowListAppt)): ?>
 
-            <div class="sumcard-list-empty">Wala pang cancelled o no-show na appointment.</div>
+            <div class="sumcard-list-empty">No cancelled or no-show appointments yet.</div>
 
             <?php else: ?>
 
@@ -3479,7 +3479,7 @@ include __DIR__ . '/dentist_sidebar.php';
                 <div class="appt-top-icon today"><i class="bi bi-calendar-event-fill"></i></div>
                 <div style="flex:1;min-width:0;">
                     <h3>Today's Appointment</h3>
-                    <small><?= dentistEscape(date('M d, Y')) ?> · <?= count($filteredTodayAppointments) ?> ipinapakita</small>
+                    <small><?= dentistEscape(date('M d, Y')) ?> · <?= count($filteredTodayAppointments) ?> shown</small>
                 </div>
                 <span class="section-count"><?= (int) $todayCount ?></span>
                 <i class="bi bi-chevron-down tab-chevron"></i>
@@ -3639,7 +3639,7 @@ Change Status <i class="bi bi-chevron-down"></i>
                 <div class="appt-top-icon upcoming"><i class="bi bi-calendar2-week-fill"></i></div>
                 <div style="flex:1;min-width:0;">
                     <h3>Upcoming Appointments</h3>
-                    <small>After today · <?= count($filteredUpcomingAppointments) ?> ipinapakita<?= $filterStatus !== '' ? ' with status ' . dentistEscape($filterStatus) : '' ?></small>
+                    <small>After today · <?= count($filteredUpcomingAppointments) ?> shown<?= $filterStatus !== '' ? ' with status ' . dentistEscape($filterStatus) : '' ?></small>
                 </div>
                 <span class="section-count"><?= (int) $upcomingCount ?></span>
                 <i class="bi bi-chevron-down tab-chevron"></i>
@@ -3725,7 +3725,7 @@ data-notes="<?= dentistEscape($upAppt['notes'] ?? '') ?>"
                 <div class="appt-top-icon completed"><i class="bi bi-clock-history"></i></div>
                 <div style="flex:1;min-width:0;">
                     <h3>Appointment History</h3>
-                    <small>Past and finished appointments · <?= count($historyAppointments) ?> ipinapakita</small>
+                    <small>Past and finished appointments · <?= count($historyAppointments) ?> shown</small>
                 </div>
                 <span class="section-count"><?= count($historyAppointments) ?></span>
                 <i class="bi bi-chevron-down tab-chevron"></i>
@@ -3773,7 +3773,7 @@ data-notes="<?= dentistEscape($upAppt['notes'] ?? '') ?>"
                                                     data-status="<?= dentistEscape($histAppt['status']) ?>"
                                                     data-notes="<?= dentistEscape($histAppt['notes'] ?? '') ?>"
                                                     data-confirmed="<?= dentistEscape(!empty($histAppt['confirmed_at']) ? date('M d, Y h:i A', strtotime($histAppt['confirmed_at'])) : '') ?>"
-                                                    data-cancelled="<?= dentistEscape(!empty($histAppt['cancelled_at']) ? date('M d, Y h:i A', strtotime($histAppt['cancelled_at'])) : '') ?>"
+                                                    data-cancelled="<?= dentistEscape(!empty($histAppt['cancelled_at']) ? date('M d, Y h:i A', strtotime($histAppt['cancelled_at'])) : ($histAppt['status'] === 'Cancelled' && !empty($histAppt['created_at']) ? date('M d, Y h:i A', strtotime($histAppt['created_at'])) : '')) ?>"
                                                     data-checkedin="<?= dentistEscape(!empty($histAppt['checked_in_at']) ? date('M d, Y h:i A', strtotime($histAppt['checked_in_at'])) : '') ?>"
                                                     data-serving="<?= dentistEscape(!empty($histAppt['serving_at']) ? date('M d, Y h:i A', strtotime($histAppt['serving_at'])) : '') ?>"
                                                     data-completed="<?= dentistEscape(!empty($histAppt['completed_at']) ? date('M d, Y h:i A', strtotime($histAppt['completed_at'])) : '') ?>"
@@ -4006,7 +4006,7 @@ data-rescheduled="<?= dentistEscape(!empty($histAppt['rescheduled_at']) ? date('
                     <div class="appt-top-icon upcoming" style="width:38px;height:38px;font-size:17px;"><i class="bi bi-list-check"></i></div>
                     <div>
                         <h3>Appointment List</h3>
-                        <small>Ngayong araw · <?= dentistEscape(date('M d, Y')) ?> · <?= count($filteredTodayAppointments) ?> ipinapakita</small>
+                        <small>Today · <?= dentistEscape(date('M d, Y')) ?> · <?= count($filteredTodayAppointments) ?> shown</small>
                     </div>
                 </div>
                 <div class="appt-panel-body">
@@ -4087,7 +4087,7 @@ data-rescheduled="<?= dentistEscape(!empty($histAppt['rescheduled_at']) ? date('
                                 <a class="filter-clear" href="appointments.php" data-tip="Clear filter">Clear filter</a>
                             <?php endif; ?>
                         </form>
-                        <div style="font-size:11px;color:#8499a1;margin-top:10px;">Filter agad na nag-aapply sa gitnang list (status) at sa tables sa ibaba via anchor.</div>
+                        <div style="font-size:11px;color:#8499a1;margin-top:10px;">Filters apply immediately to the list and lower summary tables.</div>
                     </div>
                 </div>
             </div>
@@ -4540,19 +4540,6 @@ data-rescheduled="<?= dentistEscape(!empty($histAppt['rescheduled_at']) ? date('
     </div>
 
 
-        <?php if (($_GET['nosidebar'] ?? '') === '1'): ?>
-        <style>.portal-sidebar{display:none!important;}.portal-main{margin-left:0!important;width:100%!important;}</style>
-        <script>
-        function autoCloseSubTab(){
-            try{ if(window.opener && !window.opener.closed){ window.opener.focus(); } }catch(e){}
-            /* Hindi na nagsasara ang tab — same-tab navigation. */
-            if (!window.opener || window.opener.closed) {
-                window.location.href='dentist_dashboard.php';
-            }
-            return false;
-        }
-        </script>
-        <?php endif; ?>
 </main>
 
 
@@ -5224,17 +5211,7 @@ document.addEventListener(
 
 </script>
 
-<script>
-/* Itago ang sidebar kapag binuksan mula sa dashboard menu (?nosidebar=1) */
-(function(){
-    try {
-        if (new URLSearchParams(window.location.search).get('nosidebar') === '1') {
-            document.querySelectorAll('.portal-sidebar').forEach(function(el){ el.style.display = 'none'; });
-            document.querySelectorAll('.portal-main').forEach(function(el){ el.style.marginLeft = '0'; el.style.width = '100%'; });
-        }
-    } catch(e){}
-})();
-</script>
+
 
 
 <script>

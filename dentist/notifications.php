@@ -115,7 +115,6 @@ if (!in_array($filter, $allowedFilters, true)) {
     $filter = 'All';
 }
 
-$notifNoSidebarSuffix = (($_GET['nosidebar'] ?? '') === '1') ? '&nosidebar=1' : '';
 
 
 /*
@@ -226,13 +225,13 @@ foreach ($appointments as $appointment) {
 
         $notifications[] = [
             'type' => 'cancelled',
-            'icon' => 'bi-calendar-x',
-            'emoji' => '⚠️',
+            'badge_label' => 'Cancelled',
+            'icon' => 'bi-calendar-x-fill',
             'title' => 'Appointment Cancelled',
             'message' =>
                 $fullName
                 . ' cancelled an appointment scheduled for '
-                . date('F j', strtotime($appointmentDate))
+                . date('F j, Y', strtotime($appointmentDate))
                 . ' at '
                 . date('h:i A', strtotime($startTime))
                 . '.',
@@ -262,21 +261,21 @@ foreach ($appointments as $appointment) {
         $upcomingMsg = ($appointmentDate === $today)
             ? 'You have an appointment with '
                 . $fullName
-                . ' at '
+                . ' today at '
                 . date('h:i A', strtotime($startTime))
                 . '.'
             : 'You have an appointment with '
                 . $fullName
                 . ' on '
-                . date('F j', strtotime($appointmentDate))
+                . date('F j, Y', strtotime($appointmentDate))
                 . ' at '
                 . date('h:i A', strtotime($startTime))
                 . '.';
 
         $notifications[] = [
             'type' => 'upcoming',
-            'icon' => 'bi-alarm',
-            'emoji' => '⏰',
+            'badge_label' => 'Upcoming',
+            'icon' => 'bi-alarm-fill',
             'title' => 'Upcoming Appointment',
             'message' => $upcomingMsg,
             'appointment' => $appointment,
@@ -318,17 +317,17 @@ foreach ($appointments as $appointment) {
                 true
             )
                 ? 'has an approved appointment'
-                : 'has a new appointment';
+                : 'booked a new appointment';
 
             $notifications[] = [
                 'type' => 'new',
-                'icon' => 'bi-calendar-plus',
-                'emoji' => '🦷',
-                'title' => 'New Appointment',
+                'badge_label' => 'New Booking',
+                'icon' => 'bi-calendar-plus-fill',
+                'title' => 'New Appointment Assigned',
                 'message' =>
                     $fullName
                     . ' ' . $newVerb . ' on '
-                    . date('F j', strtotime($appointmentDate))
+                    . date('F j, Y', strtotime($appointmentDate))
                     . ' at '
                     . date('h:i A', strtotime($startTime))
                     . '.',
@@ -357,12 +356,12 @@ foreach ($appointments as $appointment) {
 
         $notifications[] = [
             'type' => 'today',
-            'icon' => 'bi-calendar-event',
-            'emoji' => '📅',
-            'title' => "Today's Appointment",
+            'badge_label' => 'Today',
+            'icon' => 'bi-calendar-event-fill',
+            'title' => "Today's Appointment Reminder",
             'message' =>
                 $fullName
-                . ' has an appointment today at '
+                . ' is scheduled for an appointment today at '
                 . date(
                     'h:i A',
                     strtotime($startTime)
@@ -391,28 +390,32 @@ foreach ($appointments as $appointment) {
     ) {
 
         if ($statusLower === 'completed') {
-            $historyTitle = 'Appointment completed';
+            $historyTitle = 'Appointment Completed';
             $historyMsg = $fullName . ' completed an appointment on '
                 . date('F d, Y', strtotime($appointmentDate)) . '.';
-            $historyIcon = 'bi-check-circle';
+            $historyIcon = 'bi-check-circle-fill';
             $historySub = 'completed';
+            $historyBadge = 'Completed';
         } elseif ($statusLower === 'no-show' || $statusLower === 'no show') {
-            $historyTitle = 'Patient did not show up';
+            $historyTitle = 'Patient No-Show';
             $historyMsg = $fullName . ' missed an appointment on '
                 . date('F d, Y', strtotime($appointmentDate)) . '.';
-            $historyIcon = 'bi-person-x';
+            $historyIcon = 'bi-person-x-fill';
             $historySub = 'noshow';
+            $historyBadge = 'No-Show';
         } else {
-            $historyTitle = 'Past appointment';
+            $historyTitle = 'Past Appointment';
             $historyMsg = $fullName . ' had an appointment on '
                 . date('F d, Y', strtotime($appointmentDate)) . '.';
             $historyIcon = 'bi-clock-history';
             $historySub = 'past';
+            $historyBadge = 'Past';
         }
 
         $notifications[] = [
             'type' => 'history',
             'history_sub' => $historySub,
+            'badge_label' => $historyBadge,
             'icon' => $historyIcon,
             'title' => $historyTitle,
             'message' => $historyMsg,
@@ -441,12 +444,21 @@ try {
             dn.type,
             dn.is_read,
             dn.created_at,
+            a.appointment_date,
+            a.start_time,
+            a.end_time,
+            a.service_type,
+            a.status AS appt_status,
+            a.notes AS appt_notes,
             p.first_name,
             p.middle_name,
             p.last_name,
-            p.patient_number
+            p.patient_number,
+            p.contact_number,
+            p.email
         FROM dentist_notifications dn
-        LEFT JOIN patients p ON p.id = dn.patient_id
+        LEFT JOIN appointments a ON a.id = dn.appointment_id
+        LEFT JOIN patients p ON p.id = COALESCE(dn.patient_id, a.patient_id)
         WHERE dn.dentist_id = ?
         ORDER BY dn.created_at DESC
         LIMIT 50
@@ -455,18 +467,30 @@ try {
     $concernNotifs = $concernStmt->fetchAll(PDO::FETCH_ASSOC);
 
     foreach ($concernNotifs as $cn) {
-        $cnName = trim(
-            ($cn['first_name'] ?? '')
-            . ' ' . ($cn['middle_name'] ?? '')
-            . ' ' . ($cn['last_name'] ?? '')
-        );
+        $cnAppointment = [
+            'id' => (int)($cn['appointment_id'] ?? 0),
+            'patient_id' => (int)($cn['patient_id'] ?? 0),
+            'appointment_date' => $cn['appointment_date'] ?? '',
+            'start_time' => $cn['start_time'] ?? '',
+            'end_time' => $cn['end_time'] ?? '',
+            'service_type' => $cn['service_type'] ?? 'General Consultation',
+            'status' => $cn['appt_status'] ?? 'Concern Raised',
+            'notes' => $cn['message'] ?: ($cn['appt_notes'] ?? ''),
+            'created_at' => $cn['created_at'] ?? '',
+            'patient_number' => $cn['patient_number'] ?? '',
+            'first_name' => $cn['first_name'] ?? 'Patient',
+            'middle_name' => $cn['middle_name'] ?? '',
+            'last_name' => $cn['last_name'] ?? '',
+            'contact_number' => $cn['contact_number'] ?? '',
+            'email' => $cn['email'] ?? ''
+        ];
         $notifications[] = [
             'type' => 'concern',
-            'icon' => 'bi-chat-dots',
-            'emoji' => '💬',
+            'badge_label' => 'Concern',
+            'icon' => 'bi-chat-dots-fill',
             'title' => $cn['title'] ?? 'Patient Concern',
             'message' => $cn['message'] ?? '',
-            'appointment' => null,
+            'appointment' => $cnAppointment,
             'date_time' => $cn['created_at'] ?? date('Y-m-d H:i:s'),
             'priority' => 0,
             'is_read' => (int)($cn['is_read'] ?? 0),
@@ -628,6 +652,7 @@ $allCount = count(
 $upcomingCount = 0;
 $cancelledCount = 0;
 $newCount = 0;
+$concernCount = 0;
 $historyCount = 0;
 $historyCompletedCount = 0;
 $historyNoshowCount = 0;
@@ -658,6 +683,13 @@ foreach ($notifications as $notification) {
         $notification['type'] === 'new'
     ) {
         $newCount++;
+    }
+
+
+    if (
+        $notification['type'] === 'concern'
+    ) {
+        $concernCount++;
     }
 
 
@@ -725,535 +757,225 @@ foreach ($notifications as $notification) {
 
 
     <style>
-
-        /*
-        |--------------------------------------------------------------------------
-        | NOTIFICATION SUMMARY
-        |--------------------------------------------------------------------------
-        */
-
-        .notification-summary {
-            display: grid;
-            grid-template-columns: repeat(5, minmax(0, 1fr));
-            gap: 10px;
-            margin-bottom: 18px;
-            align-items: stretch;
-        }
-
-        @media (max-width: 1200px) {
-            .notification-summary {
-                grid-template-columns: repeat(3, minmax(0, 1fr));
-            }
-        }
-        @media (max-width: 768px) {
-            .notification-summary {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-        }
-        @media (max-width: 480px) {
-            .notification-summary {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* ===== SUMMARY CARD: Exact Match with Dentist Dashboard (#statsGrid .card.stat-featured) ===== */
-        .notification-summary-card {
-            position: relative;
+        /* ======================================================
+           NOTIFICATION CENTER — FEED / INBOX LAYOUT
+        ======================================================= */
+        .notif-center-shell {
+            background: #ffffff;
+            border: 1px solid #C9E9DA;
+            border-radius: 18px;
+            box-shadow: 0 14px 36px rgba(6, 59, 49, 0.14);
             overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            height: 100%;
-            gap: 4px;
-            padding: 11px 11px 10px;
-            background: linear-gradient(135deg, #047857 0%, #059669 55%, #10B981 100%) !important;
-            border: 1px solid rgba(255, 255, 255, .28) !important;
-            border-radius: 13px;
-            box-shadow: 0 16px 34px rgba(5, 150, 105, .35);
-            color: #ffffff;
-            text-decoration: none !important;
-            cursor: pointer;
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
-            transition: .25s ease;
         }
 
-        .notification-summary-card::before,
-        .notification-summary-card::after {
-            content: "";
-            position: absolute;
-            border-radius: 50%;
-            pointer-events: none;
-        }
-
-        .notification-summary-card::before {
-            width: 170px;
-            height: 170px;
-            top: -78px;
-            right: -58px;
-            background: radial-gradient(circle, rgba(255, 255, 255, .22), rgba(255, 255, 255, 0) 70%);
-        }
-
-        .notification-summary-card::after {
-            width: 130px;
-            height: 130px;
-            bottom: -60px;
-            left: -40px;
-            background: radial-gradient(circle, rgba(255, 255, 255, .16), rgba(255, 255, 255, 0) 70%);
-        }
-
-        .notification-summary-card > * {
-            position: relative;
-            z-index: 1;
-        }
-
-        .notification-summary-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 22px 42px rgba(5, 150, 105, .45);
-            border-color: rgba(255, 255, 255, .62) !important;
-            color: #ffffff;
-        }
-
-        .notification-summary-card.active-card {
-            border-color: #ffffff !important;
-            border-width: 2px !important;
-            box-shadow: 0 22px 42px rgba(5, 150, 105, .46);
-            transform: translateY(-3px);
-        }
-
-        .notification-summary-head,
-        .stat-featured-head {
+        /* Header Banner */
+        .notif-center-head {
             display: flex;
             align-items: center;
-            gap: 8px;
-            flex-wrap: nowrap;
-            width: 100%;
-        }
-
-        .notification-summary-icon,
-        .stat-featured-icon {
-            width: 30px;
-            height: 30px;
-            border-radius: 9px;
-            font-size: 14px;
-            flex-shrink: 0;
-            background: rgba(255, 255, 255, .18);
-            border: 1px solid rgba(255, 255, 255, .32);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            color: #ffffff;
-            box-shadow: 0 8px 18px rgba(0, 0, 0, .14);
-        }
-
-        .notification-summary-label,
-        .notification-summary-card h3 {
-            font-size: 14px !important;
-            line-height: 1.2 !important;
-            margin: 0 !important;
-            flex: 1 !important;
-            min-width: 0 !important;
-            letter-spacing: 0 !important;
-            min-height: 2.4em !important;
-            display: flex !important;
-            align-items: center !important;
-            color: rgba(255, 255, 255, .92) !important;
-            font-weight: 700 !important;
-        }
-
-        .notification-summary-number,
-        .notification-summary-card .number {
-            font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
-            font-size: 32px;
-            line-height: 1;
-            font-weight: 800;
-            letter-spacing: -.03em;
-            font-variant-numeric: tabular-nums;
-            text-shadow: 0 6px 18px rgba(0, 0, 0, .22);
-            color: #ffffff;
-            margin-top: auto;
-            padding-top: 4px;
-        }
-
-        .notification-summary-sub,
-        .stat-featured-sub {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 12px;
-            line-height: 1.35;
-            font-weight: 600;
-            color: rgba(255, 255, 255, .86);
-            margin-top: 3px;
-            width: 100%;
-        }
-
-        .stat-featured-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #A7F3D0;
-            box-shadow: 0 0 0 4px rgba(167, 243, 208, .25);
-            animation: statDotPulse 1.9s ease-in-out infinite;
-            flex-shrink: 0;
-            display: inline-block;
-        }
-
-        @keyframes statDotPulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: .5; transform: scale(.8); }
-        }
-
-        .notification-summary-card .stat-go {
-            position: absolute;
-            right: 9px;
-            bottom: 9px;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, .2);
-            border: 1px solid rgba(255, 255, 255, .35);
-            color: #ffffff;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 10px;
-            transition: .2s ease;
-            z-index: 2;
-        }
-
-        .notification-summary-card:hover .stat-go {
-            background: rgba(255, 255, 255, .35);
-            transform: translateX(2px);
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | FILTER
-        |--------------------------------------------------------------------------
-        */
-
-        .notification-filter {
-
-            display: flex;
-
             justify-content: space-between;
-
-            align-items: center;
-
-            gap: 15px;
-
             flex-wrap: wrap;
-
-            background:
-                linear-gradient(135deg, #0E6B5E, #0A4A41);
-
-            border-bottom:
-                1px solid #C9E9DA;
-
-            padding:
-                24px 26px;
-
-            margin:
-                -20px -20px 22px -20px;
-
-            border-radius:
-                16px 16px 0 0;
+            gap: 14px;
+            padding: 20px 24px;
+            background: linear-gradient(135deg, #0E6B5E 0%, #0A4A41 100%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.14);
         }
 
-
-        .notification-filter-title {
-
-            font-size:
-                21px;
-
-            font-weight:
-                800;
-
-            color:
-                #ffffff;
-
-            font-family:
-                "Plus Jakarta Sans",
-                "Inter", system-ui, sans-serif;
-
-            letter-spacing:
-                -.02em;
+        .notif-head-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
         }
 
-
-        .notification-filter-sub {
-
-            font-size:
-                13.5px;
-
-            font-weight:
-                600;
-
-            color:
-                #D9F2E6;
-
-            margin-top:
-                6px;
+        .notif-bell-badge {
+            position: relative;
+            width: 46px;
+            height: 46px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.16);
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            color: #ffffff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 21px;
+            flex-shrink: 0;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.16);
         }
 
+        .notif-head-title {
+            font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+            font-size: 19px;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: -0.02em;
+            margin: 0;
+            line-height: 1.2;
+        }
+
+        .notif-head-sub {
+            font-size: 13px;
+            font-weight: 500;
+            color: #D9F2E6;
+            margin-top: 3px;
+        }
+
+        .notif-head-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .notif-counter-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 13px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 800;
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            color: #ffffff;
+        }
+
+        .notif-counter-pill.unread-pill {
+            background: linear-gradient(135deg, #FDE68A, #F59E0B);
+            border-color: rgba(255, 255, 255, 0.4);
+            color: #451A03;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.28);
+        }
+
+        .btn-mark-all-read {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.38);
+            background: rgba(255, 255, 255, 0.12);
+            color: #ffffff;
+            font-size: 12.5px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.18s ease;
+        }
+
+        .btn-mark-all-read:hover {
+            background: #ffffff;
+            color: #0E6B5E;
+            border-color: #ffffff;
+        }
+
+        /* Filter Tabs Strip */
+        .notif-tabs-strip {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 12px 24px;
+            background: #F4FAF7;
+            border-bottom: 1px solid #DDEEE5;
+        }
 
         .filter-buttons {
-
             display: flex;
-
+            align-items: center;
             gap: 8px;
-
             flex-wrap: wrap;
         }
 
-
         .filter-button {
-
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
             text-decoration: none;
-
-            padding: 9px 17px;
-
+            padding: 7px 14px;
             border-radius: 999px;
-
-            border: 1px solid rgba(255,255,255,.45);
-
-            background: rgba(255,255,255,.12);
-
-            color: #ffffff;
-
-            font-size: 13px;
-
-            font-weight: 600;
+            border: 1px solid #CBE4D8;
+            background: #ffffff;
+            color: #244f60;
+            font-size: 12.5px;
+            font-weight: 700;
+            transition: all 0.18s ease;
         }
 
+        .filter-button i {
+            font-size: 13px;
+            color: #0E6B5E;
+        }
+
+        .filter-button .tab-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 20px;
+            height: 20px;
+            padding: 0 6px;
+            border-radius: 999px;
+            background: #EAF7F0;
+            color: #0E6B5E;
+            font-size: 11px;
+            font-weight: 800;
+        }
 
         .filter-button:hover {
-
-            background: rgba(255,255,255,.28);
+            background: #EAF7F0;
+            border-color: #0E6B5E;
+            color: #0E6B5E;
         }
-
 
         .filter-button.active {
-
-            background: #ffffff;
-
-            border-color: #ffffff;
-
-            color: #0E6B5E;
-
-            font-weight: 800;
+            background: linear-gradient(135deg, #0E6B5E, #0A4A41);
+            border-color: #0E6B5E;
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(14, 107, 94, 0.24);
         }
 
+        .filter-button.active i {
+            color: #ffffff;
+        }
 
-        /*
-        |--------------------------------------------------------------------------
-        | NOTIFICATION ITEM
-        |--------------------------------------------------------------------------
-        */
+        .filter-button.active .tab-count {
+            background: rgba(255, 255, 255, 0.22);
+            color: #ffffff;
+        }
 
-        .notification-list {
-
+        .history-subtabs {
             display: flex;
-
-            flex-direction: column;
-
-            gap: 12px;
-        }
-
-
-        .notification-item {
-
-            display: flex;
-
-            align-items: flex-start;
-
-            gap: 14px;
-
-            padding: 17px;
-
-            border: 1px solid #e4ebf1;
-
-            border-radius: 10px;
-
-            background: #ffffff;
-
-            transition: 0.2s ease;
-        }
-
-
-        .notification-item:hover {
-
-            background: #f9fcfe;
-
-            border-color: #cbdce9;
-        }
-
-        /* Click-highlight: gaya ng appointments selected row */
-        .notification-item {
-            cursor: pointer;
-        }
-        .notification-item.selected {
-            background: #EAF7F0 !important;
-            border-color: #0E6B5E !important;
-            box-shadow: inset 4px 0 0 #0E6B5E !important;
-        }
-        /* NEW + click highlight para sa notification cards */
-        .new-badge{display:inline-block;margin-left:8px;font-size:10px;font-weight:800;letter-spacing:.6px;color:#92400E;background:#FDE68A;border:1px solid #F5C518;border-radius:999px;padding:2px 8px;vertical-align:middle}
-        .notif-card{cursor:pointer}
-        .notif-card.is-new .new-badge{display:inline-block}
-        .notif-card.is-read .new-badge{display:none}
-
-
-        .notification-icon {
-
-            width: 43px;
-
-            height: 43px;
-
-            flex-shrink: 0;
-
-            border-radius: 10px;
-
-            background: #eaf5ff;
-
-            color: #2675b9;
-
-            display: flex;
-
             align-items: center;
-
-            justify-content: center;
-
-            font-size: 19px;
+            gap: 6px;
+            flex-wrap: wrap;
+            width: 100%;
+            padding-top: 8px;
+            margin-top: 4px;
+            border-top: 1px dashed #CBE4D8;
         }
 
-
-        .notification-icon.cancelled {
-
-            background: #fdecec;
-
-            color: #b42318;
+        /* Notification Feed List */
+        .notif-feed-wrap {
+            padding: 16px 22px 22px;
         }
-
-
-        .notification-icon.today {
-
-            background: #fff5dc;
-
-            color: #9a6700;
-        }
-
-
-        .notification-icon.new {
-
-            background: #eaf5ff;
-
-            color: #1769aa;
-        }
-
-
-        .notification-body {
-
-            flex: 1;
-
-            min-width: 0;
-        }
-
-
-        .notification-title {
-
-            font-size: 14px;
-
-            font-weight: 800;
-
-            color: #0f2f3d;
-
-            margin-bottom: 4px;
-        }
-
-
-        .notification-message {
-
-            font-size: 13px;
-
-            color: #34495e;
-
-            line-height: 1.5;
-
-            margin-bottom: 7px;
-        }
-
-
-        .notification-time {
-
-            font-size: 11px;
-
-            color: #4b5e6b;
-        }
-
-
-        .notification-action {
-
-            flex-shrink: 0;
-        }
-
-
-        .view-appointment {
-
-            display: inline-flex;
-
-            align-items: center;
-
-            gap: 5px;
-
-            text-decoration: none;
-
-            padding: 7px 11px;
-
-            border-radius: 7px;
-
-            background: #edf6ff;
-
-            color: #2675b9;
-
-            font-size: 12px;
-
-            font-weight: 700;
-        }
-
-
-        .view-appointment:hover {
-
-            background: #dcefff;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | NOTIFICATION LIST TABLE
-        |--------------------------------------------------------------------------
-        */
 
         .notif-list {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
         }
 
         .notif-card {
             position: relative;
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             gap: 14px;
             background: #ffffff;
-            border: 1px solid #e4ebf1;
+            border: 1px solid #E2ECE7;
             border-radius: 14px;
-            padding: 15px 16px 15px 21px;
-            box-shadow: 0 6px 18px rgba(14,107,94,.06);
+            padding: 15px 18px 15px 22px;
+            box-shadow: 0 3px 10px rgba(14, 107, 94, 0.04);
             cursor: pointer;
-            transition: transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease;
+            transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease, border-color 0.16s ease;
             overflow: hidden;
         }
 
@@ -1264,81 +986,79 @@ foreach ($notifications as $notification) {
             top: 0;
             bottom: 0;
             width: 5px;
-            background: linear-gradient(180deg,#149A72,#0A4A41);
+            background: #0E6B5E;
         }
 
-        .notif-card.type-cancelled::before { background: linear-gradient(180deg,#F87171,#B42318); }
-        .notif-card.type-today::before { background: linear-gradient(180deg,#FBBF24,#D97706); }
-        .notif-card.type-new::before,
-        .notif-card.type-upcoming::before { background: linear-gradient(180deg,#60A5FA,#1769AA); }
-        .notif-card.type-history::before { background: linear-gradient(180deg,#B0BEC9,#4B5E6B); }
-        .notif-card.type-concern::before { background: linear-gradient(180deg,#A78BFA,#7C3AED); }
+        .notif-card.type-new::before { background: linear-gradient(180deg, #0EA5E9, #0284C7); }
+        .notif-card.type-today::before { background: linear-gradient(180deg, #F59E0B, #D97706); }
+        .notif-card.type-upcoming::before { background: linear-gradient(180deg, #10B981, #047857); }
+        .notif-card.type-cancelled::before { background: linear-gradient(180deg, #EF4444, #B91C1C); }
+        .notif-card.type-concern::before { background: linear-gradient(180deg, #8B5CF6, #6D28D9); }
+        .notif-card.type-history::before { background: linear-gradient(180deg, #94A3B8, #475569); }
 
         .notif-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 12px 28px rgba(14,107,94,.12);
-            border-color: #C9E9DA;
-        }
-
-        .notif-card:focus-visible {
-            outline: 2px solid #0E6B5E;
-            outline-offset: 2px;
-        }
-
-        .notif-card.is-new {
-            background: linear-gradient(135deg,#FFFBEB 0%,#FEF3C7 100%);
-            border-color: #F59E0B;
-            box-shadow: 0 8px 24px rgba(217,119,6,.20);
-        }
-
-        .notif-card.is-new:hover {
-            box-shadow: 0 12px 30px rgba(217,119,6,.28);
-            border-color: #D97706;
-        }
-
-        .notif-card.is-new .nt-title {
-            color: #7c2d12;
-        }
-
-        .notif-card.selected {
-            background: #EAF7F0;
+            box-shadow: 0 8px 22px rgba(14, 107, 94, 0.12);
             border-color: #0E6B5E;
+            background: #F9FDFB;
+        }
+
+        .notif-card:hover .nt-title {
+            color: #0E6B5E;
+        }
+
+        .notif-card.is-unread {
+            background: #F2FAF6;
+            border-color: #B9E2CD;
         }
 
         .notif-card.is-read {
             background: #ffffff;
         }
 
-        .notif-card.is-read::before {
-            background: #e4ebf1;
+        .notif-card.selected {
+            border-color: #0E6B5E;
+            box-shadow: 0 0 0 2px rgba(14, 107, 94, 0.15);
         }
 
+        /* Unread indicator dot */
         .notif-dot {
-            display: none;
-            width: 10px;
-            height: 10px;
+            width: 9px;
+            height: 9px;
             border-radius: 50%;
-            background: #D97706;
-            box-shadow: 0 0 0 4px rgba(217,119,6,.18);
-            margin-top: 16px;
+            background: #10B981;
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
             flex-shrink: 0;
-        }
-
-        .notif-card.is-new .notif-dot {
-            display: block;
-            background: #D97706;
-            box-shadow: 0 0 0 4px rgba(217,119,6,.22);
-            animation: notifDotPulse 1.9s ease-in-out infinite;
-        }
-
-        @keyframes notifDotPulse {
-            0%,100% { opacity: 1; transform: scale(1); }
-            50% { opacity: .5; transform: scale(.8); }
+            transition: opacity 0.2s ease;
         }
 
         .notif-card.is-read .notif-dot {
-            display: none;
+            background: #CBD5E1;
+            box-shadow: none;
+            opacity: 0.45;
         }
+
+        /* Notification Icon Box */
+        .nt-icon {
+            width: 44px;
+            height: 44px;
+            flex-shrink: 0;
+            border-radius: 12px;
+            background: #EAF7F0;
+            color: #0E6B5E;
+            border: 1px solid #C9E9DA;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 19px;
+        }
+
+        .nt-icon.new { background: #E0F2FE; color: #0369A1; border-color: #BAE6FD; }
+        .nt-icon.today { background: #FEF3C7; color: #B45309; border-color: #FDE68A; }
+        .nt-icon.upcoming { background: #D1FAE5; color: #047857; border-color: #A7F3D0; }
+        .nt-icon.cancelled { background: #FEE2E2; color: #B91C1C; border-color: #FECACA; }
+        .nt-icon.concern { background: #EDE9FE; color: #6D28D9; border-color: #DDD6FE; }
+        .nt-icon.history { background: #F1F5F9; color: #475569; border-color: #E2E8F0; }
 
         .notif-body {
             flex: 1;
@@ -1347,605 +1067,475 @@ foreach ($notifications as $notification) {
 
         .notif-top {
             display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .nt-title {
+            font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+            font-size: 14.5px;
+            font-weight: 800;
+            color: #143f51;
+            margin: 0;
+        }
+
+        .notif-type-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 999px;
+            font-size: 10.5px;
+            font-weight: 800;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            background: #EAF7F0;
+            color: #0E6B5E;
+            border: 1px solid #C9E9DA;
+        }
+
+        .notif-type-tag.new { background: #E0F2FE; color: #0369A1; border-color: #BAE6FD; }
+        .notif-type-tag.today { background: #FEF3C7; color: #B45309; border-color: #FDE68A; }
+        .notif-type-tag.upcoming { background: #D1FAE5; color: #047857; border-color: #A7F3D0; }
+        .notif-type-tag.cancelled { background: #FEE2E2; color: #B91C1C; border-color: #FECACA; }
+        .notif-type-tag.concern { background: #EDE9FE; color: #6D28D9; border-color: #DDD6FE; }
+        .notif-type-tag.history { background: #F1F5F9; color: #475569; border-color: #CBD5E1; }
+
+        .new-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            color: #92400E;
+            background: #FEF3C7;
+            border: 1px solid #F59E0B;
+            border-radius: 999px;
+            padding: 2px 8px;
+        }
+
+        .notif-card.is-read .new-badge {
+            display: none;
+        }
+
+        .nt-msg {
+            font-size: 13.5px;
+            color: #415a64;
+            line-height: 1.5;
+            margin-bottom: 8px;
         }
 
         .notif-meta {
             display: flex;
+            align-items: center;
             flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 10px;
+            gap: 6px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #5b747e;
         }
 
-        .notif-chip {
+        .notif-meta-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .notif-meta-item i {
+            color: #0E6B5E;
+            font-size: 12.5px;
+        }
+
+        /* Right Side: Timestamp + View Appointment Button */
+        .notif-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 8px;
+            flex-shrink: 0;
+            margin-left: 8px;
+        }
+
+        .nt-time {
+            white-space: nowrap;
+            text-align: right;
+            font-size: 12px;
+            font-weight: 700;
+            color: #4b6570;
+            line-height: 1.25;
+        }
+
+        .nt-time small {
+            display: block;
+            color: #7c939d;
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        .view-appointment {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            font-size: 12px;
-            font-weight: 700;
-            color: #0E6B5E;
-            background: #EAF7F0;
-            border: 1px solid #C9E9DA;
+            padding: 7px 14px;
             border-radius: 999px;
-            padding: 5px 11px;
-        }
-
-        .notif-chip i {
+            border: 1.5px solid #0E6B5E;
+            background: #EAF7F0;
+            color: #0E6B5E;
+            font-family: "Inter", "DM Sans", system-ui, sans-serif;
             font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            white-space: nowrap;
         }
 
-        .notif-card .view-appointment {
-            flex-shrink: 0;
-            align-self: center;
+        .view-appointment:hover {
+            background: linear-gradient(135deg, #0E6B5E, #0A4A41);
+            color: #ffffff;
+            border-color: #0E6B5E;
+            box-shadow: 0 4px 12px rgba(14, 107, 94, 0.24);
         }
 
-        .nt-icon {
-            width: 42px;
-            height: 42px;
-            flex-shrink: 0;
-            border-radius: 10px;
-            background: #eaf5ff;
-            color: #2675b9;
+        /* Pagination */
+        .notif-pagination {
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 19px;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 18px;
+            padding-top: 14px;
+            border-top: 1px solid #E6F2EC;
         }
 
-        .nt-icon.cancelled { background: #fdecec; color: #b42318; }
-        .nt-icon.today { background: #fff5dc; color: #9a6700; }
-        .nt-icon.new { background: #eaf5ff; color: #1769aa; }
-        .nt-icon.upcoming { background: #eaf5ff; color: #2675b9; }
-        .nt-icon.history { background: #eef2f5; color: #4b5e6b; }
-
-        .nt-emoji {
-            font-size: 24px;
-            line-height: 1;
+        .notif-page-info {
+            font-size: 12.5px;
+            font-weight: 600;
+            color: #5b747e;
         }
 
+        .notif-page-info strong {
+            color: #0E6B5E;
+            font-weight: 800;
+        }
 
-        /*
-        |--------------------------------------------------------------------------
-        | PAGINATION
-        |--------------------------------------------------------------------------
-        */
-
-        .notif-pagination {
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            justify-content:
-                center;
-
-            flex-wrap:
-                wrap;
-
-            gap:
-                6px;
-
-            margin-top:
-                18px;
-
+        .notif-page-links {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
         }
 
         .notif-page-btn {
-
-            display:
-                inline-flex;
-
-            align-items:
-                center;
-
-            gap:
-                4px;
-
-            min-width:
-                34px;
-
-            height:
-                34px;
-
-            justify-content:
-                center;
-
-            padding:
-                0 10px;
-
-            border-radius:
-                9px;
-
-            border:
-                1px solid #C9E9DA;
-
-            background:
-                #ffffff;
-
-            color:
-                #0E6B5E;
-
-            font-family:
-                "Inter", system-ui, sans-serif;
-
-            font-size:
-                12.5px;
-
-            font-weight:
-                800;
-
-            text-decoration:
-                none;
-
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            min-width: 34px;
+            height: 34px;
+            justify-content: center;
+            padding: 0 10px;
+            border-radius: 9px;
+            border: 1px solid #C9E9DA;
+            background: #ffffff;
+            color: #0E6B5E;
+            font-family: "Inter", system-ui, sans-serif;
+            font-size: 12.5px;
+            font-weight: 800;
+            text-decoration: none;
+            transition: all 0.16s ease;
         }
 
         .notif-page-btn:hover:not(.disabled):not(.active) {
-
-            background:
-                #EAF7F0;
-
+            background: #EAF7F0;
+            border-color: #0E6B5E;
         }
 
         .notif-page-btn.active {
-
-            background:
-                #0E6B5E;
-
-            border-color:
-                #0E6B5E;
-
-            color:
-                #ffffff;
-
+            background: linear-gradient(135deg, #0E6B5E, #0A4A41);
+            border-color: #0E6B5E;
+            color: #ffffff;
+            box-shadow: 0 4px 10px rgba(14, 107, 94, 0.22);
         }
 
         .notif-page-btn.disabled {
-
-            opacity:
-                .45;
-
-            cursor:
-                default;
-
+            opacity: 0.45;
+            cursor: default;
         }
 
-        .nt-title {
-            font-size: 14px;
-            font-weight: 800;
-            color: #0f2f3d;
-            margin-bottom: 3px;
+        /* Empty State */
+        .notification-empty {
+            text-align: center;
+            padding: 50px 20px;
+            color: #5b747e;
+        }
+
+        .notification-empty .empty-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 16px;
+            background: #EAF7F0;
+            color: #0E6B5E;
+            border: 1px solid #C9E9DA;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            margin-bottom: 12px;
+        }
+
+        /* ======================================================
+           APPOINTMENT DETAILS POPUP MODAL
+        ======================================================= */
+        .nt-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(6, 40, 34, 0.62);
+            backdrop-filter: blur(3px);
+            z-index: 3000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .nt-modal-overlay.open {
+            display: flex;
+        }
+
+        .nt-modal-box {
+            background: #ffffff;
+            border-radius: 18px;
+            border: 1px solid #C9E9DA;
+            width: 100%;
+            max-width: 580px;
+            overflow: hidden;
+            box-shadow: 0 24px 55px rgba(0, 0, 0, 0.30);
+            animation: ntModalPop 0.18s ease-out;
+        }
+
+        @keyframes ntModalPop {
+            from { transform: scale(0.96) translateY(6px); opacity: 0; }
+            to { transform: scale(1) translateY(0); opacity: 1; }
+        }
+
+        .nt-modal-head {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 18px 22px;
+            background: linear-gradient(135deg, #0E6B5E 0%, #0A4A41 100%);
+            color: #ffffff;
+        }
+
+        .nt-modal-head .nt-icon {
+            width: 42px;
+            height: 42px;
+            font-size: 18px;
+            background: rgba(255, 255, 255, 0.16);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #ffffff;
+        }
+
+        .nt-modal-head-text {
             flex: 1;
             min-width: 0;
         }
 
-        .nt-msg {
-            font-size: 12.5px;
-            color: #34495e;
-            line-height: 1.5;
-        }
-
-        .nt-time { white-space: nowrap; text-align: right; flex-shrink: 0; color: #0f2f3d; font-weight: 600; font-size: 12.5px; }
-        .nt-time small { display: block; color: #4b5e6b; font-weight: 600; margin-top: 3px; }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | NOTIFICATION PREVIEW MODAL
-        |--------------------------------------------------------------------------
-        */
-
-        .nt-modal-overlay {
-
-            position:
-                fixed;
-
-            inset:
-                0;
-
-            background:
-                rgba(10, 59, 52, .55);
-
-            z-index:
-                3000;
-
-            display:
-                none;
-
-            align-items:
-                center;
-
-            justify-content:
-                center;
-
-            padding:
-                20px;
-
-        }
-
-        .nt-modal-overlay.open {
-
-            display:
-                flex;
-
-        }
-
-        .nt-modal-box {
-
-            background:
-                #ffffff;
-
-            border-radius:
-                16px;
-
-            border:
-                1px solid #C9E9DA;
-
-            width:
-                100%;
-
-            max-width:
-                520px;
-
-            overflow:
-                hidden;
-
-            box-shadow:
-                0 18px 45px rgba(0, 0, 0, .25);
-
-        }
-
-        .nt-modal-head {
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            gap:
-                10px;
-
-            padding:
-                16px 20px;
-
-            background:
-                linear-gradient(135deg, #D9F2E6 0%, #EAF7F0 100%);
-
-            border-bottom:
-                1px solid #C9E9DA;
-
-        }
-
-        .nt-modal-head .nt-icon {
-
-            width:
-                38px;
-
-            height:
-                38px;
-
-            font-size:
-                17px;
-
-        }
-
         .nt-modal-head h3 {
+            margin: 0;
+            font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+            font-size: 17px;
+            font-weight: 800;
+            color: #ffffff;
+        }
 
-            margin:
-                0;
+        .nt-modal-head-sub {
+            font-size: 12px;
+            color: #D9F2E6;
+            font-weight: 600;
+            margin-top: 2px;
+        }
 
-            font-family:
-                "Plus Jakarta Sans", "Inter",
-                system-ui, sans-serif;
-
-            font-size:
-                16px;
-
-            font-weight:
-                800;
-
-            color:
-                #143f51;
-
-            flex:
-                1;
-
-            min-width:
-                0;
-
+        .nt-modal-status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 12px;
+            border-radius: 999px;
+            font-size: 11.5px;
+            font-weight: 800;
+            background: rgba(255, 255, 255, 0.18);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            color: #ffffff;
+            white-space: nowrap;
         }
 
         .nt-modal-close {
-
-            border:
-                none;
-
-            background:
-                transparent;
-
-            color:
-                #0E6B5E;
-
-            font-size:
-                20px;
-
-            line-height:
-                1;
-
-            cursor:
-                pointer;
-
-            padding:
-                4px 6px;
-
-            border-radius:
-                8px;
-
-            flex-shrink:
-                0;
-
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.12);
+            color: #ffffff;
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 15px;
+            flex-shrink: 0;
+            transition: all 0.16s ease;
         }
 
         .nt-modal-close:hover {
-
-            background:
-                #EAF7F0;
-
+            background: #ffffff;
+            color: #0E6B5E;
         }
 
         .nt-modal-body {
+            padding: 20px 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            max-height: 75vh;
+            overflow-y: auto;
+        }
 
-            padding:
-                16px 18px;
+        .nt-modal-banner {
+            padding: 13px 16px;
+            border-radius: 12px;
+            background: #F2FAF6;
+            border: 1px solid #C9E9DA;
+            border-left: 4px solid #0E6B5E;
+        }
 
-            display:
-                flex;
-
-            flex-direction:
-                column;
-
-            gap:
-                10px;
-
+        .nt-modal-banner-title {
+            font-size: 13.5px;
+            font-weight: 800;
+            color: #0E6B5E;
+            margin-bottom: 3px;
         }
 
         .nt-modal-msg {
-
-            font-size:
-                13.5px;
-
-            line-height:
-                1.6;
-
-            color:
-                #34495e;
-
+            font-size: 13.5px;
+            line-height: 1.55;
+            color: #2c4752;
         }
 
-        .nt-modal-grid {
-
-            display:
-                grid;
-
-            grid-template-columns:
-                1fr;
-
-            gap:
-                8px;
-
+        .nt-modal-details-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
         }
 
-        .nt-modal-grid .notif-chip {
+        .nt-detail-box {
+            padding: 11px 14px;
+            border-radius: 12px;
+            background: #F8FCFA;
+            border: 1px solid #E2ECE7;
+        }
 
-            justify-content:
-                flex-start;
+        .nt-detail-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: #6c858d;
+            margin-bottom: 4px;
+        }
 
-            font-weight:
-                600;
+        .nt-detail-label i {
+            color: #0E6B5E;
+            font-size: 12.5px;
+        }
 
-            overflow:
-                hidden;
+        .nt-detail-value {
+            font-size: 13.5px;
+            font-weight: 800;
+            color: #143f51;
+            word-break: break-word;
+        }
 
-            text-overflow:
-                ellipsis;
+        .nt-detail-sub {
+            font-size: 12px;
+            font-weight: 600;
+            color: #5b747e;
+            margin-top: 2px;
+        }
 
-            white-space:
-                nowrap;
+        .nt-notes-box {
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: #F8FCFA;
+            border: 1px solid #E2ECE7;
+        }
 
+        .nt-notes-text {
+            font-size: 13px;
+            color: #34495e;
+            line-height: 1.55;
+            white-space: pre-line;
         }
 
         .nt-modal-foot {
-
-            display:
-                flex;
-
-            justify-content:
-                flex-end;
-
-            gap:
-                8px;
-
-            padding:
-                12px 18px;
-
-            border-top:
-                1px solid #C9E9DA;
-
-            background:
-                #F6FBF8;
-
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 22px;
+            border-top: 1px solid #DDEEE5;
+            background: #F6FBF8;
         }
 
         .nt-modal-btn {
-
-            display:
-                inline-flex;
-
-            align-items:
-                center;
-
-            gap:
-                6px;
-
-            border:
-                1.5px solid #0E6B5E;
-
-            background:
-                #EAF7F0;
-
-            color:
-                #0E6B5E;
-
-            border-radius:
-                999px;
-
-            padding:
-                7px 15px;
-
-            font-family:
-                "Inter", system-ui, sans-serif;
-
-            font-size:
-                12.5px;
-
-            font-weight:
-                800;
-
-            cursor:
-                pointer;
-
-            text-decoration:
-                none;
-
-        }
-
-        .nt-modal-btn.primary {
-
-            background:
-                #0E6B5E;
-
-            color:
-                #ffffff;
-
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: 1.5px solid #0E6B5E;
+            background: linear-gradient(135deg, #0E6B5E, #0A4A41);
+            color: #ffffff;
+            border-radius: 999px;
+            padding: 8px 20px;
+            font-family: "Inter", system-ui, sans-serif;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.16s ease;
         }
 
         .nt-modal-btn:hover {
-
-            background:
-                #0E6B5E;
-
-            color:
-                #ffffff;
-
+            filter: brightness(1.08);
+            box-shadow: 0 6px 14px rgba(14, 107, 94, 0.25);
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | EMPTY STATE
-        |--------------------------------------------------------------------------
-        */
-
-        .notification-empty {
-
-            text-align: center;
-
-            padding: 45px 20px;
-
-            color: #4b5e6b;
-        }
-
-
-        .notification-empty i {
-
-            font-size: 38px;
-
-            display: block;
-
-            margin-bottom: 10px;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | STATUS
-        |--------------------------------------------------------------------------
-        */
-
-        .notification-status {
-
-            display: inline-block;
-
-            margin-left: 7px;
-
-            padding: 4px 8px;
-
-            border-radius: 20px;
-
-            font-size: 10px;
-
-            font-weight: 700;
-        }
-
-
-        .notification-status.pending {
-
-            background: #fff4d6;
-
-            color: #9a6700;
-        }
-
-
-        .notification-status.confirmed {
-
-            background: #e1f5e8;
-
-            color: #18753c;
-        }
-
-
-        .notification-status.cancelled {
-
-            background: #fde8e8;
-
-            color: #b42318;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | RESPONSIVE
-        |--------------------------------------------------------------------------
-        */
-
-
-        @media (max-width: 650px) {
-
-            .notification-item {
-
+        @media (max-width: 768px) {
+            .notif-card {
                 flex-direction: column;
+                align-items: flex-start;
             }
-
-
-            .notification-action {
-
+            .notif-right {
                 width: 100%;
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+                margin-left: 0;
+                padding-top: 8px;
+                border-top: 1px dashed #E2ECE7;
             }
-
-
-            .view-appointment {
-
-                width: 100%;
-
-                justify-content: center;
+            .nt-time {
+                text-align: left;
             }
-
+            .nt-modal-details-grid {
+                grid-template-columns: 1fr;
+            }
         }
-
     </style>
 
 
@@ -2110,450 +1700,368 @@ include __DIR__ . '/dentist_sidebar.php';
         <div class="portal-content">
 
             <!-- =================================================
-                 SUMMARY
+                 NOTIFICATION CENTER SHELL
             ================================================== -->
 
-            <div class="cards notification-summary" id="statsGrid">
+            <section class="notif-center-shell">
 
-                <!-- ALL -->
-                <a href="notifications.php?filter=All<?= $notifNoSidebarSuffix ?>" class="card stat-clickable stat-featured notification-summary-card <?= $filter === 'All' ? 'active-card' : '' ?>" role="button" tabindex="0" aria-label="View all notifications" title="View all notifications">
-                    <div class="stat-featured-head">
-                        <span class="stat-featured-icon"><i class="bi bi-bell-fill"></i></span>
-                        <h3>Total Notifications</h3>
-                    </div>
-                    <div class="number">
-                        <?= $allCount ?>
-                    </div>
-                    <div class="stat-featured-sub">
-                        <span class="stat-featured-dot"></span>
-                        All notifications
-                    </div>
-                    <span class="stat-go"><i class="bi bi-chevron-right"></i></span>
-                </a>
-
-                <!-- UPCOMING -->
-                <a href="notifications.php?filter=Upcoming<?= $notifNoSidebarSuffix ?>" class="card stat-clickable stat-featured notification-summary-card <?= $filter === 'Upcoming' ? 'active-card' : '' ?>" role="button" tabindex="0" aria-label="View upcoming appointments" title="View upcoming appointments">
-                    <div class="stat-featured-head">
-                        <span class="stat-featured-icon"><i class="bi bi-alarm-fill"></i></span>
-                        <h3>Upcoming Appointments</h3>
-                    </div>
-                    <div class="number">
-                        <?= $upcomingCount ?>
-                    </div>
-                    <div class="stat-featured-sub">
-                        <span class="stat-featured-dot"></span>
-                        Upcoming appointments
-                    </div>
-                    <span class="stat-go"><i class="bi bi-chevron-right"></i></span>
-                </a>
-
-                <!-- NEW -->
-                <a href="notifications.php?filter=New<?= $notifNoSidebarSuffix ?>" class="card stat-clickable stat-featured notification-summary-card <?= $filter === 'New' ? 'active-card' : '' ?>" role="button" tabindex="0" aria-label="View new appointments" title="View new appointments">
-                    <div class="stat-featured-head">
-                        <span class="stat-featured-icon"><i class="bi bi-calendar-plus-fill"></i></span>
-                        <h3>New Appointments</h3>
-                    </div>
-                    <div class="number">
-                        <?= $newCount ?>
-                    </div>
-                    <div class="stat-featured-sub">
-                        <span class="stat-featured-dot"></span>
-                        Newly assigned appointments
-                    </div>
-                    <span class="stat-go"><i class="bi bi-chevron-right"></i></span>
-                </a>
-
-                <!-- CANCELLED -->
-                <a href="notifications.php?filter=Cancelled<?= $notifNoSidebarSuffix ?>" class="card stat-clickable stat-featured notification-summary-card <?= $filter === 'Cancelled' ? 'active-card' : '' ?>" role="button" tabindex="0" aria-label="View cancelled appointments" title="View cancelled appointments">
-                    <div class="stat-featured-head">
-                        <span class="stat-featured-icon"><i class="bi bi-x-circle-fill"></i></span>
-                        <h3>Cancelled Appointments</h3>
-                    </div>
-                    <div class="number">
-                        <?= $cancelledCount ?>
-                    </div>
-                    <div class="stat-featured-sub">
-                        <span class="stat-featured-dot"></span>
-                        Cancelled appointments
-                    </div>
-                    <span class="stat-go"><i class="bi bi-chevron-right"></i></span>
-                </a>
-
-                <!-- HISTORY -->
-                <a href="notifications.php?filter=History<?= $notifNoSidebarSuffix ?>" class="card stat-clickable stat-featured notification-summary-card <?= $filter === 'History' ? 'active-card' : '' ?>" role="button" tabindex="0" aria-label="View history notifications" title="View history notifications">
-                    <div class="stat-featured-head">
-                        <span class="stat-featured-icon"><i class="bi bi-clock-history"></i></span>
-                        <h3>History</h3>
-                    </div>
-                    <div class="number">
-                        <?= $historyCount ?>
-                    </div>
-                    <div class="stat-featured-sub">
-                        <span class="stat-featured-dot"></span>
-                        Past notifications
-                    </div>
-                    <span class="stat-go"><i class="bi bi-chevron-right"></i></span>
-                </a>
-
-            </div>
-
-
-
-            <!-- =================================================
-                 NOTIFICATION CARD
-            ================================================== -->
-
-            <section class="portal-card">
-
-
-                <!-- FILTER -->
-
-                <div class="notification-filter">
-
-
-                    <div>
-
-                        <div class="notification-filter-title">
-
-                            Notification List
-
+                <!-- HEADER BANNER -->
+                <div class="notif-center-head">
+                    <div class="notif-head-left">
+                        <span class="notif-bell-badge">
+                            <i class="bi bi-bell-fill"></i>
+                        </span>
+                        <div>
+                            <h2 class="notif-head-title">Notification Center</h2>
+                            <div class="notif-head-sub">
+                                Real-time appointment activity, schedule reminders, and patient concerns assigned to you
+                            </div>
                         </div>
-
-                        <div class="notification-filter-sub">
-
-                            Important appointment updates assigned to you
-
-                        </div>
-
                     </div>
 
+                    <div class="notif-head-actions">
+                        <span class="notif-counter-pill unread-pill" id="unreadCountPill">
+                            <i class="bi bi-envelope-exclamation-fill"></i>
+                            <span id="unreadCountNum">0</span> Unread
+                        </span>
+                        <span class="notif-counter-pill">
+                            <i class="bi bi-collection-fill"></i>
+                            <?= (int) $allCount ?> Total
+                        </span>
+                    </div>
+                </div>
 
+                <!-- FILTER TABS -->
+                <div class="notif-tabs-strip">
                     <div class="filter-buttons">
-
-
-                        <a
-                            href="notifications.php?filter=All<?= $notifNoSidebarSuffix ?>"
-                            class="filter-button
-                            <?= $filter === 'All' ? 'active' : '' ?>"
-                        >
-
+                        <a href="notifications.php?filter=All" class="filter-button <?= $filter === 'All' ? 'active' : '' ?>">
+                            <i class="bi bi-inbox-fill"></i>
                             All
-
+                            <span class="tab-count"><?= (int) $allCount ?></span>
                         </a>
 
-
-                        <a
-                            href="notifications.php?filter=Upcoming<?= $notifNoSidebarSuffix ?>"
-                            class="filter-button
-                            <?= $filter === 'Upcoming' ? 'active' : '' ?>"
-                        >
-
-                            Upcoming
-
-                        </a>
-
-
-                        <a
-                            href="notifications.php?filter=New<?= $notifNoSidebarSuffix ?>"
-                            class="filter-button
-                            <?= $filter === 'New' ? 'active' : '' ?>"
-                        >
-
+                        <a href="notifications.php?filter=New" class="filter-button <?= $filter === 'New' ? 'active' : '' ?>">
+                            <i class="bi bi-calendar-plus-fill"></i>
                             New
-
+                            <span class="tab-count"><?= (int) $newCount ?></span>
                         </a>
 
+                        <a href="notifications.php?filter=Upcoming" class="filter-button <?= $filter === 'Upcoming' ? 'active' : '' ?>">
+                            <i class="bi bi-alarm-fill"></i>
+                            Upcoming
+                            <span class="tab-count"><?= (int) $upcomingCount ?></span>
+                        </a>
 
-                        <a
-                            href="notifications.php?filter=Cancelled<?= $notifNoSidebarSuffix ?>"
-                            class="filter-button
-                            <?= $filter === 'Cancelled' ? 'active' : '' ?>"
-                        >
-
+                        <a href="notifications.php?filter=Cancelled" class="filter-button <?= $filter === 'Cancelled' ? 'active' : '' ?>">
+                            <i class="bi bi-calendar-x-fill"></i>
                             Cancelled
-
+                            <span class="tab-count"><?= (int) $cancelledCount ?></span>
                         </a>
 
-
-                        <a
-                            href="notifications.php?filter=Concerns<?= $notifNoSidebarSuffix ?>"
-                            class="filter-button
-                            <?= $filter === 'Concerns' ? 'active' : '' ?>"
-                        >
-
+                        <a href="notifications.php?filter=Concerns" class="filter-button <?= $filter === 'Concerns' ? 'active' : '' ?>">
+                            <i class="bi bi-chat-dots-fill"></i>
                             Concerns
-
+                            <span class="tab-count"><?= (int) $concernCount ?></span>
                         </a>
 
-
-                        <a
-                            href="notifications.php?filter=History<?= $notifNoSidebarSuffix ?>"
-                            class="filter-button
-                            <?= $filter === 'History' ? 'active' : '' ?>"
-                        >
-
+                        <a href="notifications.php?filter=History" class="filter-button <?= $filter === 'History' ? 'active' : '' ?>">
+                            <i class="bi bi-clock-history"></i>
                             History
-
+                            <span class="tab-count"><?= (int) $historyCount ?></span>
                         </a>
-
-
                     </div>
 
                     <?php if ($filter === 'History'): ?>
-                    <div class="filter-buttons" style="margin-top:10px;">
-                        <a href="notifications.php?filter=History&htype=all<?= $notifNoSidebarSuffix ?>" class="filter-button <?= $htype === 'all' ? 'active' : '' ?>">All History (<?= (int)$historyCount ?>)</a>
-                        <a href="notifications.php?filter=History&htype=completed<?= $notifNoSidebarSuffix ?>" class="filter-button <?= $htype === 'completed' ? 'active' : '' ?>">Completed (<?= (int)$historyCompletedCount ?>)</a>
-                        <a href="notifications.php?filter=History&htype=noshow<?= $notifNoSidebarSuffix ?>" class="filter-button <?= $htype === 'noshow' ? 'active' : '' ?>">No-Show (<?= (int)$historyNoshowCount ?>)</a>
-                        <a href="notifications.php?filter=History&htype=past<?= $notifNoSidebarSuffix ?>" class="filter-button <?= $htype === 'past' ? 'active' : '' ?>">Past (<?= (int)$historyPastCount ?>)</a>
-                    </div>
+                        <div class="history-subtabs">
+                            <a href="notifications.php?filter=History&htype=all" class="filter-button <?= $htype === 'all' ? 'active' : '' ?>">
+                                All History <span class="tab-count"><?= (int) $historyCount ?></span>
+                            </a>
+                            <a href="notifications.php?filter=History&htype=completed" class="filter-button <?= $htype === 'completed' ? 'active' : '' ?>">
+                                Completed <span class="tab-count"><?= (int) $historyCompletedCount ?></span>
+                            </a>
+                            <a href="notifications.php?filter=History&htype=noshow" class="filter-button <?= $htype === 'noshow' ? 'active' : '' ?>">
+                                No-Show <span class="tab-count"><?= (int) $historyNoshowCount ?></span>
+                            </a>
+                            <a href="notifications.php?filter=History&htype=past" class="filter-button <?= $htype === 'past' ? 'active' : '' ?>">
+                                Past <span class="tab-count"><?= (int) $historyPastCount ?></span>
+                            </a>
+                        </div>
                     <?php endif; ?>
-
-
                 </div>
 
-
-
-                <!-- =================================================
-                     NOTIFICATION LIST TABLE
-                ================================================== -->
-
-                <?php if (
-                    empty($filteredNotifications)
-                ): ?>
-
-
-                    <div class="notification-empty">
-
-                        <i class="bi bi-bell-slash"></i>
-
-
-                        <strong>
-
-                            No notifications yet.
-
-                        </strong>
-
-
-                        <div>
-
-                            There are no notifications
-                            matching this filter.
-
+                <!-- NOTIFICATION FEED LIST -->
+                <div class="notif-feed-wrap">
+                    <?php if (empty($filteredNotifications)): ?>
+                        <div class="notification-empty">
+                            <div class="empty-icon">
+                                <i class="bi bi-bell-slash-fill"></i>
+                            </div>
+                            <div style="font-size:15px;font-weight:800;color:#143f51;margin-bottom:4px;">
+                                No notifications found
+                            </div>
+                            <div style="font-size:13px;">
+                                There are no notifications matching this filter right now.
+                            </div>
                         </div>
+                    <?php else: ?>
+                        <div class="notif-list">
+                            <?php foreach ($notifPageItems as $notification): ?>
+                                <?php
+                                $appointment = is_array($notification['appointment'] ?? null) ? $notification['appointment'] : [];
+                                $type = (string) ($notification['type'] ?? 'new');
+                                $badgeLabel = (string) ($notification['badge_label'] ?? ucfirst($type));
+                                $iconClass = (string) ($notification['icon'] ?? 'bi-bell-fill');
 
-                    </div>
-
-
-                <?php else: ?>
-
-
-                    <div class="notif-list">
-
-                        <?php foreach (
-                            $notifPageItems
-                            as $notification
-                        ): ?>
-
-
-                            <?php
-
-                            $appointment =
-                                $notification['appointment'];
-
-                            $type =
-                                $notification['type'];
-
-                            $patientName =
-                                trim(
-                                    $appointment['first_name']
+                                $patientName = trim(
+                                    ($appointment['first_name'] ?? '')
                                     . ' '
-                                    . (
-                                        $appointment['middle_name']
-                                        ?? ''
-                                    )
+                                    . ($appointment['middle_name'] ?? '')
                                     . ' '
-                                    . $appointment['last_name']
+                                    . ($appointment['last_name'] ?? '')
+                                );
+                                if ($patientName === '') {
+                                    $patientName = 'Patient';
+                                }
+
+                                $patientNum = trim((string) ($appointment['patient_number'] ?? ''));
+                                if ($patientNum === '' && !empty($appointment['patient_id'])) {
+                                    $patientNum = '#' . (int) $appointment['patient_id'];
+                                }
+
+                                $apptId = (int) ($appointment['id'] ?? 0);
+                                $serviceName = trim((string) ($appointment['service_type'] ?? ''));
+                                if ($serviceName === '') {
+                                    $serviceName = 'Dental Consultation';
+                                }
+
+                                $rawApptDate = trim((string) ($appointment['appointment_date'] ?? ''));
+                                $formattedApptDate = ($rawApptDate !== '' && strtotime($rawApptDate) !== false)
+                                    ? date('F d, Y', strtotime($rawApptDate))
+                                    : 'Not specified';
+
+                                $rawStartTime = trim((string) ($appointment['start_time'] ?? ''));
+                                $rawEndTime = trim((string) ($appointment['end_time'] ?? ''));
+                                if ($rawStartTime !== '' && strtotime($rawStartTime) !== false) {
+                                    $formattedTimeRange = date('h:i A', strtotime($rawStartTime));
+                                    if ($rawEndTime !== '' && strtotime($rawEndTime) !== false) {
+                                        $formattedTimeRange .= ' – ' . date('h:i A', strtotime($rawEndTime));
+                                    }
+                                } else {
+                                    $formattedTimeRange = 'Schedule pending';
+                                }
+
+                                $apptStatus = trim((string) ($appointment['status'] ?? 'Pending'));
+                                $apptNotes = trim((string) ($appointment['notes'] ?? ''));
+                                $contactNum = trim((string) ($appointment['contact_number'] ?? ''));
+                                $emailAddr = trim((string) ($appointment['email'] ?? ''));
+
+                                $rawNotifTime = (string) ($notification['date_time'] ?? '');
+                                $notifTimeTop = ($rawNotifTime !== '' && strtotime($rawNotifTime) !== false)
+                                    ? date('h:i A', strtotime($rawNotifTime))
+                                    : '';
+                                $notifDateSub = ($rawNotifTime !== '' && strtotime($rawNotifTime) !== false)
+                                    ? date('M d, Y', strtotime($rawNotifTime))
+                                    : '';
+
+                                $notifKey = md5(
+                                    $type
+                                    . '|' . $apptId
+                                    . '|' . ($notification['title'] ?? '')
+                                    . '|' . $rawNotifTime
                                 );
 
-                            $notifKey = md5(
-                                ($type ?? '')
-                                . '|' . ($appointment['id'] ?? 0)
-                                . '|' . ($notification['date_time'] ?? '')
-                            );
-
-                            $isNewRow = ($type === 'new');
-
-                            ?>
-
-
-                            <article
-                                class="notif-card type-<?= dentistNotificationEscape($type) ?><?= $isNewRow ? ' is-new' : '' ?>"
-                                data-notif-key="<?= dentistNotificationEscape($notifKey) ?>"
-                                data-href="appointments.php?highlight=<?= (int)($appointment['id'] ?? 0) ?>&from=notifications<?= (($_GET['nosidebar'] ?? '') === '1' ? '&nosidebar=1' : '') ?>"
-                                data-title="<?= dentistNotificationEscape($notification['title']) ?>"
-                                data-message="<?= dentistNotificationEscape($notification['message']) ?>"
-                                data-patient="<?= dentistNotificationEscape($patientName) ?>"
-                                data-service="<?= dentistNotificationEscape($appointment['service_type'] ?? '') ?>"
-                                data-date="<?= dentistNotificationEscape(date('F d, Y', strtotime($appointment['appointment_date']))) ?>"
-                                data-timerange="<?= dentistNotificationEscape(date('h:i A', strtotime($appointment['start_time'])) . (!empty($appointment['end_time']) ? ' - ' . date('h:i A', strtotime($appointment['end_time'])) : '')) ?>"
-                                data-status="<?= dentistNotificationEscape($appointment['status'] ?? '') ?>"
-                                tabindex="0"
-                            >
-
-                                <span class="notif-dot" aria-hidden="true"></span>
-
-                                <div class="nt-icon <?= dentistNotificationEscape($type) ?>">
-                                    <?php if (!empty($notification['emoji'])): ?>
-                                        <span class="nt-emoji"><?= dentistNotificationEscape($notification['emoji']) ?></span>
-                                    <?php else: ?>
-                                        <i class="bi <?= dentistNotificationEscape($notification['icon']) ?>"></i>
-                                    <?php endif; ?>
-                                </div>
-
-                                <div class="notif-body">
-
-                                    <div class="notif-top">
-                                        <div class="nt-title">
-                                            <?= dentistNotificationEscape($notification['title']) ?>
-                                            <?php if ($isNewRow): ?><span class="new-badge">NEW</span><?php endif; ?>
-                                        </div>
-                                        <div class="nt-time">
-                                            <?= dentistNotificationEscape(date('h:i A', strtotime($notification['date_time']))) ?>
-                                            <small><?= dentistNotificationEscape(date('M d, Y', strtotime($notification['date_time']))) ?></small>
-                                        </div>
-                                    </div>
-
-                                    <div class="nt-msg">
-                                        <?= dentistNotificationEscape($notification['message']) ?>
-                                    </div>
-
-                                    <div class="notif-meta">
-                                        <span class="notif-chip">
-                                            <i class="bi bi-person-fill"></i>
-                                            <?= dentistNotificationEscape($patientName) ?>
-                                        </span>
-                                        <span class="notif-chip">
-                                            <i class="bi bi-briefcase-fill"></i>
-                                            <?= dentistNotificationEscape($appointment['service_type']) ?>
-                                        </span>
-                                        <span class="notif-chip">
-                                            <i class="bi bi-calendar-event"></i>
-                                            <?= dentistNotificationEscape(date('F d, Y', strtotime($appointment['appointment_date']))) ?>
-                                            ·
-                                            <?= dentistNotificationEscape(date('h:i A', strtotime($appointment['start_time']))) ?>
-                                            <?php if (!empty($appointment['end_time'])): ?>
-                                                - <?= dentistNotificationEscape(date('h:i A', strtotime($appointment['end_time']))) ?>
-                                            <?php endif; ?>
-                                        </span>
-                                    </div>
-
-                                </div>
-
-                                <a
-                                    href="appointments.php?highlight=<?= (int)($appointment['id'] ?? 0) ?>&from=notifications<?= (($_GET['nosidebar'] ?? '') === '1' ? '&nosidebar=1' : '') ?>"
-                                    class="view-appointment"
+                                $isAlreadyRead = ($type === 'history') || (!empty($notification['is_read']));
+                                ?>
+                                <article
+                                    class="notif-card type-<?= dentistNotificationEscape($type) ?> <?= $isAlreadyRead ? 'is-read' : 'is-unread' ?>"
+                                    data-notif-key="<?= dentistNotificationEscape($notifKey) ?>"
+                                    data-type="<?= dentistNotificationEscape($type) ?>"
+                                    data-badge="<?= dentistNotificationEscape($badgeLabel) ?>"
+                                    data-icon="<?= dentistNotificationEscape($iconClass) ?>"
+                                    data-title="<?= dentistNotificationEscape($notification['title'] ?? 'Notification') ?>"
+                                    data-message="<?= dentistNotificationEscape($notification['message'] ?? '') ?>"
+                                    data-notif-time="<?= dentistNotificationEscape(trim($notifDateSub . ' · ' . $notifTimeTop, ' ·')) ?>"
+                                    data-appt-id="<?= $apptId > 0 ? '#' . $apptId : '—' ?>"
+                                    data-patient="<?= dentistNotificationEscape($patientName) ?>"
+                                    data-patient-number="<?= dentistNotificationEscape($patientNum ?: '—') ?>"
+                                    data-contact="<?= dentistNotificationEscape($contactNum ?: 'Not provided') ?>"
+                                    data-email="<?= dentistNotificationEscape($emailAddr ?: 'Not provided') ?>"
+                                    data-service="<?= dentistNotificationEscape($serviceName) ?>"
+                                    data-dentist="<?= dentistNotificationEscape($dentistName ?: 'Assigned Dentist') ?>"
+                                    data-date="<?= dentistNotificationEscape($formattedApptDate) ?>"
+                                    data-timerange="<?= dentistNotificationEscape($formattedTimeRange) ?>"
+                                    data-status="<?= dentistNotificationEscape($apptStatus) ?>"
+                                    data-notes="<?= dentistNotificationEscape($apptNotes ?: 'No additional clinical notes or remarks recorded.') ?>"
+                                    tabindex="0"
+                                    role="button"
+                                    title="Click to view appointment details"
                                 >
+                                    <span class="notif-dot" aria-hidden="true"></span>
 
-                                    <i class="bi bi-eye"></i>
+                                    <div class="nt-icon <?= dentistNotificationEscape($type) ?>">
+                                        <i class="bi <?= dentistNotificationEscape($iconClass) ?>"></i>
+                                    </div>
 
-                                    View Appointment
+                                    <div class="notif-body">
+                                        <div class="notif-top">
+                                            <h3 class="nt-title">
+                                                <?= dentistNotificationEscape($notification['title'] ?? 'Notification') ?>
+                                            </h3>
+                                            <span class="notif-type-tag <?= dentistNotificationEscape($type) ?>">
+                                                <?= dentistNotificationEscape($badgeLabel) ?>
+                                            </span>
+                                            <span class="new-badge">NEW</span>
+                                        </div>
 
-                                </a>
+                                        <div class="nt-msg">
+                                            <?= dentistNotificationEscape($notification['message'] ?? '') ?>
+                                        </div>
 
-                            </article>
+                                        <div class="notif-meta">
+                                            <span class="notif-meta-item">
+                                                <i class="bi bi-person-fill"></i>
+                                                <?= dentistNotificationEscape($patientName) ?>
+                                                <?php if ($patientNum !== ''): ?>
+                                                    <span style="color:#8aa0a8;">(<?= dentistNotificationEscape($patientNum) ?>)</span>
+                                                <?php endif; ?>
+                                            </span>
+                                            <span class="notif-meta-item">
+                                                <i class="bi bi-briefcase-fill"></i>
+                                                <?= dentistNotificationEscape($serviceName) ?>
+                                            </span>
+                                            <span class="notif-meta-item">
+                                                <i class="bi bi-calendar3"></i>
+                                                <?= dentistNotificationEscape($formattedApptDate) ?> · <?= dentistNotificationEscape($formattedTimeRange) ?>
+                                            </span>
+                                        </div>
+                                    </div>
 
+                                    <div class="notif-right">
+                                        <div class="nt-time">
+                                            <?= dentistNotificationEscape($notifTimeTop) ?>
+                                            <small><?= dentistNotificationEscape($notifDateSub) ?></small>
+                                        </div>
+                                    </div>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
 
-                        <?php endforeach; ?>
-
-                    </div>
-
-
-                    <?php if ($notifTotalPages > 1): ?>
+                        <?php
+                        $showStart = ($notifPage - 1) * $notifPerPage + 1;
+                        $showEnd = min($notifTotal, $notifPage * $notifPerPage);
+                        ?>
                         <nav class="notif-pagination" aria-label="Notification pages">
-                            <?php if ($notifPage > 1): ?>
-                                <a class="notif-page-btn" href="<?= dentistNotificationEscape(notifPageUrl($notifPage - 1)) ?>">
-                                    <i class="bi bi-chevron-left"></i> Prev
-                                </a>
-                            <?php else: ?>
-                                <span class="notif-page-btn disabled"><i class="bi bi-chevron-left"></i> Prev</span>
-                            <?php endif; ?>
-
-                            <?php for ($notifP = 1; $notifP <= $notifTotalPages; $notifP++): ?>
-                                <?php if ($notifP === $notifPage): ?>
-                                    <span class="notif-page-btn active"><?= $notifP ?></span>
+                            <div class="notif-page-info">
+                                Showing <strong><?= (int) $showStart ?>–<?= (int) $showEnd ?></strong> of <strong><?= (int) $notifTotal ?></strong> notifications
+                            </div>
+                            <div class="notif-page-links">
+                                <?php if ($notifPage > 1): ?>
+                                    <a class="notif-page-btn" href="<?= dentistNotificationEscape(notifPageUrl($notifPage - 1)) ?>">
+                                        <i class="bi bi-chevron-left"></i> Prev
+                                    </a>
                                 <?php else: ?>
-                                    <a class="notif-page-btn" href="<?= dentistNotificationEscape(notifPageUrl($notifP)) ?>"><?= $notifP ?></a>
+                                    <span class="notif-page-btn disabled"><i class="bi bi-chevron-left"></i> Prev</span>
                                 <?php endif; ?>
-                            <?php endfor; ?>
 
-                            <?php if ($notifPage < $notifTotalPages): ?>
-                                <a class="notif-page-btn" href="<?= dentistNotificationEscape(notifPageUrl($notifPage + 1)) ?>">
-                                    Next <i class="bi bi-chevron-right"></i>
-                                </a>
-                            <?php else: ?>
-                                <span class="notif-page-btn disabled">Next <i class="bi bi-chevron-right"></i></span>
-                            <?php endif; ?>
+                                <?php for ($notifP = 1; $notifP <= $notifTotalPages; $notifP++): ?>
+                                    <?php if ($notifP === $notifPage): ?>
+                                        <span class="notif-page-btn active"><?= $notifP ?></span>
+                                    <?php else: ?>
+                                        <a class="notif-page-btn" href="<?= dentistNotificationEscape(notifPageUrl($notifP)) ?>"><?= $notifP ?></a>
+                                    <?php endif; ?>
+                                <?php endfor; ?>
+
+                                <?php if ($notifPage < $notifTotalPages): ?>
+                                    <a class="notif-page-btn" href="<?= dentistNotificationEscape(notifPageUrl($notifPage + 1)) ?>">
+                                        Next <i class="bi bi-chevron-right"></i>
+                                    </a>
+                                <?php else: ?>
+                                    <span class="notif-page-btn disabled">Next <i class="bi bi-chevron-right"></i></span>
+                                <?php endif; ?>
+                            </div>
                         </nav>
                     <?php endif; ?>
-
-
-                <?php endif; ?>
-
+                </div>
 
             </section>
-
 
         </div>
 
 
+        <!-- ==================================================
+             APPOINTMENT DETAILS POPUP MODAL (NO REDIRECT)
+        =================================================== -->
         <div class="nt-modal-overlay" id="ntModalOverlay">
-            <div class="nt-modal-box" role="dialog" aria-modal="true">
+            <div class="nt-modal-box" role="dialog" aria-modal="true" aria-labelledby="ntModalTitle">
                 <div class="nt-modal-head">
-                    <div class="nt-icon new" id="ntModalIcon"><i class="bi bi-bell-fill"></i></div>
-                    <h3 id="ntModalTitle">Notification</h3>
-                    <button type="button" class="nt-modal-close" id="ntModalClose" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+                    <div class="nt-icon new" id="ntModalIcon">
+                        <i class="bi bi-calendar2-check-fill" id="ntModalIconGlyph"></i>
+                    </div>
+                    <div class="nt-modal-head-text">
+                        <h3 id="ntModalTitle">Appointment Details</h3>
+                        <div class="nt-modal-head-sub" id="ntModalSub">Notification & Schedule Summary</div>
+                    </div>
+                    <span class="nt-modal-status-pill" id="ntModalStatus">Confirmed</span>
+                    <button type="button" class="nt-modal-close" id="ntModalClose" aria-label="Close">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
                 </div>
+
                 <div class="nt-modal-body">
-                    <div class="nt-modal-msg" id="ntModalMsg"></div>
-                    <div class="nt-modal-grid">
-                        <span class="notif-chip"><i class="bi bi-person-fill"></i><span id="ntModalPatient">&mdash;</span></span>
-                        <span class="notif-chip"><i class="bi bi-briefcase-fill"></i><span id="ntModalService">&mdash;</span></span>
-                        <span class="notif-chip"><i class="bi bi-calendar-event"></i><span id="ntModalDate">&mdash;</span></span>
-                        <span class="notif-chip"><i class="bi bi-clock-fill"></i><span id="ntModalTime">&mdash;</span></span>
+                    <div class="nt-modal-banner">
+                        <div class="nt-modal-banner-title" id="ntModalNotifTitle">Notification</div>
+                        <div class="nt-modal-msg" id="ntModalMsg"></div>
                     </div>
-                    <div class="notif-meta">
-                        <span class="notif-chip"><i class="bi bi-flag-fill"></i><span id="ntModalStatus">&mdash;</span></span>
+
+                    <div class="nt-modal-details-grid">
+                        <div class="nt-detail-box">
+                            <div class="nt-detail-label"><i class="bi bi-person-Vcard-fill bi-person-badge-fill"></i>Patient Information</div>
+                            <div class="nt-detail-value" id="ntModalPatient">—</div>
+                            <div class="nt-detail-sub">Patient ID: <span id="ntModalPatientNumber">—</span></div>
+                        </div>
+
+                        <div class="nt-detail-box">
+                            <div class="nt-detail-label"><i class="bi bi-telephone-fill"></i>Contact Details</div>
+                            <div class="nt-detail-value" id="ntModalContact">—</div>
+                            <div class="nt-detail-sub" id="ntModalEmail">—</div>
+                        </div>
+
+                        <div class="nt-detail-box">
+                            <div class="nt-detail-label"><i class="bi bi-heart-pulse-fill"></i>Dental Service</div>
+                            <div class="nt-detail-value" id="ntModalService">—</div>
+                            <div class="nt-detail-sub">Dentist: <span id="ntModalDentist">—</span></div>
+                        </div>
+
+                        <div class="nt-detail-box">
+                            <div class="nt-detail-label"><i class="bi bi-calendar-event-fill"></i>Appointment Schedule</div>
+                            <div class="nt-detail-value" id="ntModalDate">—</div>
+                            <div class="nt-detail-sub" id="ntModalTime">—</div>
+                        </div>
+                    </div>
+
+                    <div class="nt-notes-box">
+                        <div class="nt-detail-label"><i class="bi bi-journal-text"></i>Notes / Remarks</div>
+                        <div class="nt-notes-text" id="ntModalNotes">—</div>
                     </div>
                 </div>
+
                 <div class="nt-modal-foot">
-                    <button type="button" class="nt-modal-btn" id="ntModalCancel">Close</button>
-                    <a class="nt-modal-btn primary" id="ntModalGo" href="#"><i class="bi bi-calendar-event"></i>Open Appointment</a>
+                    <button type="button" class="nt-modal-btn" id="ntModalCancel">
+                        <i class="bi bi-check2-circle"></i>
+                        Close
+                    </button>
                 </div>
             </div>
         </div>
 
 
-        <?php if (($_GET['nosidebar'] ?? '') === '1'): ?>
-        <style>.portal-sidebar{display:none!important;}.portal-main{margin-left:0!important;width:100%!important;}</style>
-        <script>
-        function autoCloseSubTab(){
-            try{ if(window.opener && !window.opener.closed){ window.opener.focus(); } }catch(e){}
-            /* Hindi na nagsasara ang tab — same-tab navigation. */
-            if (!window.opener || window.opener.closed) {
-                window.location.href='dentist_dashboard.php';
-            }
-            return false;
-        }
-        </script>
-        <?php endif; ?>
     </main>
 
 <script>
-/* Notif highlight: NEW cards naka-highlight, click = select + mark as read ( nawawala ang NEW ).
-   Pag nag-View, naka-highlight muna at naaalala pagbalik via sessionStorage. */
 (function(){
     var READ_KEY = 'dentistNotifRead';
     var SEL_KEY = 'dentistNotifHighlight';
+
     function getRead(){
         try { return JSON.parse(localStorage.getItem(READ_KEY) || '[]'); } catch(e){ return []; }
     }
@@ -2563,82 +2071,119 @@ include __DIR__ . '/dentist_sidebar.php';
     function markRead(key){
         if(!key) return;
         var list = getRead();
-        if(list.indexOf(key) === -1){ list.push(key); setRead(list); }
+        if(list.indexOf(key) === -1){
+            list.push(key);
+            setRead(list);
+        }
     }
-    var rows = document.querySelectorAll('.notif-list .notif-card');
 
-    /* ---- Modal (click = popup, hindi na umaalis sa page) ---- */
+    var rows = Array.prototype.slice.call(document.querySelectorAll('.notif-list .notif-card'));
     var overlay = document.getElementById('ntModalOverlay');
+    var unreadCountNum = document.getElementById('unreadCountNum');
+    var unreadCountPill = document.getElementById('unreadCountPill');
+
+    function updateUnreadCounter(){
+        var unread = document.querySelectorAll('.notif-list .notif-card.is-unread').length;
+        if(unreadCountNum){
+            unreadCountNum.textContent = String(unread);
+        }
+        if(unreadCountPill){
+            unreadCountPill.style.opacity = unread > 0 ? '1' : '0.65';
+        }
+    }
+
     function txt(id, val){
         var el = document.getElementById(id);
         if(el) el.textContent = val || '—';
     }
-    function openModal(row){
-        if(!overlay) return;
-        txt('ntModalTitle', row.getAttribute('data-title'));
+
+    function openAppointmentModal(row){
+        if(!overlay || !row) return;
+        var notifTitle = row.getAttribute('data-title') || 'Notification';
+        var notifTime = row.getAttribute('data-notif-time') || '';
+        var iconCls = row.getAttribute('data-icon') || 'bi-bell-fill';
+
+        txt('ntModalTitle', 'Appointment Details');
+        txt('ntModalSub', notifTime ? ('Notification received · ' + notifTime) : 'Appointment & Patient Summary');
+        txt('ntModalNotifTitle', notifTitle);
         txt('ntModalMsg', row.getAttribute('data-message'));
         txt('ntModalPatient', row.getAttribute('data-patient'));
+        txt('ntModalPatientNumber', row.getAttribute('data-patient-number'));
+        txt('ntModalContact', row.getAttribute('data-contact'));
+        txt('ntModalEmail', row.getAttribute('data-email'));
         txt('ntModalService', row.getAttribute('data-service'));
+        txt('ntModalDentist', row.getAttribute('data-dentist'));
         txt('ntModalDate', row.getAttribute('data-date'));
         txt('ntModalTime', row.getAttribute('data-timerange'));
-        txt('ntModalStatus', row.getAttribute('data-status'));
-        var go = document.getElementById('ntModalGo');
-        if(go){
-            var href = row.getAttribute('data-href');
-            go.setAttribute('href', href || '#');
-            go.style.display = (href && href.indexOf('highlight=0') === -1) ? '' : 'none';
-        }
-        var icon = document.getElementById('ntModalIcon');
-        if(icon){
-            var cls = (row.className.match(/type-([a-z\-]+)/) || [])[1];
-            icon.className = 'nt-icon ' + (cls || 'new');
+        txt('ntModalStatus', row.getAttribute('data-status') || 'Pending');
+        txt('ntModalNotes', row.getAttribute('data-notes'));
+
+        var iconGlyph = document.getElementById('ntModalIconGlyph');
+        if(iconGlyph){
+            iconGlyph.className = 'bi ' + iconCls;
         }
         overlay.classList.add('open');
+        document.body.style.overflow = 'hidden';
     }
-    function closeModal(){ if(overlay) overlay.classList.remove('open'); }
+
+    function closeModal(){
+        if(!overlay) return;
+        overlay.classList.remove('open');
+        document.body.style.overflow = '';
+    }
+
     if(overlay){
-        overlay.addEventListener('click', function(e){ if(e.target === overlay) closeModal(); });
-        document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeModal(); });
+        overlay.addEventListener('click', function(e){
+            if(e.target === overlay) closeModal();
+        });
+        document.addEventListener('keydown', function(e){
+            if(e.key === 'Escape' && overlay.classList.contains('open')) closeModal();
+        });
     }
-    ['ntModalClose','ntModalCancel'].forEach(function(id){
+
+    ['ntModalClose', 'ntModalCancel'].forEach(function(id){
         var b = document.getElementById(id);
         if(b) b.addEventListener('click', closeModal);
     });
 
+    /* Initialize read state from localStorage */
     var readList = getRead();
     rows.forEach(function(row){
         var key = row.getAttribute('data-notif-key');
         if(key && readList.indexOf(key) !== -1){
-            row.classList.remove('is-new');
+            row.classList.remove('is-unread');
             row.classList.add('is-read');
         }
     });
+    updateUnreadCounter();
+
+    /* Click on notification card or View Appointment button opens Popup Modal (NO REDIRECT) */
     rows.forEach(function(row){
-        row.addEventListener('click', function(e){
+        function handleActivate(e){
+            if(e) e.stopPropagation();
             var key = row.getAttribute('data-notif-key');
-            var isLink = e.target.closest('a, button');
             rows.forEach(function(r){ r.classList.remove('selected'); });
             row.classList.add('selected');
-            try { sessionStorage.setItem(SEL_KEY, key || ''); } catch(err) {}
-            /* Click = nabasa na: tanggalin ang NEW highlight */
+            try { sessionStorage.setItem(SEL_KEY, key || ''); } catch(err){}
+
             if(key){
-                row.classList.remove('is-new');
+                row.classList.remove('is-unread');
                 row.classList.add('is-read');
                 markRead(key);
+                updateUnreadCounter();
             }
-            var href = row.getAttribute('data-href');
-            if(href && href !== 'appointments.php?highlight=0&from=notifications'){
-                openModal(row);
-                return;
-            }
-            if(isLink){ return; }
-            try { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch(err) {}
-        });
+            openAppointmentModal(row);
+        }
+
+        row.addEventListener('click', handleActivate);
         row.addEventListener('keydown', function(ev){
-            if(ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); row.click(); }
+            if(ev.key === 'Enter' || ev.key === ' '){
+                ev.preventDefault();
+                handleActivate(ev);
+            }
         });
     });
-    /* Pagbalik galing View: i-highlight ang huling biniew */
+
     try {
         var saved = sessionStorage.getItem(SEL_KEY);
         if(saved){
@@ -2646,23 +2191,13 @@ include __DIR__ . '/dentist_sidebar.php';
             if(el){
                 rows.forEach(function(r){ r.classList.remove('selected'); });
                 el.classList.add('selected');
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         }
-    } catch(err) {}
+    } catch(err){}
 })();
 </script>
-<script>
-/* Itago ang sidebar kapag binuksan mula sa dashboard menu (?nosidebar=1) */
-(function(){
-    try {
-        if (new URLSearchParams(window.location.search).get('nosidebar') === '1') {
-            document.querySelectorAll('.portal-sidebar').forEach(function(el){ el.style.display = 'none'; });
-            document.querySelectorAll('.portal-main').forEach(function(el){ el.style.marginLeft = '0'; el.style.width = '100%'; });
-        }
-    } catch(e){}
-})();
-</script>
+
+
 
 
 <!-- DENTIST LOGOUT CONFIRM — "Are you sure you want to log out?" -->

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Abalos Dental Clinic - Administrator Portal User Manual</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1e293b; max-width: 900px; margin: 0 auto; padding: 24px; background: #f8fafc; }
+  .container { background: #ffffff; padding: 40px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+  h1 { color: #0e6b5e; text-align: center; margin-bottom: 4px; font-size: 26px; }
+  h2.subtitle { color: #0a4a41; text-align: center; margin-top: 0; font-size: 18px; }
+  .meta-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px; }
+  .meta-table td { padding: 8px 12px; border: 1px solid #cbd5e1; }
+  .meta-table td.label { background: #f1f5f9; font-weight: bold; color: #475569; width: 25%; }
+  .toc { background: #f8fafc; border-left: 4px solid #0e6b5e; padding: 16px; margin: 24px 0; }
+  .toc h3 { margin-top: 0; color: #0e6b5e; font-size: 15px; }
+  .toc ul { list-style-type: none; padding-left: 10px; font-size: 13px; }
+  .toc li { margin-bottom: 4px; }
+  .toc .sec-item { font-weight: bold; color: #0a4a41; margin-top: 8px; }
+  .section-title { color: #0e6b5e; border-bottom: 2px solid #0e6b5e; padding-bottom: 6px; margin-top: 36px; font-size: 20px; text-transform: uppercase; }
+  .subsection-title { color: #0a4a41; margin-top: 20px; font-size: 16px; }
+  .callout { border-radius: 4px; padding: 12px 16px; margin: 16px 0; font-size: 13.5px; }
+  .callout-info { background: #f0fdf4; border-left: 4px solid #166534; color: #14532d; }
+  .callout-warning { background: #fffbeb; border-left: 4px solid #92400e; color: #78350f; }
+  .callout-ai { background: #eff6ff; border-left: 4px solid #1e40af; color: #1e3a8a; }
+  .callout-title { font-weight: bold; margin-bottom: 4px; text-transform: uppercase; font-size: 12px; }
+  .figure-box { text-align: center; margin: 24px 0; }
+  .figure-box img { max-width: 100%; height: auto; border: 1px solid #cbd5e1; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+  .caption { font-size: 12.5px; color: #475569; font-style: italic; margin-top: 6px; }
+  ol { padding-left: 20px; }
+  ol li { margin-bottom: 6px; }
+  .signature-table { width: 100%; margin-top: 40px; border-collapse: collapse; text-align: center; }
+  .signature-table td { width: 50%; padding: 20px 10px; border: none; }
+  .sig-line { font-weight: bold; }
+  .sig-name { font-weight: bold; color: #0e6b5e; font-size: 14px; margin-top: 4px; }
+  .sig-role { font-size: 12px; color: #475569; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>ABALOS DENTAL CLINIC</h1>
+  <h2 class="subtitle">Administrator Portal User Manual</h2>
+  
+  <table class="meta-table">
+    <tr><td class="label">Project Title:</td><td>An AI-Based Intelligent Dental Appointment Scheduling System Using Machine Learning for Optimized Clinic Management</td></tr>
+    <tr><td class="label">Institution:</td><td>Global Reciprocal Colleges, Caloocan City</td></tr>
+    <tr><td class="label">Target Location:</td><td>Abalos Dental Clinic, Malolos Avenue, Bagong Barrio, Caloocan City</td></tr>
+    <tr><td class="label">Operating Schedule:</td><td>Monday – Saturday | 8:00 AM – 6:00 PM (Lunch Break: 12:00 PM – 1:00 PM)</td></tr>
+  </table>
+
+  <div class="toc">
+    <h3>TABLE OF CONTENTS</h3>
+    <ul>
+<li class='sec-item'>SECTION 3: ADMINISTRATOR PORTAL USER MANUAL</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 3.1 Master Administrative Control Overview & Security Access</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 3.2 Executive Dashboard & Operational Analytics</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 3.3 7-Day Machine Learning Demand Forecast (Linear Regression)</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 3.4 Master Appointment Management & Status Lifecycle</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 3.5 Emergency Doctor Absence & Dynamic Patient Reassignment Protocol</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 3.6 Dentist Rosters, Flexible Rest Days & Attendance Management</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 3.7 Patient Records Directory & Diagnostic History Search</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 3.8 Official Clinic Reports with Printable Letterhead & Signatures</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 3.9 Clinic Operational Settings & Business Rules Configuration</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 3.10 System Database Backup & Disaster Recovery</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 3.11 Patient Concerns Review & Ticket Resolution</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 3.12 Real-Time Clinic Queue & Walk-In Reception</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;• 3.13 Administrative Troubleshooting & Technical Maintenance</li>
+    </ul>
+  </div>
+<h2 class='section-title'>Section 3: Administrator Portal User Manual</h2>
+<h3 class='subsection-title'>3.1 Master Administrative Control Overview & Security Access</h3>
+<p>The <strong>Administrator Portal</strong> serves as the operational nerve center of Abalos Dental Clinic. It grants clinic administrators, reception managers, and medical directors centralized control over patient appointments, practitioner rosters, dynamic queue pacing, AI-powered predictive demand forecasting, patient medical directories, official reporting, system security, and database backup routines.</p>
+<p>The portal enforces strict role-based access control (RBAC) to ensure administrative features and patient records are guarded against unauthorized modification.</p>
+<p><strong>Operational Login Steps:</strong>
+1. Navigate to the administrative portal sign-in page.
+2. Enter your authorized Master Administrator credentials (Username/Email and Password).
+3. Click <strong>[Login]</strong> to access the Executive Dashboard.</p>
+<div class='callout callout-warning'>
+  <div class='callout-title'>[Administrative Security]</div>
+  <div>Administrative accounts hold elevated privileges across the clinic database. Never leave administrative browser sessions unattended on public reception counters.</div>
+</div>
+<h3 class='subsection-title'>3.2 Executive Dashboard & Operational Analytics</h3>
+<p>Upon authentication, the <strong>Executive Dashboard</strong> presents real-time operational Key Performance Indicators (KPIs), summary metric counters, dynamic queue progress, and fast system navigation shortcuts across the entire facility:</p>
+<ol>
+<li><strong>Operational KPI Cards (Arrow 1 - Blue):</strong> Master counters displaying Today's Total Appointments, Pending Approval, Confirmed, and Completed patient consultations.</li>
+<li><strong>Real-Time Live Queue & Demand Forecast Quick Counters (Arrow 2 - Green):</strong> Live lobby waiting counter and weekly demand snapshot for immediate frontline coordination.</li>
+<li><strong>Master Administrator Navigation Sidebar (Arrow 3 - Purple):</strong> Global navigation sidebar providing direct access to Dashboard, Appointments, AI Forecast, Dentists, Patients, Reports, Settings, and System Logs.</li>
+</ol>
+<div class='figure-box'>
+  <img src='../clean_arrows/adm_01_dashboard.png' alt='Figure 15: Central Administrator Dashboard Overview'>
+  <div class='caption'>Figure 15: Central Administrator Dashboard Overview</div>
+</div>
+<h3 class='subsection-title'>3.3 7-Day Machine Learning Demand Forecast (Linear Regression)</h3>
+<p>The system incorporates a <strong>7-Day Machine Learning Demand Forecast Module</strong> powered by a Multi-Variable Linear Regression algorithm. It analyzes historical booking patterns—combining <strong>60% general volume trend</strong> with <strong>40% day-of-week historical averages</strong> (with Sunday strictly set to 0)—to predict upcoming daily patient volumes.</p>
+<p><strong>Operational Demand Tiers & Load Balancing:</strong></p>
+<p>• <strong>Low Demand (< 15 patients):</strong> Normal staffing and full booking availability. The system recommends scheduling lengthy, complex procedures (e.g., surgical impactions, multiple root canals, prosthodontics) on these days.
+• <strong>Medium Demand (15–25 patients):</strong> Moderate load; optimal resource distribution and standard chair occupancy.
+• <strong>High Demand (> 25 patients):</strong> Capacity threshold; the system alerts administrators and prompts smart rescheduling recommendations to shift non-urgent routine consultations or oral prophylaxis visits to lower-demand days.</p>
+<ol>
+<li><strong>Date Range & Forecast Analytics Filter Controls (Arrow 1 - Blue):</strong> Date range pickers and analytical filters to examine historical patient influx trends.</li>
+<li><strong>Historical Appointment Trend vs. 7-Day AI Demand Forecast Chart & Table Breakdown (Arrow 2 - Green):</strong> Visual trend lines, confidence intervals, and weekday patient volume projections used to balance chair occupancy.</li>
+</ol>
+<div class='callout callout-ai'>
+  <div class='callout-title'>[AI Machine Learning Core]</div>
+  <div>The 7-Day Demand Forecast uses Linear Regression combining 60% general volume trend with 40% day-of-week historical averages (Sundays strictly locked to 0) to optimize clinic staffing and load balancing.</div>
+</div>
+<div class='figure-box'>
+  <img src='../clean_arrows/adm_07_demand_forecast.png' alt='Figure 16: 7-Day Machine Learning Demand Forecast & Workload Optimizer'>
+  <div class='caption'>Figure 16: 7-Day Machine Learning Demand Forecast & Workload Optimizer</div>
+</div>
+<h3 class='subsection-title'>3.4 Master Appointment Management & Status Lifecycle</h3>
+<p>Under <strong>[Appointments]</strong>, administrators monitor, filter, and modify all patient bookings across their complete lifecycle.</p>
+<p><strong>Status Lifecycle Options:</strong></p>
+<p>• <strong>Pending:</strong> Awaiting administrative review and validation.
+• <strong>Confirmed:</strong> Validated and scheduled for dental care.
+• <strong>Checked-In / Serving:</strong> Patient has arrived and is currently in the clinic lobby or operatory chair.
+• <strong>Completed:</strong> Dental procedure finished and clinical record archived.
+• <strong>Cancelled:</strong> Terminated by patient or clinic with logged justification.
+• <strong>No-Show:</strong> Applied automatically or manually when a patient fails to arrive within the mandatory 30-minute grace period after their scheduled time.</p>
+<p><strong>Operational Steps:</strong>
+1. Navigate to <strong>[Appointments]</strong> from the sidebar.
+2. Use multi-status tab filters to view Pending, Confirmed, Today, or Past bookings.
+3. Click <strong>[Approve / Confirm]</strong> to finalize a pending slot, <strong>[Reschedule]</strong> to modify dates/times, or <strong>[Cancel]</strong> to revoke an appointment.</p>
+<ol>
+<li><strong>Multi-Status Appointment Filter Tabs & Search Bar (Arrow 1 - Blue):</strong> Status selector tabs and search bar allowing instant filtering by patient name or booking reference.</li>
+<li><strong>Action Buttons Menu (Arrow 2 - Red):</strong> Comprehensive action controls on each booking row enabling administrators to <strong>[Approve]</strong>, <strong>[Reschedule]</strong>, <strong>[Cancel]</strong>, or <strong>[Mark No-Show]</strong>.</li>
+</ol>
+<div class='figure-box'>
+  <img src='../clean_arrows/adm_02_appointments.png' alt='Figure 17: Master Appointments Management Interface'>
+  <div class='caption'>Figure 17: Master Appointments Management Interface</div>
+</div>
+<h3 class='subsection-title'>3.5 Emergency Doctor Absence & Dynamic Patient Reassignment Protocol</h3>
+<p>When an attending dentist calls in sick or files an emergency leave, the clinic administrator marks the clinician as <strong>Absent</strong> in the system.</p>
+<p><strong>Automated Reassignment Workflow:</strong>
+1. Select the doctor filing an emergency leave in <strong>[Dentist Management]</strong>.
+2. Click <strong>[Mark as Absent]</strong>.
+3. The system automatically opens the <strong>Dynamic Patient Reassignment Modal</strong>, detecting all affected appointments assigned to that doctor for the day.
+4. Choose an available duty dentist from the dropdown menu to instantly reassign affected patients without causing schedule overlaps or requiring manual phone calls.</p>
+<ol>
+<li><strong>Doctor Absence Alert Warning Banner (Arrow 1 - Red):</strong> High-priority operational warning identifying the absent doctor and the count of scheduled patients requiring immediate chair reassignment.</li>
+<li><strong>Affected Appointments & Cancel/Reschedule Control List (Arrow 2 - Orange):</strong> Scrollable roster displaying all affected bookings with patient names, procedures, and scheduled appointment times.</li>
+<li><strong>Reassign Duty Dentist Selector and Mass-Update Action Button (Arrow 3 - Blue):</strong> Conflict-free dentist dropdown and execution button that transfers patients, updates chair queues, and dispatches SMS/email notices.</li>
+</ol>
+<div class='callout callout-warning'>
+  <div class='callout-title'>[Emergency Absence Protocol]</div>
+  <div>Dynamic reassignment prevents appointment cancellations during clinician illness, instantly migrating bookings to duty doctors with verified schedule availability.</div>
+</div>
+<div class='figure-box'>
+  <img src='../clean_arrows/adm_03_reassign_modal.png' alt='Figure 18: Emergency Doctor Absence & Dynamic Reassignment Modal'>
+  <div class='caption'>Figure 18: Emergency Doctor Absence & Dynamic Reassignment Modal</div>
+</div>
+<h3 class='subsection-title'>3.6 Dentist Rosters, Flexible Rest Days & Attendance Management</h3>
+<p>Administrators can register new clinicians, update professional credentials (PRC license numbers, specializations), and manage weekly work schedules.</p>
+<p><strong>Key Features:</strong></p>
+<p>• <strong>Add Dentist:</strong> Input complete doctor profile details, contact numbers, email credentials, and clinical specialization.
+• <strong>Weekly Rest Day Configuration:</strong> Assign fixed recurring rest days or approve temporary absence requests.
+• <strong>Mark as Absent:</strong> Rapidly flag clinician absence and trigger automated patient reassignments.
+• <strong>Delete Rest Day:</strong> Click the delete/trash icon to clear a recorded absence when the practitioner resumes duty.</p>
+<ol>
+<li><strong>Active Dentist Directory & Credentials Roster Table (Arrow 1 - Blue):</strong> Central practitioner roster showing clinician names, license details, assigned operatories, and weekly rest days.</li>
+<li><strong>Weekly Rest Day Configuration & Absence Logging Controls (Arrow 2 - Green):</strong> Shift configuration panel enabling administrators to set fixed rest days or approve leave requests.</li>
+<li><strong>Add New Dentist Button (Arrow 3 - Red):</strong> Primary administrative control to onboard new dental practitioners and configure their portal login credentials.</li>
+</ol>
+<div class='figure-box'>
+  <img src='../clean_arrows/adm_04_dentists.png' alt='Figure 19: Dentist Rosters & Flexible Rest Day Management'>
+  <div class='caption'>Figure 19: Dentist Rosters & Flexible Rest Day Management</div>
+</div>
+<h3 class='subsection-title'>3.7 Patient Records Directory & Diagnostic History Search</h3>
+<p>The <strong>Patient Records Directory</strong> enables administrators to inspect comprehensive patient profiles, contact details, medical histories, and past treatment charting logs.</p>
+<p><strong>Operational Steps:</strong>
+1. Open <strong>[Patients]</strong> from the navigation sidebar.
+2. Use the real-time search bar to query by <strong>Patient Name</strong>, <strong>Contact Number</strong>, or <strong>Patient ID</strong> (e.g., <strong>PAT-2026-0001</strong>).
+3. Click <strong>[View Full Medical Record]</strong> to examine past dental procedures, diagnostic notes, allergy histories, and appointment logs.</p>
+<ol>
+<li><strong>Real-Time Patient Search Bar (Arrow 1 - Blue):</strong> Dynamic search input providing instant filtering across names, phone numbers, and unique Patient IDs.</li>
+<li><strong>Patient Directory Table & View Medical Record Buttons (Arrow 2 - Green):</strong> Complete patient registry table with action buttons to view full electronic health records (EHR) and treatment histories.</li>
+</ol>
+<div class='figure-box'>
+  <img src='../clean_arrows/adm_05_patients_search.png' alt='Figure 20: Patient Records Directory & Diagnostic History Search'>
+  <div class='caption'>Figure 20: Patient Records Directory & Diagnostic History Search</div>
+</div>
+<h3 class='subsection-title'>3.8 Official Clinic Reports with Printable Letterhead & Signatures</h3>
+<p>Administrators can generate, filter, and print comprehensive operational reports formatted with official clinic branding.</p>
+<p><strong>Available Report Types:</strong></p>
+<p>• <strong>Appointment Summary Reports:</strong> Daily, weekly, and monthly appointment throughput and completion metrics.
+• <strong>Patient Demographics & Registration Logs:</strong> Age, gender, and geographical distribution of registered patients.
+• <strong>Dentist Performance & Workload Distribution:</strong> Procedural volumes and consultation hours per practitioner.
+• <strong>Dental Service Demand & Revenue Analytics:</strong> Breakdown of high-demand dental procedures and collections.
+• <strong>No-Show & Cancellation Audit Logs:</strong> Comprehensive tracking of missed and cancelled appointments.</p>
+<p><strong>Printing Protocol:</strong>
+1. Select the desired report category and set the target <strong>Date Range</strong>.
+2. Click <strong>[Generate Report]</strong>.
+3. Click <strong>[Print Report]</strong>. The system renders a clean print layout with the official <strong>Abalos Dental Clinic header</strong>, complete data tables, and formal signature lines for the <strong>Clinic Administrator</strong> and <strong>Medical Director</strong>.</p>
+<ol>
+<li><strong>Report Category Selector & Date Range Filters (Arrow 1 - Blue):</strong> Category dropdown and calendar picker to define the reporting dataset and timeframe.</li>
+<li><strong>Print Report Action Button with Clinic Letterhead & Dual Signature Lines (Arrow 2 - Green):</strong> High-level action button triggering professional CSS print styling complete with formal endorsement blocks.</li>
+</ol>
+<div class='figure-box'>
+  <img src='../clean_arrows/adm_06_reports.png' alt='Figure 21: Official Clinic Reports Module with Letterhead & Signatures'>
+  <div class='caption'>Figure 21: Official Clinic Reports Module with Letterhead & Signatures</div>
+</div>
+<h3 class='subsection-title'>3.9 Clinic Operational Settings & Business Rules Configuration</h3>
+<p>The <strong>[Settings]</strong> module allows administrators to configure core business rules governing the scheduling engine without modifying system source code.</p>
+<p><strong>Configurable Parameters:</strong></p>
+<p>• <strong>Operating Hours:</strong> Default set to 8:00 AM – 6:00 PM, Monday through Saturday (Sundays strictly locked).
+• <strong>Mandatory Lunch Break:</strong> Locked interval from 12:00 PM – 1:00 PM where bookings are automatically prevented.
+• <strong>Daily Booking Limit:</strong> Maximum of 2 active appointments per patient account per day.
+• <strong>Time Slot Intervals & Lead Times:</strong> Adjustable appointment slot durations (e.g., 30 or 60 minutes) and advance booking limits.
+• <strong>Service Management:</strong> Add, edit, or deactivate dental services and configure estimated procedure durations.</p>
+<ol>
+<li><strong>Clinic Information & Operating Hours Panel (Arrow 1 - Blue):</strong> Controls for clinic name, location address, operating hours, and mandatory lunch break intervals.</li>
+<li><strong>Business Rules, Lunch Break Locking, and Service Pricing Controls (Arrow 2 - Purple):</strong> Configuration controls for maximum daily bookings, procedural durations, and service catalogues.</li>
+</ol>
+<div class='figure-box'>
+  <img src='../clean_arrows/adm_08_clinic_settings.png' alt='Figure 22: Clinic Operational Settings Console'>
+  <div class='caption'>Figure 22: Clinic Operational Settings Console</div>
+</div>
+<h3 class='subsection-title'>3.10 System Database Backup & Disaster Recovery</h3>
+<p>To guarantee system security and data integrity, administrators can execute database maintenance and disaster recovery routines.</p>
+<p><strong>Operational Steps:</strong>
+1. <strong>Backup Database:</strong> Click <strong>[Export SQL Backup]</strong> to generate and download a complete, timestamped `.sql` copy of the clinic database.
+2. <strong>Restore Database:</strong> In case of emergency or server migration, choose a valid `.sql` backup file and click <strong>[Import & Restore]</strong>.</p>
+<ol>
+<li><strong>Export Database (.sql) Download Button (Arrow 1 - Blue):</strong> One-click utility that compiles all clinic schemas, patient records, and appointment tables into a downloadable SQL file.</li>
+<li><strong>File Upload Selector & Import/Restore System Control (Arrow 2 - Green):</strong> Secure restoration interface allowing authorized personnel to restore database snapshots following system updates or server migrations.</li>
+</ol>
+<div class='figure-box'>
+  <img src='../clean_arrows/adm_09_database_backup.png' alt='Figure 23: Database Backup & Recovery Interface'>
+  <div class='caption'>Figure 23: Database Backup & Recovery Interface</div>
+</div>
+<h3 class='subsection-title'>3.11 Patient Concerns Review & Ticket Resolution</h3>
+<p>Administrators monitor and resolve patient feedback, pain emergency inquiries, or rescheduling requests submitted through the Patient Portal.</p>
+<p><strong>Operational Steps:</strong>
+1. Navigate to <strong>[Patient Concerns]</strong> from the sidebar.
+2. Click on an unresolved ticket to read the patient's submitted inquiry and booking context.
+3. Type an official clinic response or update the ticket status to <strong>Resolved</strong>.</p>
+<ol>
+<li><strong>Patient Concern Tickets Table & Status Indicators (Arrow 1 - Blue):</strong> Inbound message table displaying ticket IDs, patient names, subject categories, and resolution badges.</li>
+<li><strong>Response Messaging Input Box & Ticket Resolution Control (Arrow 2 - Green):</strong> Dedicated response console to formulate administrative guidance and mark tickets as resolved.</li>
+</ol>
+<div class='figure-box'>
+  <img src='../clean_arrows/adm_10_patient_concerns.png' alt='Figure 24: Patient Concerns Review & Resolution Console'>
+  <div class='caption'>Figure 24: Patient Concerns Review & Resolution Console</div>
+</div>
+<h3 class='subsection-title'>3.12 Real-Time Clinic Queue & Walk-In Reception</h3>
+<p>The <strong>Front-Desk Queue Monitor</strong> consolidates both online scheduled patients who have checked in and walk-in clients who scanned the clinic's QR code into a unified waiting sequence.</p>
+<p><strong>Operational Steps:</strong>
+1. Open <strong>[Reception Queue]</strong> from the sidebar.
+2. Monitor real-time lobby check-ins and queue numbers.
+3. Manually add walk-in patients if they cannot scan the QR code using their own smartphone.
+4. Dispatch waiting patients to available operatory chairs as attending doctors finish preceding treatments.</p>
+<ol>
+<li><strong>Combined Lobby Queue Sequence (Scheduled vs. QR Walk-In Badges) (Arrow 1 - Blue):</strong> Unified lobby display showing queue ticket numbers (e.g., #Q-005), patient categories, and current status.</li>
+<li><strong>Add Manual Walk-In & Queue Status Action Controls (Arrow 2 - Green):</strong> Fast-entry intake modal and status control buttons (<strong>[Call]</strong>, <strong>[Serve]</strong>, <strong>[Complete]</strong>) to manage chair flow.</li>
+</ol>
+<div class='figure-box'>
+  <img src='../clean_arrows/adm_11_live_queue.png' alt='Figure 25: Front-Desk Live Queue Monitor & Walk-In Reception'>
+  <div class='caption'>Figure 25: Front-Desk Live Queue Monitor & Walk-In Reception</div>
+</div>
+<h3 class='subsection-title'>3.13 Administrative Troubleshooting & Technical Maintenance</h3>
+<p>Common administrative technical troubleshooting procedures:</p>
+<p>• <strong>Overlapping Bookings:</strong> Verify dentist rest days and double-check operating hour constraints in <strong>[Settings]</strong>.
+• <strong>Unlocking Patient Accounts:</strong> Reset passwords or clear failed login attempts under <strong>[Patients]</strong>.
+• <strong>Weekly Maintenance:</strong> Perform regular `.sql` database exports every Saturday after closing (6:00 PM) to ensure reliable disaster recovery.</p>
+<table class="signature-table">
+  <tr>
+    <td>
+      <div class="sig-line">_________________________________________</div>
+      <div class="sig-name">CLINIC ADMINISTRATOR</div>
+      <div class="sig-role">Operations & Facilities Management<br>Abalos Dental Clinic<br><em>Date: October 2026 | Approved</em></div>
+    </td>
+    <td>
+      <div class="sig-line">_________________________________________</div>
+      <div class="sig-name">HEAD DENTIST / MEDICAL DIRECTOR</div>
+      <div class="sig-role">Clinical Quality & Practice Governance<br>Abalos Dental Clinic<br><em>Date: October 2026 | Approved</em></div>
+    </td>
+  </tr>
+</table>
+</div>
+</body>
+</html>

@@ -1,4 +1,15 @@
 <?php
+/**
+ * DENTIST PORTAL — PATIENTS DIRECTORY & CLINICAL TREATMENT HISTORY
+ * 
+ * Provides licensed dentists with:
+ * - Patient directory of individuals assigned to the dentist
+ * - Search by patient name, patient number (PAT-...), phone, or email
+ * - Status filtering (Pending, Confirmed, Completed, Cancelled)
+ * - 10-per-page pagination with clean clinical layout
+ * - Patient details & full dental appointment history view (?patient_id=X)
+ * - Quick appointment view modal & edit patient info modal
+ */
 
 require_once __DIR__ . '/../config.php';
 
@@ -7,7 +18,6 @@ require_once __DIR__ . '/../config.php';
 | DENTIST AUTHENTICATION
 |--------------------------------------------------------------------------
 */
-
 if (
     !isset($_SESSION['user_id']) ||
     strtolower(trim($_SESSION['role'] ?? '')) !== 'dentist'
@@ -20,13 +30,7 @@ if (
 |--------------------------------------------------------------------------
 | FIND DENTIST ID
 |--------------------------------------------------------------------------
-|
-| appointments.dentist_id ay galing sa dentists table, hindi sa users table.
-| Kaya kapag may nag-book ang patient, doon dapat tumutugma ang ID dito —
-| pangalan muna (exact), tapos ang logged-in user ID bilang fallback.
-|
 */
-
 $loggedInUserId = (int) $_SESSION['user_id'];
 $dentistName = trim($_SESSION['full_name'] ?? '');
 
@@ -35,31 +39,40 @@ $dentistId = function_exists('resolveDentistId')
     : 0;
 
 if ($dentistId <= 0) {
-$dentistLookup = $pdo->prepare("
-    SELECT id
-    FROM dentists
-    WHERE dentist_name = ?
-       OR id = ?
-    ORDER BY (dentist_name = ?) DESC
-    LIMIT 1
-");
+    $dentistLookup = $pdo->prepare("
+        SELECT id
+        FROM dentists
+        WHERE dentist_name = ?
+           OR id = ?
+        ORDER BY (dentist_name = ?) DESC
+        LIMIT 1
+    ");
 
-$dentistLookup->execute([
-    $dentistName,
-    $loggedInUserId,
-    $dentistName
-]);
+    $dentistLookup->execute([
+        $dentistName,
+        $loggedInUserId,
+        $dentistName
+    ]);
 
-$dentistId = (int) ($dentistLookup->fetchColumn() ?: 0);
+    $dentistId = (int) ($dentistLookup->fetchColumn() ?: 0);
 }
 
+// Fetch dentist record for specialization info
+$dentistRecord = null;
+if ($dentistId > 0) {
+    try {
+        $stD = $pdo->prepare("SELECT * FROM dentists WHERE id = ? LIMIT 1");
+        $stD->execute([$dentistId]);
+        $dentistRecord = $stD->fetch(PDO::FETCH_ASSOC) ?: null;
+    } catch (PDOException $e) {}
+}
+$dentistSpecialization = $dentistRecord['specialization'] ?? 'General Dentistry';
 
 /*
 |--------------------------------------------------------------------------
 | HELPER
 |--------------------------------------------------------------------------
 */
-
 function dentistPatientEscape($value)
 {
     return htmlspecialchars(
@@ -69,45 +82,55 @@ function dentistPatientEscape($value)
     );
 }
 
+function getPatientInitials($name) {
+    $words = preg_split('/\s+/', trim((string)$name));
+    $initials = '';
+    foreach (array_slice($words, 0, 2) as $w) {
+        $initials .= strtoupper(substr($w, 0, 1));
+    }
+    return $initials ?: 'PT';
+}
+
+function computeAge($dob) {
+    if (empty($dob) || $dob === '0000-00-00') return '';
+    try {
+        $b = new DateTime($dob);
+        $now = new DateTime();
+        $diff = $now->diff($b);
+        return $diff->y . ' yrs old';
+    } catch (Exception $e) {
+        return '';
+    }
+}
 
 /*
 |--------------------------------------------------------------------------
 | GET SELECTED PATIENT
 |--------------------------------------------------------------------------
 */
-
 $selectedPatientId = isset($_GET['patient_id'])
     ? (int) $_GET['patient_id']
     : 0;
-
 
 /*
 |--------------------------------------------------------------------------
 | SEARCH AND FILTER
 |--------------------------------------------------------------------------
 */
-
 $search = trim($_GET['search'] ?? '');
 $statusFilter = trim($_GET['status'] ?? '');
-
 
 /*
 |--------------------------------------------------------------------------
 | EDIT PATIENT (POST)
 |--------------------------------------------------------------------------
-|
-| Mula sa Edit modal sa patient list. Ang Patient ID (patient_number) ay
-| hindi kasama sa update — display lang ito sa form.
-|
 */
-
 $editError = '';
 
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST' &&
     ($_POST['action'] ?? '') === 'edit_patient'
 ) {
-
     requireCsrf();
 
     $editId = (int) ($_POST['patient_id'] ?? 0);
@@ -124,7 +147,6 @@ if (
     } elseif ($editEmail !== '' && !filter_var($editEmail, FILTER_VALIDATE_EMAIL)) {
         $editError = 'Please enter a valid email address.';
     } else {
-
         /* Dentist lang pwedeng mag-edit ng sarili niyang patient */
         $ownStmt = $pdo->prepare("
             SELECT 1
@@ -142,7 +164,6 @@ if (
         if (!$ownStmt->fetchColumn()) {
             $editError = 'You are not allowed to edit this patient.';
         } else {
-
             $updateStmt = $pdo->prepare("
                 UPDATE patients
                 SET first_name = ?,
@@ -162,42 +183,23 @@ if (
                 $editId
             ]);
 
-            /* PRG: i-redirect para maiwasan ang double submit */
-            $_SESSION['patient_edit_flash'] =
-                'Patient information has been updated successfully.';
-
+            $_SESSION['patient_edit_flash'] = 'Patient information has been updated successfully.';
             $redirectQuery = http_build_query($_GET);
-
-            header(
-                'Location: patients.php' .
-                ($redirectQuery !== '' ? '?' . $redirectQuery : '')
-            );
+            header('Location: patients.php' . ($redirectQuery !== '' ? '?' . $redirectQuery : ''));
             exit;
-
         }
-
     }
-
 }
-
 
 $editFlash = trim($_SESSION['patient_edit_flash'] ?? '');
 unset($_SESSION['patient_edit_flash']);
 
-
 /*
-|--------------------------------------------------------------------------
-| PATIENT DETAILS VIEW
-|--------------------------------------------------------------------------
+|==========================================================================
+| 1. PATIENT DETAILS VIEW (?patient_id=X)
+|==========================================================================
 */
-
 if ($selectedPatientId > 0) {
-
-    /*
-    |--------------------------------------------------------------------------
-    | Get patient information
-    |--------------------------------------------------------------------------
-    */
 
     $patientStmt = $pdo->prepare("
         SELECT DISTINCT
@@ -238,25 +240,12 @@ if ($selectedPatientId > 0) {
 
     $patient = $patientStmt->fetch(PDO::FETCH_ASSOC);
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | Patient not found
-    |--------------------------------------------------------------------------
-    */
-
     if (!$patient) {
         header('Location: patients.php');
         exit;
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | Assigned dentist(s) ng patient (kung kanino siya nag-book)
-    |--------------------------------------------------------------------------
-    */
-
+    // Assigned dentists
     $assignedStmt = $pdo->prepare("
         SELECT DISTINCT
             d.id,
@@ -268,42 +257,20 @@ if ($selectedPatientId > 0) {
         WHERE a.patient_id = ?
         ORDER BY d.dentist_name ASC
     ");
-
-    $assignedStmt->execute([
-        $selectedPatientId
-    ]);
-
+    $assignedStmt->execute([$selectedPatientId]);
     $assignedDentists = $assignedStmt->fetchAll(PDO::FETCH_ASSOC);
 
     $assignedDentistLabel = '';
-
     foreach ($assignedDentists as $assignedDentist) {
-
-        $assignedName = trim(
-            (string) ($assignedDentist['dentist_name'] ?? '')
-        );
-
-        if ($assignedName === '') {
-            continue;
-        }
-
+        $assignedName = trim((string) ($assignedDentist['dentist_name'] ?? ''));
+        if ($assignedName === '') continue;
         if ((int) ($assignedDentist['id'] ?? 0) === $dentistId) {
             $assignedName .= ' (You)';
         }
-
-        $assignedDentistLabel .= ($assignedDentistLabel === '')
-            ? $assignedName
-            : ', ' . $assignedName;
-
+        $assignedDentistLabel .= ($assignedDentistLabel === '') ? $assignedName : ', ' . $assignedName;
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | Appointment history
-    |--------------------------------------------------------------------------
-    */
-
+    // Appointment history
     $historyStmt = $pdo->prepare("
         SELECT
             a.id,
@@ -322,21 +289,10 @@ if ($selectedPatientId > 0) {
           AND a.dentist_id = ?
         ORDER BY a.appointment_date DESC, a.start_time DESC
     ");
-
-    $historyStmt->execute([
-        $selectedPatientId,
-        $dentistId
-    ]);
-
+    $historyStmt->execute([$selectedPatientId, $dentistId]);
     $appointmentHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | Next / upcoming appointment
-    |--------------------------------------------------------------------------
-    */
-
+    // Next upcoming appointment
     $nextStmt = $pdo->prepare("
         SELECT
             id,
@@ -354,228 +310,83 @@ if ($selectedPatientId > 0) {
         ORDER BY appointment_date ASC, start_time ASC
         LIMIT 1
     ");
-
-    $nextStmt->execute([
-        $selectedPatientId,
-        $dentistId
-    ]);
-
+    $nextStmt->execute([$selectedPatientId, $dentistId]);
     $nextAppointment = $nextStmt->fetch(PDO::FETCH_ASSOC);
 
+    $patientFullName = trim(
+        $patient['first_name'] . ' ' .
+        ($patient['middle_name'] ?? '') . ' ' .
+        $patient['last_name']
+    );
+    $patientInitials = getPatientInitials($patientFullName);
+    $patientAge = computeAge($patient['birth_date'] ?? '');
     ?>
     <!DOCTYPE html>
     <html lang="en">
-
     <head>
-
         <meta charset="UTF-8">
-        <meta
-            name="viewport"
-            content="width=device-width, initial-scale=1.0"
-        >
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Patient Dental Record | <?= dentistPatientEscape($patientFullName) ?> | Dentist Portal</title>
 
-        <title>Patient Information | Dentist Portal</title>
-
-        <link
-            rel="stylesheet"
-            href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
-        >
-
-        <link
-            rel="stylesheet"
-            href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
-        >
-
-        <link
-            rel="stylesheet"
-            href="portal.css?v=5"
-        >
-
-    <!-- DENTIST SIDEBAR (dashboard parity) -->
-    <link rel="stylesheet" href="dentist_sidebar.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap">
+        <link rel="stylesheet" href="portal.css?v=5">
+        <link rel="stylesheet" href="dentist_sidebar.css">
 
         <style>
-
-            .patient-detail-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                gap: 20px;
-                margin-bottom: 20px;
-                flex-wrap: wrap;
+            :root {
+                --clinic-teal: #0E6B5E;
+                --clinic-teal-dark: #0A4A41;
+                --clinic-teal-deep: #0A3B34;
+                --clinic-mint: #059669;
+                --clinic-emerald: #10B981;
+                --clinic-gold: #C9A227;
+                --clinic-card-border: #E1EBE6;
             }
 
-            .patient-profile {
-                display: flex;
-                align-items: center;
-                gap: 15px;
+            body {
+                font-family: "DM Sans", "Inter", system-ui, sans-serif;
+                background: linear-gradient(135deg, #022c22, #059669, #065f46, #10b981, #022c22) !important;
+                background-size: 300% 300% !important;
+                animation: dentistDashBg 8s ease infinite !important;
+                color: #143F51;
             }
 
-            .patient-avatar {
-                width: 58px;
-                height: 58px;
-                border-radius: 50%;
-                background: #e8f4ff;
-                color: #2374b8;
+            @keyframes dentistDashBg {
+                0% { background-position: 0% 50%; }
+                50% { background-position: 100% 50%; }
+                100% { background-position: 0% 50%; }
+            }
+
+            .portal-main { background: transparent !important; }
+
+            .clinic-minibar {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 24px;
+                gap: 8px;
+                background: var(--clinic-teal-deep);
+                color: var(--clinic-gold);
+                font-size: 11px;
                 font-weight: 700;
+                letter-spacing: .6px;
+                padding: 6px 12px;
+            }
+            .clinic-minibar span { color: #ffffff; }
+
+            .portal-topbar {
+                background: #ffffff !important;
+                border-bottom: 1px solid #E2ECE7 !important;
+                height: auto !important;
+                min-height: 90px !important;
+                padding: 14px 28px !important;
+                gap: 16px !important;
+                flex-wrap: wrap !important;
+                align-items: center !important;
             }
 
-            .patient-profile h2 {
-                margin: 0 0 4px;
-                font-size: 22px;
-            }
-
-            .patient-number {
-                color: #718096;
-                font-size: 13px;
-            }
-
-            .back-btn {
-                display: inline-flex;
-                align-items: center;
-                gap: 7px;
-                text-decoration: none;
-                padding: 9px 14px;
-                border-radius: 8px;
-                border: 1px solid #dbe5ef;
-                color: #34495e;
-                background: #fff;
-                font-weight: 600;
-            }
-
-            .back-btn:hover {
-                background: #f5f9fc;
-            }
-
-            .detail-grid {
-                display: grid;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 20px;
-                margin-bottom: 20px;
-            }
-
-            .info-list {
-                display: grid;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 16px;
-            }
-
-            .info-item {
-                padding: 12px;
-                background: #f8fbfd;
-                border-radius: 8px;
-            }
-
-            .info-label {
-                font-size: 12px;
-                color: #7a8998;
-                margin-bottom: 5px;
-                font-weight: 600;
-                text-transform: uppercase;
-            }
-
-            .info-value {
-                font-size: 14px;
-                color: #253746;
-                font-weight: 600;
-                word-break: break-word;
-            }
-
-            .appointment-highlight {
-                border-left: 4px solid #3b82c4;
-                background: #f5faff;
-                padding: 16px;
-                border-radius: 8px;
-            }
-
-            .appointment-highlight h3 {
-                margin: 0 0 12px;
-                font-size: 17px;
-            }
-
-            .appointment-date {
-                font-size: 16px;
-                font-weight: 700;
-                margin-bottom: 5px;
-            }
-
-            .appointment-service {
-                color: #667788;
-                font-size: 14px;
-            }
-
-            .status-badge {
-                display: inline-block;
-                padding: 5px 10px;
-                border-radius: 20px;
-                font-size: 12px;
-                font-weight: 700;
-            }
-
-            .status-pending {
-                background: #fff4d6;
-                color: #9a6700;
-            }
-
-            .status-confirmed {
-                background: #e1f5e8;
-                color: #18753c;
-            }
-
-            .status-completed {
-                background: #e5eef9;
-                color: #285c91;
-            }
-
-            .status-cancelled {
-                background: #fde8e8;
-                color: #b42318;
-            }
-
-            .status-default {
-                background: #edf1f5;
-                color: #536273;
-            }
-
-            .table-wrap {
-                overflow-x: auto;
-            }
-
-            .empty-history {
-                padding: 25px;
-                text-align: center;
-                color: #7a8998;
-            }
-
-            @media (max-width: 800px) {
-
-                .detail-grid {
-                    grid-template-columns: 1fr;
-                }
-
-                .info-list {
-                    grid-template-columns: 1fr;
-                }
-
-            }
-
-            /* TOPBAR date + time (tulad sa appointment page) */
-            .topbar-today {
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                color: #244f60;
-                border-left: none;
-                padding-left: 0;
-            }
-            .topbar-today i { font-size: 22px; }
-            .topbar-today strong { display: block; font-size: 13px; font-weight: 800; line-height: 1.2; }
-            .topbar-today small { display: block; font-size: 11px; opacity: .85; font-weight: 600; }
-            .topbar-time {
+            .topbar-today, .topbar-time {
                 display: flex;
                 align-items: center;
                 gap: 10px;
@@ -583,683 +394,610 @@ if ($selectedPatientId > 0) {
                 border-left: 1px solid #e8eef2;
                 padding-left: 16px;
             }
-            .topbar-time i { font-size: 22px; }
-            .topbar-time strong { display: block; font-size: 13px; font-weight: 800; line-height: 1.2; }
-            .topbar-time small { display: block; font-size: 11px; opacity: .85; font-weight: 600; font-variant-numeric: tabular-nums; }
+            .topbar-today i, .topbar-time i { font-size: 22px; color: var(--clinic-teal); }
+            .topbar-today strong, .topbar-time strong { display: block; font-size: 13px; font-weight: 800; line-height: 1.2; }
+            .topbar-today small, .topbar-time small { display: block; font-size: 11px; opacity: .85; font-weight: 600; }
 
+            /* PATIENT HERO HEADER */
+            .patient-detail-hero {
+                position: relative;
+                overflow: hidden;
+                background: linear-gradient(135deg, #0E6B5E 0%, #059669 55%, #0A4A41 100%);
+                border: 1px solid rgba(255, 255, 255, 0.28);
+                border-radius: 20px;
+                padding: 24px 28px;
+                color: #ffffff;
+                width: 100%;
+                margin-bottom: 22px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 20px;
+                box-shadow: 0 16px 36px rgba(6, 59, 49, 0.22);
+                flex-wrap: wrap;
+            }
+
+            .patient-detail-hero::before {
+                content: "";
+                position: absolute;
+                width: 240px;
+                height: 240px;
+                top: -110px;
+                right: -50px;
+                border-radius: 50%;
+                background: radial-gradient(circle, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 70%);
+                pointer-events: none;
+            }
+
+            .patient-hero-left {
+                display: flex;
+                align-items: center;
+                gap: 18px;
+                position: relative;
+                z-index: 2;
+            }
+
+            .patient-avatar-circle {
+                width: 76px;
+                height: 76px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+                color: var(--clinic-teal);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 26px;
+                font-weight: 800;
+                border: 3px solid rgba(255, 255, 255, 0.85);
+                box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+                flex-shrink: 0;
+            }
+
+            .patient-hero-info h1 {
+                font-family: "Plus Jakarta Sans", sans-serif;
+                font-size: 22px;
+                font-weight: 800;
+                margin: 0 0 4px 0;
+                color: #ffffff;
+            }
+
+            .patient-hero-meta {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap;
+                margin-top: 6px;
+            }
+
+            .hero-meta-pill {
+                font-size: 11.5px;
+                font-weight: 700;
+                padding: 4px 10px;
+                border-radius: 8px;
+                background: rgba(255, 255, 255, 0.18);
+                border: 1px solid rgba(255, 255, 255, 0.28);
+                color: #ffffff;
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+            }
+
+            .hero-meta-gold {
+                background: rgba(201, 162, 39, 0.3);
+                border-color: rgba(201, 162, 39, 0.6);
+                color: #FEF3D6;
+            }
+
+            .btn-back-patients {
+                background: #ffffff;
+                color: var(--clinic-teal-dark);
+                border: none;
+                border-radius: 11px;
+                font-weight: 700;
+                font-size: 13px;
+                padding: 9px 18px;
+                display: inline-flex;
+                align-items: center;
+                gap: 7px;
+                text-decoration: none;
+                box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
+                transition: all .2s ease;
+                position: relative;
+                z-index: 2;
+            }
+            .btn-back-patients:hover {
+                background: #F0FDF4;
+                color: #047857;
+                transform: translateY(-1px);
+            }
+
+            /* 2-COLUMN CLINICAL GRID */
+            .clinical-details-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 22px;
+                margin-bottom: 22px;
+            }
+            @media (max-width: 991px) {
+                .clinical-details-grid { grid-template-columns: 1fr; }
+            }
+
+            .clinical-panel {
+                background: #ffffff;
+                border: 1px solid var(--clinic-card-border);
+                border-radius: 18px;
+                box-shadow: 0 10px 28px rgba(6, 59, 49, 0.07);
+                overflow: hidden;
+            }
+
+            .clinical-panel-head {
+                padding: 16px 22px;
+                background: linear-gradient(135deg, #F7FAF9 0%, #EDF5F2 100%);
+                border-bottom: 1px solid #E1EBE6;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+            }
+
+            .clinical-panel-head h2 {
+                font-family: "Plus Jakarta Sans", sans-serif;
+                font-size: 15.5px;
+                font-weight: 800;
+                color: #143F51;
+                margin: 0;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .clinical-panel-body { padding: 22px; }
+
+            .demographics-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+            }
+            @media (max-width: 575px) {
+                .demographics-grid { grid-template-columns: 1fr; }
+            }
+
+            .demo-card {
+                background: #F8FBFA;
+                border: 1px solid #E2EFE9;
+                border-radius: 10px;
+                padding: 11px 14px;
+            }
+            .demo-card.full { grid-column: 1 / -1; }
+            .demo-label {
+                font-size: 11px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: .5px;
+                color: #64748B;
+                margin-bottom: 4px;
+            }
+            .demo-val {
+                font-size: 13.5px;
+                font-weight: 700;
+                color: #143F51;
+                word-break: break-word;
+            }
+
+            /* UPCOMING VISIT HIGHLIGHT CARD */
+            .upcoming-visit-card {
+                background: linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%);
+                border: 1px solid #BBF7D0;
+                border-radius: 14px;
+                padding: 18px;
+            }
+            .upcoming-time-box {
+                font-family: "Plus Jakarta Sans", monospace;
+                font-size: 16px;
+                font-weight: 800;
+                color: #166534;
+                margin: 4px 0 10px 0;
+            }
+            .procedure-badge {
+                display: inline-block;
+                background: #ffffff;
+                color: #15803D;
+                border: 1px solid #86EFAC;
+                padding: 4px 10px;
+                border-radius: 8px;
+                font-size: 12.5px;
+                font-weight: 700;
+                margin-bottom: 10px;
+            }
+
+            /* STATUS BADGES */
+            .status-pill {
+                display: inline-block;
+                padding: 4px 10px;
+                border-radius: 999px;
+                font-size: 11.5px;
+                font-weight: 700;
+                letter-spacing: .3px;
+            }
+            .status-pill.pending { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
+            .status-pill.confirmed { background: #DCFCE7; color: #15803D; border: 1px solid #BBF7D0; }
+            .status-pill.completed { background: #E0F2FE; color: #0369A1; border: 1px solid #BAE6FD; }
+            .status-pill.cancelled { background: #FEE2E2; color: #B91C1C; border: 1px solid #FECACA; }
+            .status-pill.default { background: #F1F5F9; color: #475569; border: 1px solid #E2E8F0; }
+
+            /* HISTORY TABLE */
+            .history-table-card {
+                background: #ffffff;
+                border: 1px solid var(--clinic-card-border);
+                border-radius: 18px;
+                box-shadow: 0 10px 28px rgba(6, 59, 49, 0.07);
+                overflow: hidden;
+            }
+            .history-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 0;
+            }
+            .history-table th {
+                background: #F7FAF9;
+                color: #244F60;
+                font-size: 12px;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: .5px;
+                padding: 13px 18px;
+                border-bottom: 1px solid #E1EBE6;
+                white-space: nowrap;
+            }
+            .history-table td {
+                padding: 13px 18px;
+                font-size: 13px;
+                color: #244F60;
+                border-bottom: 1px solid #EEF4F1;
+                vertical-align: middle;
+            }
+            .history-table tbody tr:hover td {
+                background: #F8FBFA;
+            }
         </style>
-
-    
-</head>
-
+    </head>
     <body>
 
-        <style>
-            body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!important;background-size:300% 300%!important;animation:dentistDashBg 8s ease infinite!important;}
-            .portal-main{background:transparent!important;}
-            @keyframes dentistDashBg{0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
-        </style>
+    <?php
+    $dentistActivePage = 'patients';
+    include __DIR__ . '/dentist_sidebar.php';
+    ?>
 
-        <!-- SIDEBAR -->
+    <main class="portal-main">
+        <div class="clinic-minibar">
+            🦷 <span>Abalos Dental Clinic — Practitioner Clinical Chart</span>
+        </div>
 
-        <?php
-$dentistActivePage = 'patients';
-include __DIR__ . '/dentist_sidebar.php';
-?>
-
-
-        <!-- MAIN -->
-
-        <main class="portal-main">
-
-            <style>
-                .clinic-minibar {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 8px;
-                    background: #0A3B34;
-                    color: #C9A227;
-                    font-size: 11px;
-                    font-weight: 700;
-                    letter-spacing: .6px;
-                    padding: 6px 12px;
-                }
-                .clinic-minibar span {
-                    color: #ffffff;
-                }
-            </style>
-
-            <!-- MINI CLINIC BAR (gaya sa appointment page) -->
-
-            <div class="clinic-minibar">
-                🦷 <span>Abalos Dental Clinic</span>
+        <header class="portal-topbar">
+            <div>
+                <div class="portal-heading" style="font-family:'Plus Jakarta Sans',sans-serif; font-size:22px; font-weight:800; color:#143F51;">
+                    Patient Clinical Chart & History
+                </div>
+                <div class="portal-subtitle" style="font-size:13px; color:#64748B;">
+                    Comprehensive dental appointment records for <?= dentistPatientEscape($patientFullName) ?>
+                </div>
             </div>
 
-            <header class="portal-topbar">
+            <div style="display:flex; align-items:center; gap:16px;">
+                <div class="topbar-today" style="border-left:none; padding-left:0;">
+                    <i class="bi bi-calendar2-check-fill"></i>
+                    <div>
+                        <strong><?= htmlspecialchars(date('l')) ?></strong>
+                        <small><?= htmlspecialchars(date('M d, Y')) ?></small>
+                    </div>
+                </div>
+
+                <div class="topbar-time">
+                    <i class="bi bi-clock-fill"></i>
+                    <div>
+                        <strong>Clinic Time</strong>
+                        <small id="patientDetailClinicTime">--:--:--</small>
+                    </div>
+                </div>
+
+                <div class="portal-user">
+                    <?= htmlspecialchars($dentistName) ?>
+                    <div class="portal-role">Attending Dentist</div>
+                </div>
+            </div>
+        </header>
+
+        <script>
+        (function(){
+            function tick(){
+                var el = document.getElementById('patientDetailClinicTime');
+                if(!el) return;
+                var now = new Date();
+                el.textContent = now.toLocaleTimeString('en-PH', {
+                    timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+                });
+            }
+            tick(); setInterval(tick, 1000);
+        })();
+        </script>
+
+        <div class="portal-content" style="padding: 26px 32px 40px 32px;">
+
+            <!-- HERO HEADER -->
+            <div class="patient-detail-hero">
+                <div class="patient-hero-left">
+                    <div class="patient-avatar-circle">
+                        <?= htmlspecialchars($patientInitials) ?>
+                    </div>
+                    <div class="patient-hero-info">
+                        <h1><?= dentistPatientEscape($patientFullName) ?></h1>
+                        <div style="font-size:13px; opacity:.92;">
+                            <i class="bi bi-person-vcard me-1"></i> Patient No: <strong><?= dentistPatientEscape($patient['patient_number']) ?></strong>
+                        </div>
+                        <div class="patient-hero-meta">
+                            <span class="hero-meta-pill hero-meta-gold">
+                                <i class="bi bi-gender-ambiguous"></i> <?= dentistPatientEscape($patient['gender'] ?: 'Unspecified') ?>
+                            </span>
+                            <?php if ($patientAge): ?>
+                                <span class="hero-meta-pill">
+                                    <i class="bi bi-cake2"></i> <?= htmlspecialchars($patientAge) ?>
+                                </span>
+                            <?php endif; ?>
+                            <span class="hero-meta-pill">
+                                <i class="bi bi-journal-medical"></i> <?= count($appointmentHistory) ?> Total Consultation<?= count($appointmentHistory) == 1 ? '' : 's' ?>
+                            </span>
+                        </div>
+                    </div>
+                </div>
 
                 <div>
-
-                    <div class="portal-heading">
-                        Patient Information
-                    </div>
-
-                    <div class="portal-subtitle">
-                        View patient details and appointment history
-                    </div>
-
-                </div>
-
-                <div style="display:flex;align-items:center;gap:16px;">
-
-                    <div class="topbar-today">
-
-                        <i class="bi bi-calendar-event-fill"></i>
-
-                        <div>
-                            <strong><?= dentistPatientEscape(date('l')) ?></strong>
-                            <small><?= dentistPatientEscape(date('M d, Y')) ?></small>
-                        </div>
-
-                    </div>
-
-
-                    <div class="topbar-time">
-
-                        <i class="bi bi-clock-fill"></i>
-
-                        <div>
-                            <strong>Clinic Time</strong>
-                            <small id="patientDetailClinicTime">--:--:--</small>
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </header>
-
-            <script>
-            (function () {
-                function tickPatientDetailClinicTime() {
-                    try {
-                        var el = document.getElementById('patientDetailClinicTime');
-                        if (!el) return;
-                        var now = new Date();
-                        var timeStr = now.toLocaleTimeString('en-PH', {
-                            timeZone: 'Asia/Manila',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                            hour12: true
-                        });
-                        el.textContent = timeStr;
-                    } catch (e) {}
-                }
-                tickPatientDetailClinicTime();
-                setInterval(tickPatientDetailClinicTime, 1000);
-            })();
-            </script>
-
-
-            <div class="portal-content">
-
-
-                <!-- PATIENT HEADER -->
-
-                <div class="patient-detail-header">
-
-                    <div class="patient-profile">
-
-                        <div class="patient-avatar">
-                            <i class="bi bi-person-fill"></i>
-                        </div>
-
-                        <div>
-
-                            <h2>
-                                <?= dentistPatientEscape(
-                                    trim(
-                                        $patient['first_name'] . ' ' .
-                                        ($patient['middle_name'] ?? '') . ' ' .
-                                        $patient['last_name']
-                                    )
-                                ) ?>
-                            </h2>
-
-                            <div class="patient-number">
-                                Patient No:
-                                <?= dentistPatientEscape($patient['patient_number']) ?>
-                            </div>
-
-                        </div>
-
-                    </div>
-
-
-                    <a
-                        href="patients.php"
-                        class="back-btn"
-                    >
-                        <i class="bi bi-arrow-left"></i>
-                        Back to Patients
+                    <a href="patients.php" class="btn-back-patients">
+                        <i class="bi bi-arrow-left"></i> Back to Patient Directory
                     </a>
+                </div>
+            </div>
 
+            <!-- 2-COLUMN CLINICAL GRID -->
+            <div class="clinical-details-grid">
+
+                <!-- DEMOGRAPHICS & CONTACT -->
+                <div class="clinical-panel">
+                    <div class="clinical-panel-head">
+                        <h2><i class="bi bi-person-lines-fill text-success"></i> Patient Clinical Demographics</h2>
+                        <span class="badge bg-light text-secondary border">Verified Chart</span>
+                    </div>
+                    <div class="clinical-panel-body">
+                        <div class="demographics-grid">
+                            <div class="demo-card">
+                                <div class="demo-label">Patient Record ID</div>
+                                <div class="demo-val"><?= dentistPatientEscape($patient['patient_number']) ?></div>
+                            </div>
+                            <div class="demo-card">
+                                <div class="demo-label">Attending Dentist</div>
+                                <div class="demo-val"><?= dentistPatientEscape($assignedDentistLabel ?: 'Dr. ' . $dentistName) ?></div>
+                            </div>
+                            <div class="demo-card">
+                                <div class="demo-label">Direct Phone / Mobile</div>
+                                <div class="demo-val">
+                                    <?php if (!empty($patient['contact_number'])): ?>
+                                        <a href="tel:<?= dentistPatientEscape($patient['contact_number']) ?>" style="color:var(--clinic-teal); text-decoration:none;">
+                                            <i class="bi bi-telephone-fill me-1"></i><?= dentistPatientEscape($patient['contact_number']) ?>
+                                        </a>
+                                    <?php else: ?>—<?php endif; ?>
+                                </div>
+                            </div>
+                            <div class="demo-card">
+                                <div class="demo-label">Email Address</div>
+                                <div class="demo-val">
+                                    <?php if (!empty($patient['email'])): ?>
+                                        <a href="mailto:<?= dentistPatientEscape($patient['email']) ?>" style="color:var(--clinic-teal); text-decoration:none;">
+                                            <i class="bi bi-envelope-fill me-1"></i><?= dentistPatientEscape($patient['email']) ?>
+                                        </a>
+                                    <?php else: ?>—<?php endif; ?>
+                                </div>
+                            </div>
+                            <div class="demo-card">
+                                <div class="demo-label">Birth Date</div>
+                                <div class="demo-val">
+                                    <?= !empty($patient['birth_date']) ? date('F d, Y', strtotime($patient['birth_date'])) : '—' ?>
+                                </div>
+                            </div>
+                            <div class="demo-card">
+                                <div class="demo-label">Gender</div>
+                                <div class="demo-val"><?= dentistPatientEscape($patient['gender'] ?: '—') ?></div>
+                            </div>
+                            <div class="demo-card full">
+                                <div class="demo-label">Registered Residential Address</div>
+                                <div class="demo-val"><?= dentistPatientEscape($patient['address'] ?: '—') ?></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-
-                <!-- BASIC INFORMATION + APPOINTMENT -->
-
-                <div class="detail-grid">
-
-
-                    <!-- BASIC PATIENT INFORMATION -->
-
-                    <section class="portal-card">
-
-                        <h2>
-                            Basic Patient Information
-                        </h2>
-
-                        <div class="info-list">
-
-                            <div class="info-item">
-
-                                <div class="info-label">
-                                    Patient Number
-                                </div>
-
-                                <div class="info-value">
-                                    <?= dentistPatientEscape($patient['patient_number']) ?>
-                                </div>
-
-                            </div>
-
-
-                            <div class="info-item">
-
-                                <div class="info-label">
-                                    Assigned Dentist
-                                </div>
-
-                                <div class="info-value">
-                                    <?= dentistPatientEscape(
-                                        $assignedDentistLabel
-                                    ) ?: '—' ?>
-                                </div>
-
-                            </div>
-
-
-                            <div class="info-item">
-
-                                <div class="info-label">
-                                    Gender
-                                </div>
-
-                                <div class="info-value">
-                                    <?= dentistPatientEscape($patient['gender']) ?: '—' ?>
-                                </div>
-
-                            </div>
-
-
-                            <div class="info-item">
-
-                                <div class="info-label">
-                                    Birth Date
-                                </div>
-
-                                <div class="info-value">
-
-                                    <?php
-
-                                    if (!empty($patient['birth_date'])) {
-                                        echo dentistPatientEscape(
-                                            date(
-                                                'F d, Y',
-                                                strtotime($patient['birth_date'])
-                                            )
-                                        );
-                                    } else {
-                                        echo '—';
-                                    }
-
-                                    ?>
-
-                                </div>
-
-                            </div>
-
-
-                            <div class="info-item">
-
-                                <div class="info-label">
-                                    Contact Number
-                                </div>
-
-                                <div class="info-value">
-                                    <?= dentistPatientEscape($patient['contact_number']) ?: '—' ?>
-                                </div>
-
-                            </div>
-
-
-                            <div class="info-item">
-
-                                <div class="info-label">
-                                    Email
-                                </div>
-
-                                <div class="info-value">
-                                    <?= dentistPatientEscape($patient['email']) ?: '—' ?>
-                                </div>
-
-                            </div>
-
-
-                            <div class="info-item">
-
-                                <div class="info-label">
-                                    Address
-                                </div>
-
-                                <div class="info-value">
-                                    <?= dentistPatientEscape($patient['address']) ?: '—' ?>
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                    </section>
-
-
-                    <!-- APPOINTMENT INFORMATION -->
-
-                    <section class="portal-card">
-
-                        <h2>
-                            Appointment Information
-                        </h2>
-
+                <!-- NEXT SCHEDULED APPOINTMENT -->
+                <div class="clinical-panel">
+                    <div class="clinical-panel-head">
+                        <h2><i class="bi bi-calendar-event text-success"></i> Next Scheduled Clinical Visit</h2>
                         <?php if ($nextAppointment): ?>
-
-                            <div class="appointment-highlight">
-
-                                <h3>
-                                    Next Appointment
-                                </h3>
-
-                                <div class="appointment-date">
-
-                                    <?= dentistPatientEscape(
-                                        date(
-                                            'F d, Y',
-                                            strtotime($nextAppointment['appointment_date'])
-                                        )
-                                    ) ?>
-
-                                    <br>
-
-                                    <?= dentistPatientEscape(
-                                        date(
-                                            'h:i A',
-                                            strtotime($nextAppointment['start_time'])
-                                        )
-                                    ) ?>
-
-                                    -
-                                    <?= dentistPatientEscape(
-                                        date(
-                                            'h:i A',
-                                            strtotime($nextAppointment['end_time'])
-                                        )
-                                    ) ?>
-
-                                </div>
-
-
-                                <div class="appointment-service">
-
-                                    <strong>
-                                        Service:
-                                    </strong>
-
-                                    <?= dentistPatientEscape(
-                                        $nextAppointment['service_type']
-                                    ) ?>
-
-                                </div>
-
-
-                                <br>
-
-
-                                <span
-                                    class="status-badge
-                                    <?php
-                                    $nextStatus = strtolower(
-                                        trim($nextAppointment['status'])
-                                    );
-
-                                    if ($nextStatus === 'pending') {
-                                        echo 'status-pending';
-                                    } elseif ($nextStatus === 'confirmed') {
-                                        echo 'status-confirmed';
-                                    } elseif ($nextStatus === 'completed') {
-                                        echo 'status-completed';
-                                    } elseif ($nextStatus === 'cancelled') {
-                                        echo 'status-cancelled';
-                                    } else {
-                                        echo 'status-default';
-                                    }
-                                    ?>"
-                                >
-                                    <?= dentistPatientEscape(
-                                        $nextAppointment['status']
-                                    ) ?>
-                                </span>
-
-                            </div>
-
+                            <span class="badge bg-success-subtle text-success border border-success-subtle">Upcoming</span>
                         <?php else: ?>
-
-                            <div class="empty-history">
-                                <i class="bi bi-calendar-x"></i>
-                                <br><br>
-                                No upcoming appointment.
-                            </div>
-
+                            <span class="badge bg-light text-muted border">None</span>
                         <?php endif; ?>
+                    </div>
+                    <div class="clinical-panel-body">
+                        <?php if ($nextAppointment): ?>
+                            <?php
+                            $nStat = strtolower(trim($nextAppointment['status']));
+                            $nClass = in_array($nStat, ['pending','confirmed','completed','cancelled']) ? $nStat : 'default';
+                            ?>
+                            <div class="upcoming-visit-card">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span style="font-size:12px; font-weight:700; color:#15803D; text-transform:uppercase; letter-spacing:.5px;">
+                                        <i class="bi bi-calendar-check me-1"></i> <?= date('F d, Y (l)', strtotime($nextAppointment['appointment_date'])) ?>
+                                    </span>
+                                    <span class="status-pill <?= $nClass ?>">
+                                        <?= dentistPatientEscape($nextAppointment['status']) ?>
+                                    </span>
+                                </div>
 
-                    </section>
+                                <div class="upcoming-time-box">
+                                    <?= date('h:i A', strtotime($nextAppointment['start_time'])) ?> – <?= date('h:i A', strtotime($nextAppointment['end_time'])) ?>
+                                </div>
 
+                                <div>
+                                    <span class="procedure-badge">
+                                        <i class="bi bi-bandaid me-1"></i> <?= dentistPatientEscape($nextAppointment['service_type'] ?: 'Dental Consultation') ?>
+                                    </span>
+                                </div>
+
+                                <?php if (!empty($nextAppointment['notes'])): ?>
+                                    <div class="p-2 mt-2 rounded bg-white border" style="font-size:12px; color:#4A6068;">
+                                        <strong>Patient Notes:</strong> <?= dentistPatientEscape($nextAppointment['notes']) ?>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        <?php else: ?>
+                            <div class="p-4 text-center" style="background:#FAFDFB; border:1px dashed #CFDFD7; border-radius:12px;">
+                                <i class="bi bi-calendar-x text-muted fs-2 d-block mb-2"></i>
+                                <strong style="font-size:13.5px; color:#143F51;">No Upcoming Appointments Scheduled</strong>
+                                <p class="text-muted small m-0">This patient does not have any pending or confirmed bookings on your chairside roster.</p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
-
-
-                <!-- APPOINTMENT HISTORY -->
-
-                <section class="portal-card">
-
-                    <h2>
-                        Appointment History
-                    </h2>
-
-                    <?php if (empty($appointmentHistory)): ?>
-
-                        <div class="empty-history">
-                            No appointment history found.
-                        </div>
-
-                    <?php else: ?>
-
-                        <div class="table-wrap">
-
-                            <table class="portal-table">
-
-                                <thead>
-
-                                    <tr>
-
-                                        <th>
-                                            Date
-                                        </th>
-
-                                        <th>
-                                            Time
-                                        </th>
-
-                                        <th>
-                                            Service
-                                        </th>
-
-                                        <th>
-                                            Dentist
-                                        </th>
-
-                                        <th>
-                                            Status
-                                        </th>
-
-                                        <th>
-                                            Notes
-                                        </th>
-
-                                    </tr>
-
-                                </thead>
-
-
-                                <tbody>
-
-                                    <?php foreach (
-                                        $appointmentHistory
-                                        as $appointment
-                                    ): ?>
-
-                                        <?php
-
-                                        $status = strtolower(
-                                            trim($appointment['status'])
-                                        );
-
-                                        $statusClass = 'status-default';
-
-                                        if ($status === 'pending') {
-                                            $statusClass = 'status-pending';
-                                        } elseif ($status === 'confirmed') {
-                                            $statusClass = 'status-confirmed';
-                                        } elseif ($status === 'completed') {
-                                            $statusClass = 'status-completed';
-                                        } elseif ($status === 'cancelled') {
-                                            $statusClass = 'status-cancelled';
-                                        }
-
-                                        ?>
-
-                                        <tr>
-
-                                            <td>
-
-                                                <?= dentistPatientEscape(
-                                                    date(
-                                                        'M d, Y',
-                                                        strtotime(
-                                                            $appointment['appointment_date']
-                                                        )
-                                                    )
-                                                ) ?>
-
-                                            </td>
-
-
-                                            <td>
-
-                                                <?= dentistPatientEscape(
-                                                    date(
-                                                        'h:i A',
-                                                        strtotime(
-                                                            $appointment['start_time']
-                                                        )
-                                                    )
-                                                ) ?>
-
-                                                -
-
-                                                <?= dentistPatientEscape(
-                                                    date(
-                                                        'h:i A',
-                                                        strtotime(
-                                                            $appointment['end_time']
-                                                        )
-                                                    )
-                                                ) ?>
-
-                                            </td>
-
-
-                                            <td>
-
-                                                <?= dentistPatientEscape(
-                                                    $appointment['service_type']
-                                                ) ?>
-
-                                            </td>
-
-
-                                            <td>
-
-                                                <?= dentistPatientEscape(
-                                                    $appointment['dentist_name']
-                                                ) ?: '—' ?>
-
-                                            </td>
-
-
-                                            <td>
-
-                                                <span
-                                                    class="status-badge <?= $statusClass ?>"
-                                                >
-                                                    <?= dentistPatientEscape(
-                                                        $appointment['status']
-                                                    ) ?>
-                                                </span>
-
-                                            </td>
-
-
-                                            <td>
-
-                                                <?= dentistPatientEscape(
-                                                    $appointment['notes']
-                                                ) ?: '—' ?>
-
-                                            </td>
-
-                                        </tr>
-
-                                    <?php endforeach; ?>
-
-                                </tbody>
-
-                            </table>
-
-                        </div>
-
-                    <?php endif; ?>
-
-                </section>
-
 
             </div>
 
-        </main>
+            <!-- APPOINTMENT & TREATMENT HISTORY TABLE -->
+            <div class="history-table-card">
+                <div class="clinical-panel-head">
+                    <h2><i class="bi bi-clock-history text-success"></i> Dental Treatment & Consultation History</h2>
+                    <span class="badge rounded-pill bg-light text-dark border">
+                        <?= count($appointmentHistory) ?> Record<?= count($appointmentHistory) == 1 ? '' : 's' ?>
+                    </span>
+                </div>
 
-<!-- DENTIST LOGOUT CONFIRM — "Are you sure you want to log out?" -->
-<div id="dentistLogoutConfirm" class="dentist-logout-overlay" style="display:none;">
-    <div class="dentist-logout-box">
-        <div class="dentist-logout-head">
-            <span class="dentist-logout-head-icon"><i class="bi bi-box-arrow-right"></i></span>
-            <h5>Log Out</h5>
-            <button type="button" class="dentist-logout-x" id="dentistLogoutClose" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+                <?php if (empty($appointmentHistory)): ?>
+                    <div class="p-5 text-center text-muted">
+                        <i class="bi bi-journal-x fs-1 d-block mb-2"></i>
+                        <strong>No prior consultation history found for this patient.</strong>
+                    </div>
+                <?php else: ?>
+                    <div style="overflow-x: auto;">
+                        <table class="history-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Shift Time</th>
+                                    <th>Dental Procedure / Service</th>
+                                    <th>Attending Dentist</th>
+                                    <th>Status</th>
+                                    <th>Chairside Notes / Concerns</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($appointmentHistory as $h): ?>
+                                    <?php
+                                    $hStat = strtolower(trim($h['status']));
+                                    $hClass = in_array($hStat, ['pending','confirmed','completed','cancelled']) ? $hStat : 'default';
+                                    ?>
+                                    <tr>
+                                        <td>
+                                            <strong><?= date('M d, Y', strtotime($h['appointment_date'])) ?></strong>
+                                            <div style="font-size:11px; color:#64748B;"><?= date('l', strtotime($h['appointment_date'])) ?></div>
+                                        </td>
+                                        <td>
+                                            <span style="font-family:'Plus Jakarta Sans', monospace; font-size:12.5px; font-weight:700;">
+                                                <?= date('h:i A', strtotime($h['start_time'])) ?> – <?= date('h:i A', strtotime($h['end_time'])) ?>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-light text-dark border" style="font-size:12px; font-weight:700;">
+                                                <i class="bi bi-check2 me-1 text-success"></i><?= dentistPatientEscape($h['service_type'] ?: 'General Consultation') ?>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span style="font-weight:600; font-size:12.5px;">
+                                                <?= dentistPatientEscape($h['dentist_name'] ?: 'Dr. ' . $dentistName) ?>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="status-pill <?= $hClass ?>">
+                                                <?= dentistPatientEscape($h['status']) ?>
+                                            </span>
+                                        </td>
+                                        <td style="max-width: 280px; font-size:12px; color:#4A6068;">
+                                            <?= dentistPatientEscape($h['notes'] ?: '—') ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </div>
+
         </div>
-        <div class="dentist-logout-body">
-            <div class="dentist-logout-icon"><i class="bi bi-exclamation-circle-fill"></i></div>
-            <h5>Are you sure you want to log out?</h5>
-            <p>You will need to log in again to access the dentist account.</p>
-        </div>
-        <div class="dentist-logout-foot">
-            <button type="button" class="btn btn-light" id="dentistLogoutCancel">Cancel</button>
-            <a href="../logout.php" class="btn dentist-logout-yes" id="dentistLogoutYes"><i class="bi bi-box-arrow-right me-1"></i>Log Out</a>
+
+    </main>
+
+    <!-- LOGOUT MODAL -->
+    <div id="dentistLogoutConfirm" class="dentist-logout-overlay" style="display:none;">
+        <div class="dentist-logout-box">
+            <div class="dentist-logout-head">
+                <span class="dentist-logout-head-icon"><i class="bi bi-box-arrow-right"></i></span>
+                <h5>Log Out</h5>
+                <button type="button" class="dentist-logout-x" id="dentistLogoutClose" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="dentist-logout-body">
+                <div class="dentist-logout-icon"><i class="bi bi-exclamation-circle-fill"></i></div>
+                <h5>Are you sure you want to log out?</h5>
+                <p>You will need to log in again to access the dentist account.</p>
+            </div>
+            <div class="dentist-logout-foot">
+                <button type="button" class="btn btn-light" id="dentistLogoutCancel">Cancel</button>
+                <a href="../logout.php" class="btn dentist-logout-yes" id="dentistLogoutYes"><i class="bi bi-box-arrow-right me-1"></i>Log Out</a>
+            </div>
         </div>
     </div>
-</div>
-<style>
-.dentist-logout-overlay { position: fixed; inset: 0; background: rgba(10,59,52,.55); z-index: 2000; padding: 20px; align-items: center; justify-content: center; }
-.dentist-logout-box { background: #ffffff; border-radius: 18px; border: 1px solid #C9E9DA; box-shadow: 0 18px 45px rgba(0,0,0,.25); max-width: 440px; width: 100%; overflow: hidden; font-family: "Inter", "DM Sans", system-ui, sans-serif; animation: dentistLogoutPop .18s ease; }
-@keyframes dentistLogoutPop { from { transform: scale(.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-.dentist-logout-head { display: flex; align-items: center; gap: 12px; padding: 18px 22px; background: linear-gradient(135deg, #D9F2E6 0%, #EAF7F0 100%); border-bottom: 1px solid #C9E9DA; }
-.dentist-logout-head-icon { width: 38px; height: 38px; border-radius: 11px; background: linear-gradient(135deg, #0E6B5E, #0A4A41); color: #ffffff; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 4px 10px rgba(14,107,94,.25); flex-shrink: 0; }
-.dentist-logout-head h5 { color: #143f51; font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif; font-weight: 800; font-size: 17px; margin: 0; flex: 1; }
-.dentist-logout-x { background: #ffffff; border: 1px solid #D1E7DD; color: #57727d; width: 30px; height: 30px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; flex-shrink: 0; }
-.dentist-logout-x:hover { background: #EAF7F0; color: #0E6B5E; }
-.dentist-logout-body { padding: 30px 28px 8px; text-align: center; }
-.dentist-logout-icon { width: 64px; height: 64px; border-radius: 18px; background: #FDECEC; color: #C0392B; border: 1px solid #F5C6C6; display: inline-flex; align-items: center; justify-content: center; font-size: 30px; margin-bottom: 14px; }
-.dentist-logout-body h5 { color: #143f51; font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif; font-weight: 800; font-size: 18px; margin: 0 0 8px; }
-.dentist-logout-body p { color: #8aa0a8; font-size: 13.5px; margin: 0; }
-.dentist-logout-foot { display: flex; gap: 12px; justify-content: center; padding: 18px 22px 22px; background: #F6FBF8; border-top: 1px solid #E6F2EC; margin-top: 20px; }
-.dentist-logout-foot .btn { border-radius: 10px; font-weight: 700; font-size: 14px; padding: 10px 26px; }
-.dentist-logout-foot .btn-light { background: #fff !important; border: 1px solid #D1E7DD !important; color: #57727d !important; }
-.dentist-logout-foot .btn-light:hover { background: #EAF7F0 !important; color: #0E6B5E !important; }
-.dentist-logout-yes { background: linear-gradient(135deg, #E74C3C, #922B21) !important; border: none !important; color: #ffffff !important; box-shadow: 0 6px 14px rgba(192,57,43,.3) !important; }
-.dentist-logout-yes:hover { filter: brightness(.93); color: #ffffff !important; }
-</style>
-<script>
-(function()
-{
-    function openDentistLogout(e)
-    {
-        if (e) e.preventDefault();
-        var overlay = document.getElementById("dentistLogoutConfirm");
-        if (!overlay) return;
-        overlay.style.display = "flex";
-        document.body.style.overflow = "hidden";
-    }
-    function closeDentistLogout()
-    {
-        var overlay = document.getElementById("dentistLogoutConfirm");
-        if (!overlay) return;
-        overlay.style.display = "none";
-        document.body.style.overflow = "";
-    }
-    function initDentistLogout()
-    {
-        var overlay = document.getElementById("dentistLogoutConfirm");
-        if (!overlay || overlay.dataset.bound === "1") return;
-        overlay.dataset.bound = "1";
-        document.querySelectorAll('a[href="../logout.php"], a[href="logout.php"]').forEach(function(a)
-        {
-            if (a.closest("#dentistLogoutConfirm")) return;
-            if (a.dataset.logoutBound === "1") return;
-            a.dataset.logoutBound = "1";
-            a.addEventListener("click", openDentistLogout);
-        });
-        document.getElementById("dentistLogoutCancel").addEventListener("click", closeDentistLogout);
-        document.getElementById("dentistLogoutClose").addEventListener("click", closeDentistLogout);
-        overlay.addEventListener("click", function(e)
-        {
-            if (e.target === overlay) closeDentistLogout();
-        });
-        document.addEventListener("keydown", function(e)
-        {
-            if (e.key === "Escape") closeDentistLogout();
-        });
-    }
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", initDentistLogout);
-    } else {
-        initDentistLogout();
-    }
-})();
-</script>
-</body>
 
+    <style>
+    .dentist-logout-overlay { position: fixed; inset: 0; background: rgba(10,59,52,.55); z-index: 3000; padding: 20px; align-items: center; justify-content: center; }
+    .dentist-logout-box { background: #ffffff; border-radius: 18px; border: 1px solid #C9E9DA; box-shadow: 0 18px 45px rgba(0,0,0,.25); max-width: 440px; width: 100%; overflow: hidden; font-family: "DM Sans", system-ui, sans-serif; }
+    .dentist-logout-head { display: flex; align-items: center; gap: 12px; padding: 18px 22px; background: linear-gradient(135deg, #D9F2E6 0%, #EAF7F0 100%); border-bottom: 1px solid #C9E9DA; }
+    .dentist-logout-head-icon { width: 38px; height: 38px; border-radius: 11px; background: linear-gradient(135deg, #0E6B5E, #0A4A41); color: #ffffff; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 4px 10px rgba(14,107,94,.25); flex-shrink: 0; }
+    .dentist-logout-head h5 { color: #143f51; font-family: "Plus Jakarta Sans", system-ui, sans-serif; font-weight: 800; font-size: 17px; margin: 0; flex: 1; }
+    .dentist-logout-x { background: #ffffff; border: 1px solid #D1E7DD; color: #57727d; width: 30px; height: 30px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; }
+    .dentist-logout-body { padding: 30px 28px 8px; text-align: center; }
+    .dentist-logout-icon { width: 64px; height: 64px; border-radius: 18px; background: #FDECEC; color: #C0392B; border: 1px solid #F5C6C6; display: inline-flex; align-items: center; justify-content: center; font-size: 30px; margin-bottom: 14px; }
+    .dentist-logout-body h5 { color: #143f51; font-family: "Plus Jakarta Sans", system-ui, sans-serif; font-weight: 800; font-size: 18px; margin: 0 0 8px; }
+    .dentist-logout-body p { color: #8aa0a8; font-size: 13.5px; margin: 0; }
+    .dentist-logout-foot { display: flex; gap: 12px; justify-content: center; padding: 18px 22px 22px; background: #F6FBF8; border-top: 1px solid #E6F2EC; margin-top: 20px; }
+    .dentist-logout-foot .btn { border-radius: 10px; font-weight: 700; font-size: 14px; padding: 10px 26px; }
+    .dentist-logout-foot .btn-light { background: #fff !important; border: 1px solid #D1E7DD !important; color: #57727d !important; }
+    .dentist-logout-yes { background: linear-gradient(135deg, #E74C3C, #922B21) !important; border: none !important; color: #ffffff !important; box-shadow: 0 6px 14px rgba(192,57,43,.3) !important; }
+    </style>
+
+    <script>
+    (function(){
+        function openDentistLogout(e){ if(e) e.preventDefault(); var el=document.getElementById("dentistLogoutConfirm"); if(el) el.style.display="flex"; }
+        function closeDentistLogout(){ var el=document.getElementById("dentistLogoutConfirm"); if(el) el.style.display="none"; }
+        document.querySelectorAll('a[href="../logout.php"], a[href="logout.php"]').forEach(function(a){ a.addEventListener("click", openDentistLogout); });
+        document.getElementById("dentistLogoutCancel")?.addEventListener("click", closeDentistLogout);
+        document.getElementById("dentistLogoutClose")?.addEventListener("click", closeDentistLogout);
+    })();
+    </script>
+    </body>
     </html>
-
     <?php
-
     exit;
 }
 
-
 /*
-|--------------------------------------------------------------------------
-| PATIENT LIST
-|--------------------------------------------------------------------------
+|==========================================================================
+| 2. PATIENT DIRECTORY LIST VIEW (DEFAULT)
+|==========================================================================
 */
-
 $sql = "
     SELECT
         p.id,
@@ -1393,11 +1131,6 @@ $params = [
 $filterSql = '';
 $filterParams = [];
 
-/*
- * Base ng WHERE para sa COUNT(*). Ito ay parehong FROM/WHERE ng listahan
- * ngunit walang SELECT list (walang ang 7 subquery) at walang ORDER BY.
- * Kaya isang param lang ang kailangan — ang EXISTS sa dulo.
- */
 $filterSqlBase = "
     FROM patients p
 
@@ -1411,18 +1144,9 @@ $filterSqlBase = "
           AND ax.dentist_id = ?
     )
 ";
-
 $countParams = [$dentistId];
 
-
-/*
-|--------------------------------------------------------------------------
-| SEARCH
-|--------------------------------------------------------------------------
-*/
-
 if ($search !== '') {
-
     $filterSql .= "
         AND (
             p.first_name LIKE ?
@@ -1434,32 +1158,13 @@ if ($search !== '') {
             OR u.username LIKE ?
         )
     ";
-
     $searchValue = '%' . $search . '%';
-
-    $filterParams[] = $searchValue;
-    $filterParams[] = $searchValue;
-    $filterParams[] = $searchValue;
-    $filterParams[] = $searchValue;
-    $filterParams[] = $searchValue;
-    $filterParams[] = $searchValue;
-    $filterParams[] = $searchValue;
+    for ($i = 0; $i < 7; $i++) {
+        $filterParams[] = $searchValue;
+    }
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| FILTER BY APPOINTMENT STATUS
-|--------------------------------------------------------------------------
-*/
-
 if ($statusFilter !== '') {
-
-    /*
-     * Dati diretsong idinidikit sa $sql, kaya hindi ito makikita ng COUNT(*).
-     * Inilipat ko sa $filterSql para pareho ang ginamit ng listahan at ng
-     * bilang — kung hindi, magmamismatch ang "Showing X of Y" sa listahan.
-     */
     $filterSql .= "
         AND EXISTS (
             SELECT 1
@@ -1469,289 +1174,504 @@ if ($statusFilter !== '') {
               AND af.status = ?
         )
     ";
-
     $filterParams[] = $dentistId;
     $filterParams[] = $statusFilter;
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| ORDER
-|--------------------------------------------------------------------------
-*/
-
-/*
- * Narito na natatag ang $filterSql (search + status filter). Dati ito ay
- * binubuo pero KAILANMAN hindi nakakabit dito — kaya ang search box ay
- * patay. Nakakabit ko bago ang ORDER BY dahil sa AFTER ng WHERE clause.
- */
 $sql .= $filterSql;
-
 $params = array_merge($params, $filterParams);
+$sql .= " ORDER BY p.last_name ASC, p.first_name ASC ";
 
-$sql .= "
-    ORDER BY
-        p.last_name ASC,
-        p.first_name ASC
-";
-
-
-/*
-|--------------------------------------------------------------------------
-| TOTAL PATIENTS
-|--------------------------------------------------------------------------
-|
-| Hiwalay na COUNT(*) para sa kabuuang bilang ("Showing X of Y") at para
-| malaman kung ilang page ang mayroon.
-|
-*/
-
-/*
- * Kabuuang bilang. ANG FROM/WHERE NAKAALAMAN SA $filterSqlBase — kaya
- * HUWAG na isulat muli ang FROM patients dito, kung hindi magiging dalawang
- * FROM clause ang makarating sa DB at mag-error ang query.
- *
- * $countParams (1 param) + $filterParams = parehong binding ng listahan.
- */
 $countSql = "
     SELECT COUNT(*)
     $filterSqlBase
     $filterSql
 ";
-
 $countStmt = $pdo->prepare($countSql);
 $countStmt->execute(array_merge($countParams, $filterParams));
 $patientsTotal = (int) $countStmt->fetchColumn();
 
+// Additional stats for the hero banner
+$statUpcomingCount = 0;
+$statCompletedCount = 0;
+try {
+    $stUp = $pdo->prepare("
+        SELECT COUNT(DISTINCT patient_id) 
+        FROM appointments 
+        WHERE dentist_id = ? AND appointment_date >= CURDATE() 
+        AND status NOT IN ('Cancelled', 'Rejected', 'Completed')
+    ");
+    $stUp->execute([$dentistId]);
+    $statUpcomingCount = (int)$stUp->fetchColumn();
 
-/*
-|--------------------------------------------------------------------------
-| PAGINATION (10 patients kada page)
-|--------------------------------------------------------------------------
-|
-| Dati: buong listahan ang kinukuha at ang scrollbar/slide ang naghahandle.
-| Ngayon: LIMIT/OFFSET sa SQL — 10 rows kada page.
-|
-| NOTE: dapat ito ay AFTER ng COUNT(*) dahil kailangan ang $patientsTotal
-| para malaman ang kabuuang bilang ng page.
-|
-*/
+    $stComp = $pdo->prepare("
+        SELECT COUNT(*) 
+        FROM appointments 
+        WHERE dentist_id = ? AND status = 'Completed'
+    ");
+    $stComp->execute([$dentistId]);
+    $statCompletedCount = (int)$stComp->fetchColumn();
+} catch (PDOException $e) {}
 
 $perPage = 10;
-
 $totalPages = max(1, (int) ceil($patientsTotal / $perPage));
-
 $page = (int) ($_GET['page'] ?? 1);
-
-if ($page < 1) {
-    $page = 1;
-}
-
-if ($page > $totalPages) {
-    $page = $totalPages;
-}
-
+if ($page < 1) $page = 1;
+if ($page > $totalPages) $page = $totalPages;
 $offset = ($page - 1) * $perPage;
 
-/* Integer na ginamit — walang user input na dumadaan dito, kaya safe sa SQL. */
 $sql .= " LIMIT " . (int) $perPage . " OFFSET " . (int) $offset . " ";
 
-
-/*
- * URL ng ibang page — pinapanatili ang search, status filter, at nosidebar.
- */
 function patientPageUrl($targetPage)
 {
     $query = $_GET;
-
     $query['page'] = max(1, (int) $targetPage);
-
     return 'patients.php?' . http_build_query($query);
 }
 
 $showingFrom = $patientsTotal > 0 ? $offset + 1 : 0;
 $showingTo   = min($offset + $perPage, $patientsTotal);
 
-
-
-/*
-|--------------------------------------------------------------------------
-| EXECUTE
-|--------------------------------------------------------------------------
-*/
-
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
-
 $patients = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Directory | Dentist Portal</title>
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>Patients | Dentist Portal</title>
-
-
-    <!-- Bootstrap Icons -->
-
-    <link
-        rel="stylesheet"
-        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
-    >
-
-
-    <!-- Google Fonts -->
-
-    <link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
-    >
-
-
-    <!-- Portal CSS -->
-
-    <link
-        rel="stylesheet"
-        href="portal.css?v=5"
-    >
-
-    <!-- DENTIST SIDEBAR (dashboard parity) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap">
+    <link rel="stylesheet" href="portal.css?v=5">
     <link rel="stylesheet" href="dentist_sidebar.css">
 
-
     <style>
+        :root {
+            --clinic-teal: #0E6B5E;
+            --clinic-teal-dark: #0A4A41;
+            --clinic-teal-deep: #0A3B34;
+            --clinic-mint: #059669;
+            --clinic-emerald: #10B981;
+            --clinic-gold: #C9A227;
+            --clinic-gold-light: #F4E8C1;
+            --clinic-card-border: #E1EBE6;
+        }
 
-        .patient-toolbar {
+        body {
+            font-family: "DM Sans", "Inter", system-ui, sans-serif;
+            background: linear-gradient(135deg, #022c22, #059669, #065f46, #10b981, #022c22) !important;
+            background-size: 300% 300% !important;
+            animation: dentistDashBg 8s ease infinite !important;
+            color: #143F51;
+            min-height: 100vh;
+        }
+
+        @keyframes dentistDashBg {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .portal-main { background: transparent !important; }
+
+        .clinic-minibar {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            gap: 15px;
-            margin-bottom: 20px;
+            justify-content: center;
+            gap: 8px;
+            background: var(--clinic-teal-deep);
+            color: var(--clinic-gold);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .6px;
+            padding: 6px 12px;
+        }
+        .clinic-minibar span { color: #ffffff; }
+
+        .portal-topbar {
+            background: #ffffff !important;
+            border-bottom: 1px solid #E2ECE7 !important;
+            height: auto !important;
+            min-height: 90px !important;
+            padding: 14px 28px !important;
+            gap: 16px !important;
+            flex-wrap: wrap !important;
+            align-items: center !important;
+        }
+
+        .topbar-today, .topbar-time {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #244f60;
+            border-left: 1px solid #e8eef2;
+            padding-left: 16px;
+        }
+        .topbar-today i, .topbar-time i { font-size: 22px; color: var(--clinic-teal); }
+        .topbar-today strong, .topbar-time strong { display: block; font-size: 13px; font-weight: 800; line-height: 1.2; }
+        .topbar-today small, .topbar-time small { display: block; font-size: 11px; opacity: .85; font-weight: 600; }
+
+        /* HERO PATIENT DIRECTORY BANNER */
+        .patient-hero-banner {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(135deg, #0E6B5E 0%, #059669 55%, #0A4A41 100%);
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            border-radius: 20px;
+            padding: 24px 28px;
+            color: #ffffff;
+            width: 100%;
+            margin-bottom: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            box-shadow: 0 16px 36px rgba(6, 59, 49, 0.22);
             flex-wrap: wrap;
         }
 
-        .patient-search {
+        .patient-hero-banner::before {
+            content: "";
+            position: absolute;
+            width: 250px;
+            height: 250px;
+            top: -120px;
+            right: -60px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 70%);
+            pointer-events: none;
+        }
+
+        .hero-banner-title h1 {
+            font-family: "Plus Jakarta Sans", sans-serif;
+            font-size: 22px;
+            font-weight: 800;
+            margin: 0 0 6px 0;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .hero-banner-title p {
+            margin: 0;
+            font-size: 13px;
+            opacity: .92;
+            max-width: 580px;
+            line-height: 1.45;
+        }
+
+        .hero-stat-badges {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            position: relative;
+            z-index: 2;
+        }
+
+        .hero-stat-box {
+            background: rgba(255, 255, 255, 0.16);
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            border-radius: 12px;
+            padding: 10px 16px;
+            text-align: center;
+            min-width: 110px;
+        }
+
+        .hero-stat-box strong {
+            display: block;
+            font-size: 20px;
+            font-weight: 800;
+            font-family: "Plus Jakarta Sans", monospace;
+            color: #ffffff;
+            line-height: 1.1;
+        }
+
+        .hero-stat-box span {
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            opacity: .9;
+            color: #E2F5ED;
+        }
+
+        /* TOOLBAR & SEARCH */
+        .patient-toolbar-card {
+            background: #ffffff;
+            border: 1px solid var(--clinic-card-border);
+            border-radius: 16px;
+            padding: 16px 22px;
+            margin-bottom: 22px;
+            box-shadow: 0 6px 18px rgba(6, 59, 49, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .search-form-wrap {
             display: flex;
             align-items: center;
             gap: 10px;
             flex: 1;
-            max-width: 550px;
+            max-width: 650px;
+            flex-wrap: wrap;
         }
 
-    .patient-search input,
-    .patient-search select {
-            border: 1px solid #dce5ed;
-            border-radius: 8px;
-            padding: 10px 12px;
-            font-family: inherit;
-            background: #fff;
-            outline: none;
-        }
-
-        .patient-search input {
+        .search-input-group {
+            position: relative;
             flex: 1;
+            min-width: 220px;
         }
 
-        .patient-search input:focus,
-        .patient-search select:focus {
-            border-color: #65a9d9;
+        .search-input-group i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #83979E;
+            font-size: 14px;
         }
 
-        .search-btn {
-            border: 0;
-            border-radius: 8px;
-            padding: 10px 16px;
-            background: #3b82c4;
-            color: #fff;
+        .search-input-group input {
+            width: 100%;
+            padding: 9px 12px 9px 34px;
+            border-radius: 10px;
+            border: 1px solid #CFDFD7;
+            font-size: 13.5px;
+            color: #143F51;
+            transition: all .2s ease;
+        }
+        .search-input-group input:focus {
+            outline: none;
+            border-color: var(--clinic-mint);
+            box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.16);
+        }
+
+        .status-select-wrap select {
+            padding: 9px 14px;
+            border-radius: 10px;
+            border: 1px solid #CFDFD7;
+            font-size: 13.5px;
+            color: #143F51;
+            background: #ffffff;
             cursor: pointer;
-            font-weight: 600;
+        }
+        .status-select-wrap select:focus {
+            outline: none;
+            border-color: var(--clinic-mint);
+            box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.16);
         }
 
-        .search-btn:hover {
-            opacity: 0.9;
+        .btn-search-clinic {
+            background: linear-gradient(135deg, #0E6B5E, #059669);
+            color: #ffffff;
+            border: none;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 13px;
+            padding: 9px 18px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(14, 107, 94, 0.2);
+            transition: all .2s ease;
+        }
+        .btn-search-clinic:hover {
+            filter: brightness(1.08);
+            transform: translateY(-1px);
         }
 
-        .clear-btn {
+        .btn-clear-clinic {
+            background: #ffffff;
+            border: 1px solid #CFDFD7;
+            color: #57727D;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 13px;
+            padding: 9px 14px;
             display: inline-flex;
             align-items: center;
             gap: 5px;
             text-decoration: none;
-            padding: 10px 13px;
-            border-radius: 8px;
-            border: 1px solid #dce5ed;
-            color: #566575;
-            background: #fff;
-            font-weight: 600;
+        }
+        .btn-clear-clinic:hover {
+            background: #F4F7F6;
+            color: #0E6B5E;
         }
 
-        .view-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            text-decoration: none;
-            padding: 7px 12px;
-            border-radius: 7px;
-            background: #e8f4ff;
-            color: #2374b8;
-            font-size: 13px;
+        .patient-table-meta {
+            font-size: 12.5px;
             font-weight: 700;
-            border: none;
-            cursor: pointer;
-            font-family: inherit;
+            color: #4A6068;
         }
 
-        .view-btn:hover {
-            background: #d9edfc;
+        /* DIRECTORY TABLE CARD */
+        .patient-table-card {
+            background: #ffffff;
+            border: 1px solid var(--clinic-card-border);
+            border-radius: 18px;
+            box-shadow: 0 10px 28px rgba(6, 59, 49, 0.07);
+            overflow: hidden;
+            width: 100%;
         }
 
-        /* Patient table polish: darker text, sticky header, zebra, hover */
-        .portal-table th{color:#102f3d !important}
-        .portal-table td{color:#1f3a4a !important}
-        .portal-table td .patient-id,.portal-table td small{color:#3f5a67 !important}
-        .portal-table thead th{position:sticky;top:0;z-index:2;background:#fff}
-        .portal-table tbody tr:nth-child(even) td{background:#F7FDFB}
-        .portal-table tbody tr:hover td{background:#EAF7F0}
-        .patient-name{color:#102f3d !important;font-weight:800 !important}
+        .patient-table-scroll {
+            overflow-x: auto;
+            max-height: 640px;
+            scrollbar-width: thin;
+            scrollbar-color: #10B981 #E6F7F0;
+        }
+        .patient-table-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+        .patient-table-scroll::-webkit-scrollbar-track { background: #E6F7F0; }
+        .patient-table-scroll::-webkit-scrollbar-thumb { background: #10B981; border-radius: 6px; }
 
-        .edit-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            text-decoration: none;
-            padding: 7px 12px;
-            border: none;
-            border-radius: 7px;
-            background: #eef7ee;
-            color: #18753c;
-            font-family: inherit;
-            font-size: 13px;
-            font-weight: 700;
-            cursor: pointer;
+        .patient-roster-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0;
         }
 
-        .edit-btn:hover {
-            background: #dcf0dc;
-        }
-
-        .action-cell {
+        .patient-roster-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            background: #F7FAF9;
+            color: #143F51;
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            padding: 13px 18px;
+            border-bottom: 2px solid #E1EBE6;
             white-space: nowrap;
         }
 
+        .patient-roster-table tbody td {
+            padding: 13px 18px;
+            font-size: 13px;
+            color: #244F60;
+            border-bottom: 1px solid #EEF4F1;
+            vertical-align: middle;
+        }
+
+        .patient-roster-table tbody tr:hover td {
+            background: #F5FAF8 !important;
+        }
+
+        /* PATIENT CELL */
+        .patient-cell-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .patient-avatar-sm {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ECFDF5, #D1FAE5);
+            color: var(--clinic-teal);
+            font-weight: 800;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #A7F3D0;
+            flex-shrink: 0;
+        }
+
+        .patient-name-link {
+            font-weight: 800;
+            font-size: 13.5px;
+            color: #143F51;
+            text-decoration: none;
+            display: block;
+            transition: color .15s ease;
+        }
+        .patient-name-link:hover { color: var(--clinic-mint); }
+
+        .patient-id-badge {
+            font-size: 10.5px;
+            font-weight: 700;
+            color: #64748B;
+            background: #F1F5F9;
+            padding: 1px 7px;
+            border-radius: 6px;
+            display: inline-block;
+            margin-top: 2px;
+            font-family: monospace;
+        }
+
+        /* STATUS BADGES */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 11.5px;
+            font-weight: 700;
+            letter-spacing: .3px;
+            white-space: nowrap;
+        }
+        .status-pending { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
+        .status-confirmed { background: #DCFCE7; color: #15803D; border: 1px solid #BBF7D0; }
+        .status-completed { background: #E0F2FE; color: #0369A1; border: 1px solid #BAE6FD; }
+        .status-cancelled { background: #FEE2E2; color: #B91C1C; border: 1px solid #FECACA; }
+        .status-default { background: #F1F5F9; color: #475569; border: 1px solid #E2E8F0; }
+
+        /* ACTION BUTTONS */
         .action-wrap {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
+            gap: 7px;
+        }
+
+        .btn-action-chart {
+            background: #EAF7F0;
+            color: var(--clinic-teal);
+            border: 1px solid #C9E9DA;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 12px;
+            padding: 6px 11px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            text-decoration: none;
+            transition: all .15s ease;
+        }
+        .btn-action-chart:hover {
+            background: var(--clinic-teal);
+            color: #ffffff;
+            border-color: var(--clinic-teal);
+        }
+
+        .btn-action-edit {
+            background: #FFFBEB;
+            color: #92400E;
+            border: 1px solid #FDE68A;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 12px;
+            padding: 6px 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            transition: all .15s ease;
+        }
+        .btn-action-edit:hover {
+            background: #F59E0B;
+            color: #ffffff;
+            border-color: #F59E0B;
         }
 
         .more-wrap {
@@ -1764,172 +1684,61 @@ $patients = $stmt->fetchAll(PDO::FETCH_ASSOC);
             cursor: pointer;
             display: inline-flex;
             align-items: center;
-            gap: 4px;
-            padding: 7px 10px;
-            border-radius: 7px;
-            background: #eef1f5;
-            color: #536273;
+            padding: 6px 8px;
+            border-radius: 8px;
+            background: #F1F5F9;
+            color: #475569;
             font-size: 13px;
-            font-weight: 700;
-            user-select: none;
+            border: 1px solid #E2E8F0;
         }
-
-        .more-wrap summary::-webkit-details-marker {
-            display: none;
-        }
-
-        .more-wrap summary:hover {
-            background: #e0e6ec;
-        }
-
-        .more-wrap[open] summary {
-            background: #dbe3ea;
-        }
+        .more-wrap summary::-webkit-details-marker { display: none; }
+        .more-wrap summary:hover { background: #E2E8F0; }
 
         .more-menu {
             position: absolute;
             right: 0;
             top: calc(100% + 6px);
-            min-width: 230px;
+            min-width: 220px;
             background: #fff;
-            border: 1px solid #dce5ed;
+            border: 1px solid #DCE5ED;
             border-radius: 10px;
-            box-shadow: 0 12px 30px rgba(0,0,0,.12);
+            box-shadow: 0 12px 30px rgba(0,0,0,.15);
             padding: 6px;
-            z-index: 50;
+            z-index: 100;
         }
-
-        .more-menu a,
-        .more-menu .more-info {
+        .more-menu a, .more-menu .more-info {
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 9px 10px;
+            padding: 8px 10px;
             border-radius: 7px;
-            font-size: 13px;
-            color: #34495e;
+            font-size: 12.5px;
+            color: #34495E;
             text-decoration: none;
             font-weight: 600;
         }
+        .more-menu a:hover { background: #F0FDF4; color: var(--clinic-teal); }
+        .more-menu .more-info { color: #64748B; font-weight: 600; cursor: default; }
+        .more-menu .more-divider { height: 1px; background: #EEF3F0; margin: 4px 0; }
 
-        .more-menu a:hover {
-            background: #f2f7fb;
-        }
-
-        .more-menu .more-info {
-            color: #7a8998;
-            font-weight: 600;
-            cursor: default;
-        }
-
-        .more-menu .more-divider {
-            height: 1px;
-            background: #edf1f5;
-            margin: 5px 4px;
-        }
-
-        .patient-email {
-            word-break: break-all;
-            color: #34495e;
-        }
-
-        .row-num {
-            color: #7a8998;
-            font-weight: 700;
-        }
-
-        .patient-name {
-            font-weight: 700;
-            color: #253746;
-        }
-
-        .patient-id {
-            display: block;
-            color: #8795a3;
-            font-size: 11px;
-            margin-top: 3px;
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 5px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 700;
-        }
-
-        .status-pending {
-            background: #fff4d6;
-            color: #9a6700;
-        }
-
-        .status-confirmed {
-            background: #e1f5e8;
-            color: #18753c;
-        }
-
-        .status-completed {
-            background: #e5eef9;
-            color: #285c91;
-        }
-
-        .status-cancelled {
-            background: #fde8e8;
-            color: #b42318;
-        }
-
-        .status-default {
-            background: #edf1f5;
-            color: #536273;
-        }
-
-        .next-date {
-            font-weight: 600;
-        }
-
-        .next-time {
-            color: #7a8998;
-            font-size: 12px;
-            margin-top: 2px;
-        }
-
-        .empty-patients {
-            text-align: center;
-            padding: 45px 20px;
-            color: #7a8998;
-        }
-
-        .empty-patients i {
-            font-size: 36px;
-            display: block;
-            margin-bottom: 10px;
-        }
-
-        @media (max-width: 800px) {
-
-            .patient-search {
-                width: 100%;
-                max-width: none;
-                flex-wrap: wrap;
-            }
-
-            .patient-search input {
-                min-width: 180px;
-            }
-
-        }
-
-        /* ===== PAGINATION (10 patients kada page) ===== */
+        /* PAGINATION */
         .patient-pagination {
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: space-between;
             flex-wrap: wrap;
-            gap: 6px;
-            padding: 14px 16px;
+            gap: 12px;
+            padding: 14px 22px;
             border-top: 1px solid #E6F2EC;
             background: #F6FBF8;
         }
+
+        .pagination-pills-wrap {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
         .patient-page-btn {
             display: inline-flex;
             align-items: center;
@@ -1942,625 +1751,320 @@ $patients = $stmt->fetchAll(PDO::FETCH_ASSOC);
             border: 1px solid #C9E9DA;
             background: #ffffff;
             color: #0E6B5E;
-            font-family: "Inter", system-ui, sans-serif;
             font-size: 12.5px;
             font-weight: 800;
             text-decoration: none;
+            transition: all .15s ease;
         }
         .patient-page-btn:hover:not(.disabled):not(.active) { background: #EAF7F0; }
         .patient-page-btn.active { background: #0E6B5E; border-color: #0E6B5E; color: #ffffff; }
         .patient-page-btn.disabled { opacity: .45; cursor: default; }
-
-        /* Green scrollbar slide: kaladkarin pataas/pababa (tulad sa image) */
-        .patient-table-scroll {
-            overflow: auto;
-            max-height: 620px;
-            scrollbar-width: thin;
-            scrollbar-color: #149A72 #DFF2E9;
-        }
-        .patient-table-scroll::-webkit-scrollbar {
-            width: 10px;
-        }
-        .patient-table-scroll::-webkit-scrollbar-track {
-            background: #DFF2E9;
-            border-radius: 8px;
-        }
-        .patient-table-scroll::-webkit-scrollbar-thumb {
-            background: linear-gradient(180deg, #149A72, #0A4A41);
-            border-radius: 8px;
-        }
-        .patient-table-scroll::-webkit-scrollbar-thumb:hover {
-            background: #0E6B5E;
-        }
-        /* TOPBAR date + time (tulad sa appointment page) */
-        .topbar-today {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: #244f60;
-            border-left: none;
-            padding-left: 0;
-        }
-        .topbar-today i { font-size: 22px; }
-        .topbar-today strong { display: block; font-size: 13px; font-weight: 800; line-height: 1.2; }
-        .topbar-today small { display: block; font-size: 11px; opacity: .85; font-weight: 600; }
-        .topbar-time {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: #244f60;
-            border-left: 1px solid #e8eef2;
-            padding-left: 16px;
-        }
-        .topbar-time i { font-size: 22px; }
-        .topbar-time strong { display: block; font-size: 13px; font-weight: 800; line-height: 1.2; }
-        .topbar-time small { display: block; font-size: 11px; opacity: .85; font-weight: 600; font-variant-numeric: tabular-nums; }
-
     </style>
-<style>
-/* ===== READABILITY + POLISH (patients page only, override muted text) ===== */
-.portal-subtitle{color:#334554 !important;font-weight:600 !important}
-.portal-main small{color:#3f5a67 !important}
-.portal-main [style*="#8499a1"]{color:#334554 !important}
-.portal-main [style*="#8ca0a8"]{color:#3f5a67 !important}
-.portal-main [style*="#7f9aa4"]{color:#334554 !important}
-.portal-main [style*="#7b94a0"]{color:#334554 !important}
-.portal-main [style*="#91a5ac"]{color:#3f5a67 !important}
-.portal-main [style*="#6b8a96"]{color:#334554 !important}
-.portal-heading{color:#102f3d !important}
-.portal-main table{border-collapse:collapse !important;width:100% !important;background:#fff !important;border-radius:14px !important;overflow:hidden !important;box-shadow:0 8px 24px rgba(14,107,94,.08) !important}
-.portal-main table th{color:#102f3d !important;font-weight:800 !important;background:#EAF7F0 !important;padding:12px 14px !important;text-align:left !important;white-space:nowrap !important}
-.portal-main table td{color:#1f3a4a !important;font-weight:600 !important;padding:12px 14px !important;border-bottom:1px solid #E6F2EC !important}
-.portal-main table tbody tr:nth-child(even) td{background:#F7FDFB !important}
-.portal-main table tbody tr:hover td{background:#EAF7F0 !important}
-.portal-main .card,.portal-main table{background:#fff !important}
-.portal-main a{color:#0E6B5E}
-</style>
-
-
 </head>
-
-
 <body>
 
-<style>
-body{background:linear-gradient(135deg,#022c22,#059669,#065f46,#10b981,#022c22)!important;background-size:300% 300%!important;animation:dentistDashBg 8s ease infinite!important;}
-.portal-main{background:transparent!important;}
-@keyframes dentistDashBg{0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
-</style>
-
-    <!-- SIDEBAR -->
-
-    <?php
+<?php
 $dentistActivePage = 'patients';
 include __DIR__ . '/dentist_sidebar.php';
 ?>
 
+<main class="portal-main">
+    <div class="clinic-minibar">
+        🦷 <span>Abalos Dental Clinic — Practitioner Patient Directory</span>
+    </div>
 
-    <!-- MAIN -->
-
-    <main class="portal-main">
-
-        <style>
-            .clinic-minibar {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                gap: 8px;
-                background: #0A3B34;
-                color: #C9A227;
-                font-size: 11px;
-                font-weight: 700;
-                letter-spacing: .6px;
-                padding: 6px 12px;
-            }
-            .clinic-minibar span {
-                color: #ffffff;
-            }
-        </style>
-
-        <!-- MINI CLINIC BAR (gaya sa appointment page) -->
-
-        <div class="clinic-minibar">
-            🦷 <span>Abalos Dental Clinic</span>
+    <header class="portal-topbar">
+        <div>
+            <div class="portal-heading" style="font-family:'Plus Jakarta Sans',sans-serif; font-size:22px; font-weight:800; color:#143F51;">
+                Assigned Patients Directory
+            </div>
+            <div class="portal-subtitle" style="font-size:13px; color:#64748B;">
+                View patient demographic records, chairside appointments, and clinical dental histories
+            </div>
         </div>
 
-
-        <!-- TOPBAR -->
-
-        <header class="portal-topbar">
-
-            <div>
-
-                <div class="portal-heading">
-                    Patients
+        <div style="display:flex; align-items:center; gap:16px;">
+            <div class="topbar-today" style="border-left:none; padding-left:0;">
+                <i class="bi bi-calendar2-check-fill"></i>
+                <div>
+                    <strong><?= htmlspecialchars(date('l')) ?></strong>
+                    <small><?= htmlspecialchars(date('M d, Y')) ?></small>
                 </div>
-
-                <div class="portal-subtitle">
-                    Patients with appointments assigned to you
-                </div>
-
             </div>
 
-
-            <div style="display:flex;align-items:center;gap:16px;">
-
-                <div class="topbar-today">
-
-                    <i class="bi bi-calendar-event-fill"></i>
-
-                    <div>
-                        <strong><?= dentistPatientEscape(date('l')) ?></strong>
-                        <small><?= dentistPatientEscape(date('M d, Y')) ?></small>
-                    </div>
-
+            <div class="topbar-time">
+                <i class="bi bi-clock-fill"></i>
+                <div>
+                    <strong>Clinic Time</strong>
+                    <small id="patientListClinicTime">--:--:--</small>
                 </div>
-
-
-                <div class="topbar-time">
-
-                    <i class="bi bi-clock-fill"></i>
-
-                    <div>
-                        <strong>Clinic Time</strong>
-                        <small id="patientListClinicTime">--:--:--</small>
-                    </div>
-
-                </div>
-
             </div>
 
-        </header>
+            <div class="portal-user">
+                <?= htmlspecialchars($dentistName) ?>
+                <div class="portal-role">Licensed Dentist</div>
+            </div>
+        </div>
+    </header>
 
-        <script>
-        (function () {
-            function tickPatientListClinicTime() {
-                try {
-                    var el = document.getElementById('patientListClinicTime');
-                    if (!el) return;
-                    var now = new Date();
-                    var timeStr = now.toLocaleTimeString('en-PH', {
-                        timeZone: 'Asia/Manila',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                        hour12: true
-                    });
-                    el.textContent = timeStr;
-                } catch (e) {}
-            }
-            tickPatientListClinicTime();
-            setInterval(tickPatientListClinicTime, 1000);
-        })();
-        </script>
+    <script>
+    (function(){
+        function tick(){
+            var el = document.getElementById('patientListClinicTime');
+            if(!el) return;
+            var now = new Date();
+            el.textContent = now.toLocaleTimeString('en-PH', {
+                timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+            });
+        }
+        tick(); setInterval(tick, 1000);
+    })();
+    </script>
 
+    <div class="portal-content" style="padding: 26px 32px 40px 32px;">
 
-        <!-- CONTENT -->
+        <!-- Feedbacks -->
+        <?php if ($editFlash !== ''): ?>
+            <div class="alert alert-success d-flex align-items-center gap-2 mb-3" style="border-radius:12px; font-weight:600; font-size:13.5px; border-left:5px solid #059669;">
+                <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                <div><?= dentistPatientEscape($editFlash) ?></div>
+            </div>
+        <?php endif; ?>
 
-        <div class="portal-content">
+        <?php if ($editError !== ''): ?>
+            <div class="alert alert-danger d-flex align-items-center gap-2 mb-3" style="border-radius:12px; font-weight:600; font-size:13.5px; border-left:5px solid #DC2626;">
+                <i class="bi bi-exclamation-triangle-fill text-danger fs-5"></i>
+                <div><?= dentistPatientEscape($editError) ?></div>
+            </div>
+        <?php endif; ?>
 
-            <?php if ($editFlash !== ''): ?>
-                <div class="edit-alert edit-alert-success">
-                    <i class="bi bi-check-circle-fill"></i>
-                    <?= dentistPatientEscape($editFlash) ?>
+        <!-- HERO DIRECTORY BANNER -->
+        <div class="patient-hero-banner">
+            <div class="hero-banner-title">
+                <h1>
+                    <i class="bi bi-people-fill text-warning"></i>
+                    Dental Patient Records
+                </h1>
+                <p>
+                    Manage your clinical roster, track upcoming chairside appointments, and review past dental procedures for your assigned patients.
+                </p>
+            </div>
+
+            <div class="hero-stat-badges">
+                <div class="hero-stat-box">
+                    <strong><?= $patientsTotal ?></strong>
+                    <span>Total Patients</span>
                 </div>
-            <?php endif; ?>
-
-            <?php if ($editError !== ''): ?>
-                <div class="edit-alert edit-alert-error">
-                    <i class="bi bi-exclamation-triangle-fill"></i>
-                    <?= dentistPatientEscape($editError) ?>
+                <div class="hero-stat-box">
+                    <strong><?= $statUpcomingCount ?></strong>
+                    <span>Upcoming Visits</span>
                 </div>
-            <?php endif; ?>
+                <div class="hero-stat-box">
+                    <strong><?= $statCompletedCount ?></strong>
+                    <span>Completed</span>
+                </div>
+            </div>
+        </div>
 
-            <section class="portal-card">
-
-
-                <!-- TOOLBAR -->
-
-                <div class="patient-toolbar">
-
-
-                    <form
-                        method="GET"
-                        action="patients.php"
-                        class="patient-search"
-                    >
-
-
-                        <!-- SEARCH -->
-
-                        <input
-                            type="text"
-                            name="search"
-                            placeholder="Search Patient"
-                            value="<?= dentistPatientEscape($search) ?>"
-                        >
-
-
-                        <!-- FILTER -->
-
-                        <select name="status">
-
-                            <option value="">
-                                All Status
-                            </option>
-
-                            <option
-                                value="Pending"
-                                <?= $statusFilter === 'Pending' ? 'selected' : '' ?>
-                            >
-                                Pending
-                            </option>
-
-                            <option
-                                value="Confirmed"
-                                <?= $statusFilter === 'Confirmed' ? 'selected' : '' ?>
-                            >
-                                Confirmed
-                            </option>
-
-                            <option
-                                value="Completed"
-                                <?= $statusFilter === 'Completed' ? 'selected' : '' ?>
-                            >
-                                Completed
-                            </option>
-
-                            <option
-                                value="Cancelled"
-                                <?= $statusFilter === 'Cancelled' ? 'selected' : '' ?>
-                            >
-                                Cancelled
-                            </option>
-
-                        </select>
-
-
-                        <button
-                            type="submit"
-                            class="search-btn"
-                        >
-
-                            <i class="bi bi-search"></i>
-
-                            Search
-
-                        </button>
-
-
-                        <?php if (
-                            $search !== '' ||
-                            $statusFilter !== ''
-                        ): ?>
-
-                            <a
-                                href="patients.php"
-                                class="clear-btn"
-                            >
-
-                                <i class="bi bi-x-lg"></i>
-
-                                Clear
-
-                            </a>
-
-                        <?php endif; ?>
-
-
-                    </form>
-
+        <!-- TOOLBAR & SEARCH FORM -->
+        <div class="patient-toolbar-card">
+            <form method="GET" action="patients.php" class="search-form-wrap">
+                <div class="search-input-group">
+                    <i class="bi bi-search"></i>
+                    <input type="text" name="search" placeholder="Search by patient name, ID (e.g. PAT-...), or phone" value="<?= dentistPatientEscape($search) ?>">
                 </div>
 
+                <div class="status-select-wrap">
+                    <select name="status" id="patientStatusFilter" onchange="this.form.submit()" aria-label="Filter by appointment status">
+                        <option value="">All Appointment Statuses</option>
+                        <option value="Pending" <?= $statusFilter === 'Pending' ? 'selected' : '' ?>>Pending</option>
+                        <option value="Confirmed" <?= $statusFilter === 'Confirmed' ? 'selected' : '' ?>>Confirmed</option>
+                        <option value="Completed" <?= $statusFilter === 'Completed' ? 'selected' : '' ?>>Completed</option>
+                        <option value="Cancelled" <?= $statusFilter === 'Cancelled' ? 'selected' : '' ?>>Cancelled</option>
+                    </select>
+                </div>
 
-                <!-- PATIENT TABLE -->
+                <?php if ($search !== '' || $statusFilter !== ''): ?>
+                    <a href="patients.php" class="btn-clear-clinic" title="Clear search and filter">
+                        <i class="bi bi-x-circle"></i> Clear
+                    </a>
+                <?php endif; ?>
+            </form>
 
-                <h2>
-                    Patient Information
-                </h2>
+            <div class="patient-table-meta">
+                Showing <strong><?= $showingFrom ?>–<?= $showingTo ?></strong> of <strong><?= $patientsTotal ?></strong> patients
+            </div>
+        </div>
 
+        <!-- PATIENT ROSTER TABLE CARD -->
+        <div class="patient-table-card">
+            <?php if (empty($patients)): ?>
+                <div class="p-5 text-center text-muted">
+                    <i class="bi bi-person-x fs-1 d-block mb-2 text-muted"></i>
+                    <strong style="font-size:15px; color:#143F51;">No matching patients found</strong>
+                    <p class="small text-muted m-0">Try adjusting your search criteria or clearing your status filters.</p>
+                </div>
+            <?php else: ?>
+                <div class="patient-table-scroll" id="patientTableWrap">
+                    <table class="patient-roster-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">#</th>
+                                <th>Patient Details</th>
+                                <th>Contact Information</th>
+                                <th>Assigned Dentist</th>
+                                <th>Next Scheduled Visit</th>
+                                <th>Status</th>
+                                <th style="text-align: right; padding-right: 24px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php $rowNum = $offset; foreach ($patients as $p): $rowNum++; ?>
+                                <?php
+                                $pFullName = trim($p['first_name'] . ' ' . ($p['middle_name'] ?? '') . ' ' . $p['last_name']);
+                                $pInitials = getPatientInitials($pFullName);
+                                $pStatus = trim($p['next_status'] ?? '');
+                                $displayStatus = $pStatus;
+                                if ($displayStatus === '' && $statusFilter !== '') {
+                                    $displayStatus = $statusFilter;
+                                }
+                                $statusLower = strtolower($displayStatus);
 
-                <?php if (empty($patients)): ?>
+                                $statusClass = 'status-default';
+                                if ($statusLower === 'pending') $statusClass = 'status-pending';
+                                elseif ($statusLower === 'confirmed') $statusClass = 'status-confirmed';
+                                elseif ($statusLower === 'completed') $statusClass = 'status-completed';
+                                elseif ($statusLower === 'cancelled') $statusClass = 'status-cancelled';
 
+                                $nextDateLabel = !empty($p['next_appointment_date']) ? date('M d, Y', strtotime($p['next_appointment_date'])) : '';
+                                $nextTimeLabel = !empty($p['next_appointment_time']) ? date('h:i A', strtotime($p['next_appointment_time'])) : '';
+                                $nextServiceLabel = trim((string)($p['next_service'] ?? ''));
+                                $apptCount = (int) ($p['appointment_count'] ?? 0);
+                                ?>
+                                <tr>
+                                    <td>
+                                        <span style="font-weight:700; color:#64748B; font-size:12px;"><?= $rowNum ?></span>
+                                    </td>
 
-                    <div class="empty-patients">
+                                    <td>
+                                        <div class="patient-cell-profile">
+                                            <div class="patient-avatar-sm">
+                                                <?= htmlspecialchars($pInitials) ?>
+                                            </div>
+                                            <div>
+                                                <a href="patients.php?patient_id=<?= (int)$p['id'] ?>" class="patient-name-link" title="Open patient dental record">
+                                                    <?= dentistPatientEscape($pFullName) ?>
+                                                </a>
+                                                <span class="patient-id-badge">
+                                                    <?= dentistPatientEscape($p['patient_number']) ?>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </td>
 
-                        <i class="bi bi-people"></i>
+                                    <td>
+                                        <div>
+                                            <?php if (!empty($p['contact_number'])): ?>
+                                                <a href="tel:<?= dentistPatientEscape($p['contact_number']) ?>" style="color:#143F51; font-weight:600; text-decoration:none; font-size:12.5px;">
+                                                    <i class="bi bi-telephone text-success me-1"></i><?= dentistPatientEscape($p['contact_number']) ?>
+                                                </a>
+                                            <?php else: ?>
+                                                <span class="text-muted">—</span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <?php if (!empty($p['email'])): ?>
+                                            <div style="font-size:11.5px; color:#64748B; margin-top:2px;">
+                                                <i class="bi bi-envelope me-1"></i><?= dentistPatientEscape($p['email']) ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </td>
 
-                        <strong>
-                            No patients found
-                        </strong>
+                                    <td>
+                                        <span style="font-weight:600; font-size:12.5px;">
+                                            <?= dentistPatientEscape($p['assigned_dentists'] ?: 'Dr. ' . $dentistName) ?>
+                                        </span>
+                                        <div style="font-size:11px; color:#64748B;">
+                                            <?= $apptCount ?> consultation<?= $apptCount == 1 ? '' : 's' ?> on file
+                                        </div>
+                                    </td>
 
-                        <div>
-                            No patients match your search or filter.
+                                    <td>
+                                        <?php if ($nextDateLabel !== ''): ?>
+                                            <div style="font-weight:700; font-size:12.5px; color:#143F51;">
+                                                <i class="bi bi-calendar2-check text-success me-1"></i><?= htmlspecialchars($nextDateLabel) ?>
+                                            </div>
+                                            <div style="font-size:11.5px; color:#64748B; margin-top:2px;">
+                                                <?= htmlspecialchars($nextTimeLabel) ?>
+                                                <?php if ($nextServiceLabel !== ''): ?>
+                                                    · <span class="badge bg-light text-dark border" style="font-size:10.5px;"><?= htmlspecialchars($nextServiceLabel) ?></span>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php else: ?>
+                                            <span style="color:#94A3B8; font-size:12px;">No upcoming schedule</span>
+                                        <?php endif; ?>
+                                    </td>
+
+                                    <td>
+                                        <?php if (!empty($displayStatus)): ?>
+                                            <span class="status-badge <?= $statusClass ?>">
+                                                <?= dentistPatientEscape($displayStatus) ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="status-badge status-default">No Active Schedule</span>
+                                        <?php endif; ?>
+                                    </td>
+
+                                    <td style="text-align: right; padding-right: 20px;">
+                                        <div class="action-wrap">
+                                            <a href="patients.php?patient_id=<?= (int)$p['id'] ?>" class="btn-action-chart" title="View Dental Chart & History">
+                                                <i class="bi bi-journal-medical"></i> Chart
+                                            </a>
+
+                                            <button type="button" class="btn-action-edit patient-edit-btn" title="Edit Patient Information"
+                                                data-id="<?= (int)$p['id'] ?>"
+                                                data-patient-id="<?= dentistPatientEscape($p['patient_number']) ?>"
+                                                data-first="<?= dentistPatientEscape($p['first_name']) ?>"
+                                                data-middle="<?= dentistPatientEscape($p['middle_name'] ?? '') ?>"
+                                                data-last="<?= dentistPatientEscape($p['last_name']) ?>"
+                                                data-contact="<?= dentistPatientEscape($p['contact_number'] ?? '') ?>"
+                                                data-email="<?= dentistPatientEscape($p['email'] ?? '') ?>"
+                                            >
+                                                <i class="bi bi-pencil-square"></i> Edit
+                                            </button>
+
+                                            <details class="more-wrap">
+                                                <summary title="Quick Options">
+                                                    <i class="bi bi-three-dots"></i>
+                                                </summary>
+                                                <div class="more-menu">
+                                                    <a href="patients.php?patient_id=<?= (int)$p['id'] ?>">
+                                                        <i class="bi bi-clock-history"></i> Appointment History
+                                                    </a>
+                                                    <a href="appointments.php">
+                                                        <i class="bi bi-calendar2-check"></i> View Appointments Roster
+                                                    </a>
+                                                    <div class="more-divider"></div>
+                                                    <div class="more-info">
+                                                        <i class="bi bi-hash"></i> Record: <?= dentistPatientEscape($p['patient_number']) ?>
+                                                    </div>
+                                                </div>
+                                            </details>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- PAGINATION BAR -->
+                <?php if ($totalPages > 1): ?>
+                    <nav class="patient-pagination" aria-label="Patient roster pagination">
+                        <div style="font-size:12.5px; color:#57727D; font-weight:700;">
+                            Page <?= $page ?> of <?= $totalPages ?>
                         </div>
 
-                    </div>
-
-
-                <?php else: ?>
-
-
-                    <div class="patient-table-scroll" id="patientTableWrap">
-
-                        <table class="portal-table">
-
-
-                            <thead>
-
-                                <tr>
-
-                                    <th>
-                                        #
-                                    </th>
-
-                                    <th>
-                                        Patient Name
-                                    </th>
-
-                                    <th>
-                                        Contact Number
-                                    </th>
-
-                                    <th>
-                                        Email
-                                    </th>
-
-                                    <th>
-                                        Assigned Dentist
-                                    </th>
-
-                                    <th>
-                                        Status
-                                    </th>
-
-                                    <th>
-                                        Action
-                                    </th>
-
-                                </tr>
-
-                            </thead>
-
-
-                            <tbody>
-
-
-                                <?php $rowNum = $offset; foreach ($patients as $patient): $rowNum++; ?>
-
-                                    <?php
-
-                                    $fullName = trim(
-                                        $patient['first_name'] . ' ' .
-                                        ($patient['middle_name'] ?? '') . ' ' .
-                                        $patient['last_name']
-                                    );
-
-                                    $patientStatus = $patient['next_status'] ?? '';
-
-                                    $statusLower = strtolower(
-                                        trim($patientStatus)
-                                    );
-
-                                    $statusClass = 'status-default';
-
-                                    if ($statusLower === 'pending') {
-                                        $statusClass = 'status-pending';
-                                    } elseif ($statusLower === 'confirmed') {
-                                        $statusClass = 'status-confirmed';
-                                    } elseif ($statusLower === 'completed') {
-                                        $statusClass = 'status-completed';
-                                    } elseif ($statusLower === 'cancelled') {
-                                        $statusClass = 'status-cancelled';
-                                    }
-
-                                    $nextDateLabel = !empty($patient['next_appointment_date'])
-                                        ? date('M d, Y', strtotime($patient['next_appointment_date']))
-                                        : '';
-                                    $nextTimeLabel = !empty($patient['next_appointment_time'])
-                                        ? date('h:i A', strtotime($patient['next_appointment_time']))
-                                        : '';
-                                    $apptCountLabel = (int) ($patient['appointment_count'] ?? 0);
-
-                                    ?>
-
-
-                                    <tr>
-
-
-                                        <!-- # -->
-
-                                        <td>
-                                            <span class="row-num"><?= $rowNum ?></span>
-                                        </td>
-
-
-                                        <!-- NAME -->
-
-                                        <td>
-
-                                            <div class="patient-name">
-
-                                                <?= dentistPatientEscape(
-                                                    $fullName
-                                                ) ?>
-
-                                            </div>
-
-                                            <span class="patient-id">
-
-                                                <?= dentistPatientEscape(
-                                                    $patient['patient_number']
-                                                ) ?>
-
-                                            </span>
-
-                                        </td>
-
-
-                                        <!-- CONTACT -->
-
-                                        <td>
-
-                                            <?= dentistPatientEscape(
-                                                $patient['contact_number']
-                                            ) ?: '—' ?>
-
-                                        </td>
-
-
-                                        <!-- EMAIL -->
-
-                                        <td>
-
-                                            <span class="patient-email">
-                                                <?= dentistPatientEscape(
-                                                    $patient['email'] ?? ''
-                                                ) ?: '—' ?>
-                                            </span>
-
-                                        </td>
-
-
-                                        <!-- ASSIGNED DENTIST -->
-
-                                        <td>
-
-                                            <?= dentistPatientEscape(
-                                                $patient['assigned_dentists'] ?? ''
-                                            ) ?: '—' ?>
-
-                                        </td>
-
-
-                                        <!-- STATUS -->
-
-                                        <td>
-
-
-                                            <?php if (
-                                                !empty($patientStatus)
-                                            ): ?>
-
-                                                <span
-                                                    class="status-badge <?= $statusClass ?>"
-                                                >
-
-                                                    <?= dentistPatientEscape(
-                                                        $patientStatus
-                                                    ) ?>
-
-                                                </span>
-
-                                            <?php else: ?>
-
-                                                <span
-                                                    class="status-badge status-default"
-                                                >
-                                                    No Upcoming Appointment
-                                                </span>
-
-                                            <?php endif; ?>
-
-
-                                        </td>
-
-
-                                        <!-- ACTION -->
-
-                                        <td class="action-cell">
-
-                                            <div class="action-wrap">
-
-                                                <button
-                                                    type="button"
-                                                    class="view-btn patient-view-btn"
-                                                    title="View patient details"
-                                                    data-patient="<?= dentistPatientEscape($fullName) ?>"
-                                                    data-service="<?= dentistPatientEscape($patient['next_service'] ?? '') ?>"
-                                                    data-dentist="<?= dentistPatientEscape($patient['assigned_dentists'] ?? '') ?>"
-                                                    data-time="<?= dentistPatientEscape(!empty($patient['next_appointment_date']) ? date('M d, Y', strtotime($patient['next_appointment_date'])) . (!empty($patient['next_appointment_time']) ? ' ' . date('h:i A', strtotime($patient['next_appointment_time'])) . (!empty($patient['next_end_time']) ? ' - ' . date('h:i A', strtotime($patient['next_end_time'])) : '') : '') : '—') ?>"
-                                                    data-booked="<?= dentistPatientEscape(!empty($patient['next_created']) ? date('M d, Y h:i A', strtotime($patient['next_created'])) : '—') ?>"
-                                                >
-
-                                                    <i class="bi bi-eye-fill"></i>
-
-                                                    View
-
-                                                </button>
-
-                                                <button
-                                                    type="button"
-                                                    class="edit-btn patient-edit-btn"
-                                                    title="Edit patient information"
-                                                    data-id="<?= (int) $patient['id'] ?>"
-                                                    data-patient-id="<?= dentistPatientEscape($patient['patient_number']) ?>"
-                                                    data-first="<?= dentistPatientEscape($patient['first_name']) ?>"
-                                                    data-middle="<?= dentistPatientEscape($patient['middle_name'] ?? '') ?>"
-                                                    data-last="<?= dentistPatientEscape($patient['last_name']) ?>"
-                                                    data-contact="<?= dentistPatientEscape($patient['contact_number'] ?? '') ?>"
-                                                    data-email="<?= dentistPatientEscape($patient['email'] ?? '') ?>"
-                                                >
-
-                                                    <i class="bi bi-pencil-square"></i>
-
-                                                    Edit
-
-                                                </button>
-
-                                                <details class="more-wrap">
-                                                    <summary title="More actions">
-                                                        <i class="bi bi-three-dots"></i>
-                                                    </summary>
-                                                    <div class="more-menu">
-                                                        <a href="patients.php?patient_id=<?= (int)$patient['id'] ?>">
-                                                            <i class="bi bi-clock-history"></i>
-                                                            Appointment History
-                                                        </a>
-                                                        <a href="appointments.php">
-                                                            <i class="bi bi-calendar2-check"></i>
-                                                            View Appointments
-                                                        </a>
-                                                        <div class="more-divider"></div>
-                                                        <div class="more-info">
-                                                            <i class="bi bi-hash"></i>
-                                                            <?= dentistPatientEscape($patient['patient_number']) ?>
-                                                            · <?= $apptCountLabel ?> appointment<?= $apptCountLabel == 1 ? '' : 's' ?>
-                                                        </div>
-                                                        <?php if ($nextDateLabel !== ''): ?>
-                                                            <div class="more-info">
-                                                                <i class="bi bi-calendar-event"></i>
-                                                                Next: <?= dentistPatientEscape($nextDateLabel) ?><?= $nextTimeLabel !== '' ? ' · ' . dentistPatientEscape($nextTimeLabel) : '' ?>
-                                                            </div>
-                                                        <?php else: ?>
-                                                            <div class="more-info">
-                                                                <i class="bi bi-calendar-x"></i>
-                                                                No upcoming appointment
-                                                            </div>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                </details>
-
-                                            </div>
-
-                                        </td>
-
-
-                                    </tr>
-
-
-                                <?php endforeach; ?>
-
-
-                            </tbody>
-
-
-                        </table>
-
-                    </div>
-
-                    <?php if ($totalPages > 1): ?>
-                        <nav class="patient-pagination" aria-label="Patient pages">
+                        <div class="pagination-pills-wrap">
                             <?php if ($page > 1): ?>
                                 <a class="patient-page-btn" href="<?= dentistPatientEscape(patientPageUrl($page - 1)) ?>">
                                     <i class="bi bi-chevron-left"></i> Prev
@@ -2572,7 +2076,7 @@ include __DIR__ . '/dentist_sidebar.php';
                             <?php for ($p = 1; $p <= $totalPages; $p++): ?>
                                 <?php if ($p === $page): ?>
                                     <span class="patient-page-btn active"><?= $p ?></span>
-                                <?php else: ?>
+                                <?php elseif ($p == 1 || $p == $totalPages || abs($p - $page) <= 2): ?>
                                     <a class="patient-page-btn" href="<?= dentistPatientEscape(patientPageUrl($p)) ?>"><?= $p ?></a>
                                 <?php endif; ?>
                             <?php endfor; ?>
@@ -2584,179 +2088,17 @@ include __DIR__ . '/dentist_sidebar.php';
                             <?php else: ?>
                                 <span class="patient-page-btn disabled">Next <i class="bi bi-chevron-right"></i></span>
                             <?php endif; ?>
-                        </nav>
-                    <?php endif; ?>
-
-                    <script>
-                    /* Isang More dropdown lang ang bukas */
-                    (function () {
-                        document.addEventListener('click', function (e) {
-                            document.querySelectorAll('details.more-wrap[open]').forEach(function (d) {
-                                if (!d.contains(e.target)) d.removeAttribute('open');
-                            });
-                        });
-                        document.addEventListener('toggle', function (e) {
-                            if (e.target && e.target.matches && e.target.matches('details.more-wrap') && e.target.open) {
-                                document.querySelectorAll('details.more-wrap[open]').forEach(function (d) {
-                                    if (d !== e.target) d.removeAttribute('open');
-                                });
-                            }
-                        }, true);
-                    })();
-                    </script>
-
-                    <script>
-                    /* Eksaktong 10 rows ang kita sa scroll box (header + 10 rows) */
-                    (function () {
-                        var wrap = document.getElementById('patientTableWrap');
-                        if (!wrap) return;
-
-                        function fit() {
-                            var head = wrap.querySelector('.portal-table thead');
-                            var firstRow = wrap.querySelector('.portal-table tbody tr');
-                            if (!head || !firstRow) return;
-                            var headH = head.getBoundingClientRect().height;
-                            var rowH = firstRow.getBoundingClientRect().height;
-                            if (rowH > 0) {
-                                wrap.style.maxHeight = Math.ceil(headH + (rowH * 10) + 2) + 'px';
-                            }
-                        }
-
-                        fit();
-                        window.addEventListener('load', fit);
-                        window.addEventListener('resize', fit);
-                        if (document.fonts && document.fonts.ready) {
-                            document.fonts.ready.then(function () { fit(); });
-                        }
-                    })();
-                    </script>
-
-
+                        </div>
+                    </nav>
                 <?php endif; ?>
-
-
-            </section>
-
-
+            <?php endif; ?>
         </div>
 
-
-        <?php if (($_GET['nosidebar'] ?? '') === '1'): ?>
-        <style>.portal-sidebar{display:none!important;}.portal-main{margin-left:0!important;width:100%!important;}</style>
-        <script>
-        function autoCloseSubTab(){
-            try{ if(window.opener && !window.opener.closed){ window.opener.focus(); } }catch(e){}
-            /* Hindi na nagsasara ang tab — same-tab navigation. */
-            if (!window.opener || window.opener.closed) {
-                window.location.href='dentist_dashboard.php';
-            }
-            return false;
-        }
-        </script>
-        <?php endif; ?>
-    </main>
-
-<script>
-/* Itago ang sidebar kapag binuksan mula sa dashboard menu (?nosidebar=1) */
-(function(){
-    try {
-        if (new URLSearchParams(window.location.search).get('nosidebar') === '1') {
-            document.querySelectorAll('.portal-sidebar').forEach(function(el){ el.style.display = 'none'; });
-            document.querySelectorAll('.portal-main').forEach(function(el){ el.style.marginLeft = '0'; el.style.width = '100%'; });
-        }
-    } catch(e){}
-})();
-</script>
-
-<style>
-.pview-overlay{position:fixed;inset:0;background:rgba(10,59,52,.55);z-index:2000;padding:20px;display:none;align-items:center;justify-content:center}
-.pview-overlay.open{display:flex}
-.pview-box{background:#fff;border-radius:18px;max-width:440px;width:100%;overflow:hidden;box-shadow:0 18px 45px rgba(0,0,0,.25);animation:pviewPop .18s ease}
-@keyframes pviewPop{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
-.pview-head{padding:18px 22px;background:linear-gradient(135deg,#149A72,#0A4A41);border-bottom:none;display:flex;align-items:center;gap:10px}
-.pview-head h5{margin:0;flex:1;color:#fff;font-weight:800;font-size:16px}
-.pview-head h5 i{color:#C9E9DA}
-.pview-x{background:#fff;border:1px solid #D1E7DD;color:#57727d;width:30px;height:30px;border-radius:9px;cursor:pointer;font-size:13px}
-.pview-x:hover{background:#EAF7F0;color:#0E6B5E}
-.pview-body{padding:18px 22px 20px;font-size:13.5px;color:#4d6873}
-.pview-body .row-line{margin-bottom:12px;padding-bottom:12px;border-bottom:1px dashed #D6E7E1}
-.pview-body .row-line:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none}
-.pview-body .row-line strong{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#143f51;margin-bottom:3px}
-</style>
-
-<!-- PATIENT VIEW MODAL: gaya sa appointment View -->
-<div class="pview-overlay" id="pviewOverlay">
-    <div class="pview-box">
-        <div class="pview-head">
-            <h5><i class="bi bi-eye-fill"></i> Patient Details</h5>
-            <button type="button" class="pview-x" id="pviewClose" aria-label="Close">✕</button>
-        </div>
-        <div class="pview-body">
-            <div class="row-line"><strong>Patient name:</strong> <span id="pviewPatient"></span></div>
-            <div class="row-line"><strong>Dental service:</strong> <span id="pviewService"></span></div>
-            <div class="row-line"><strong>Assigned dentist:</strong> <span id="pviewDentist"></span></div>
-            <div class="row-line"><strong>Date and time of appointment:</strong> <span id="pviewTime"></span></div>
-            <div class="row-line"><strong>Booked on:</strong> <span id="pviewBooked"></span></div>
-        </div>
     </div>
-</div>
 
-<script>
-/* Patient View modal: gaya sa appointment View */
-(function(){
-    var overlay = document.getElementById('pviewOverlay');
-    if(!overlay) return;
-    function close(){ overlay.classList.remove('open'); }
-    document.getElementById('pviewClose').addEventListener('click', close);
-    overlay.addEventListener('click', function(e){ if(e.target === overlay) close(); });
-    document.addEventListener('keydown', function(e){ if(e.key === 'Escape') close(); });
-    document.querySelectorAll('.patient-view-btn').forEach(function(btn){
-        btn.addEventListener('click', function(){
-            document.getElementById('pviewPatient').textContent = btn.dataset.patient || '';
-            document.getElementById('pviewService').textContent = btn.dataset.service || '—';
-            document.getElementById('pviewDentist').textContent = btn.dataset.dentist || '';
-            document.getElementById('pviewTime').textContent = btn.dataset.time || '—';
-            document.getElementById('pviewBooked').textContent = btn.dataset.booked || '—';
-            overlay.classList.add('open');
-        });
-    });
-})();
-</script>
+</main>
 
-<style>
-/* Alert banners sa patient list (pagkatapos mag-save / may error) */
-.edit-alert{display:flex;align-items:center;gap:9px;margin:0 0 16px;padding:12px 16px;border-radius:11px;font-size:13.5px;font-weight:700}
-.edit-alert-success{background:#EAF7F0;border:1px solid #C9E9DA;color:#0E6B5E}
-.edit-alert-error{background:#FDECEC;border:1px solid #F5C6C6;color:#C0392B}
-
-/* EDIT PATIENT MODAL */
-.pedit-overlay{position:fixed;inset:0;background:rgba(10,59,52,.55);z-index:2000;padding:20px;display:none;align-items:center;justify-content:center}
-.pedit-overlay.open{display:flex}
-.pedit-box{background:#fff;border-radius:18px;max-width:520px;width:100%;overflow:hidden;box-shadow:0 18px 45px rgba(0,0,0,.25);animation:peditPop .18s ease;max-height:92vh;overflow-y:auto}
-@keyframes peditPop{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
-.pedit-head{padding:18px 22px;background:linear-gradient(135deg,#149A72,#0A4A41);border-bottom:none;display:flex;align-items:center;gap:10px}
-.pedit-head h5{margin:0;flex:1;color:#fff;font-weight:800;font-size:16px}
-.pedit-head h5 i{color:#C9E9DA}
-.pedit-x{background:#fff;border:1px solid #D1E7DD;color:#57727d;width:30px;height:30px;border-radius:9px;cursor:pointer;font-size:13px}
-.pedit-x:hover{background:#EAF7F0;color:#0E6B5E}
-.pedit-body{padding:18px 22px 6px}
-.pedit-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
-.pedit-field{display:flex;flex-direction:column;gap:5px}
-.pedit-field.full{grid-column:1 / -1}
-.pedit-field label{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#143f51}
-.pedit-field label span{color:#C0392B}
-.pedit-field input{width:100%;border:1px solid #D1E7DD;border-radius:9px;padding:10px 11px;font-family:inherit;font-size:13.5px;color:#244f60;background:#fff}
-.pedit-field input:focus{outline:none;border-color:#149A72;box-shadow:0 0 0 3px rgba(20,154,114,.14)}
-.pedit-field input:disabled{background:#F1F5F4;color:#57727d;font-weight:700;cursor:not-allowed}
-.pedit-note{font-size:11.5px;color:#57727d;margin:12px 0 0}
-.pedit-foot{display:flex;justify-content:flex-end;gap:10px;padding:14px 22px 20px}
-.pedit-cancel{background:#fff;border:1px solid #D1E7DD;border-radius:10px;font-weight:700;font-family:inherit;font-size:13.5px;padding:10px 22px;cursor:pointer;color:#57727d}
-.pedit-cancel:hover{background:#EAF7F0;color:#0E6B5E}
-.pedit-save{background:linear-gradient(135deg,#149A72,#0A4A41);border:none;border-radius:10px;font-weight:800;font-family:inherit;font-size:13.5px;padding:10px 22px;cursor:pointer;color:#fff;box-shadow:0 6px 14px rgba(14,107,94,.30)}
-.pedit-save:hover{filter:brightness(1.06)}
-</style>
-
-<!-- EDIT PATIENT MODAL: Patient ID (read-only) + pangalan + contact + email -->
+<!-- EDIT PATIENT MODAL -->
 <div class="pedit-overlay" id="peditOverlay">
     <div class="pedit-box" role="dialog" aria-modal="true" aria-label="Edit Patient Information">
         <div class="pedit-head">
@@ -2771,9 +2113,8 @@ include __DIR__ . '/dentist_sidebar.php';
 
             <div class="pedit-body">
                 <div class="pedit-grid">
-
                     <div class="pedit-field full">
-                        <label for="peditPatientNumber">Patient ID</label>
+                        <label for="peditPatientNumber">Patient Number (Read-only)</label>
                         <input type="text" id="peditPatientNumber" disabled readonly value="">
                     </div>
 
@@ -2798,15 +2139,14 @@ include __DIR__ . '/dentist_sidebar.php';
                     </div>
 
                     <div class="pedit-field full">
-                        <label for="peditEmail">Email</label>
+                        <label for="peditEmail">Email Address</label>
                         <input type="email" id="peditEmail" name="email" maxlength="255" value="">
                     </div>
-
                 </div>
 
                 <p class="pedit-note">
-                    <i class="bi bi-lock-fill"></i>
-                    Ang Patient ID ay hindi pwedeng i-edit.
+                    <i class="bi bi-shield-lock-fill"></i>
+                    Patient ID is permanently assigned by the clinic and cannot be modified.
                 </p>
             </div>
 
@@ -2818,8 +2158,34 @@ include __DIR__ . '/dentist_sidebar.php';
     </div>
 </div>
 
+<style>
+.pedit-overlay{position:fixed;inset:0;background:rgba(10,59,52,.55);z-index:2500;padding:20px;display:none;align-items:center;justify-content:center}
+.pedit-overlay.open{display:flex}
+.pedit-box{background:#fff;border-radius:18px;max-width:520px;width:100%;overflow:hidden;box-shadow:0 18px 45px rgba(0,0,0,.25);animation:peditPop .18s ease;max-height:92vh;overflow-y:auto}
+@keyframes peditPop{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
+.pedit-head{padding:18px 22px;background:linear-gradient(135deg,#0E6B5E,#059669);display:flex;align-items:center;gap:10px}
+.pedit-head h5{margin:0;flex:1;color:#fff;font-weight:800;font-size:16px}
+.pedit-x{background:#fff;border:1px solid #D1E7DD;color:#57727d;width:30px;height:30px;border-radius:9px;cursor:pointer;font-size:13px}
+.pedit-x:hover{background:#EAF7F0;color:#0E6B5E}
+.pedit-body{padding:18px 22px 6px}
+.pedit-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
+.pedit-field{display:flex;flex-direction:column;gap:5px}
+.pedit-field.full{grid-column:1 / -1}
+.pedit-field label{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#143f51}
+.pedit-field label span{color:#C0392B}
+.pedit-field input{width:100%;border:1px solid #D1E7DD;border-radius:9px;padding:9px 12px;font-family:inherit;font-size:13.5px;color:#244f60;background:#fff}
+.pedit-field input:focus{outline:none;border-color:#059669;box-shadow:0 0 0 3px rgba(5,150,105,.14)}
+.pedit-field input:disabled{background:#F1F5F4;color:#57727d;font-weight:700;cursor:not-allowed}
+.pedit-note{font-size:11.5px;color:#64748B;margin:12px 0 0}
+.pedit-foot{display:flex;justify-content:flex-end;gap:10px;padding:14px 22px 20px}
+.pedit-cancel{background:#fff;border:1px solid #D1E7DD;border-radius:10px;font-weight:700;font-family:inherit;font-size:13.5px;padding:9px 20px;cursor:pointer;color:#57727d}
+.pedit-cancel:hover{background:#EAF7F0;color:#0E6B5E}
+.pedit-save{background:linear-gradient(135deg,#0E6B5E,#059669);border:none;border-radius:10px;font-weight:800;font-family:inherit;font-size:13.5px;padding:9px 22px;cursor:pointer;color:#fff;box-shadow:0 6px 14px rgba(14,107,94,.30)}
+.pedit-save:hover{filter:brightness(1.08)}
+</style>
+
 <script>
-/* Edit Patient modal: pinupuno mula sa pinindot na Edit button */
+// Edit modal logic
 (function(){
     var overlay = document.getElementById('peditOverlay');
     if(!overlay) return;
@@ -2835,19 +2201,14 @@ include __DIR__ . '/dentist_sidebar.php';
 
     function close(){ overlay.classList.remove('open'); }
 
-    document.getElementById('peditClose').addEventListener('click', close);
-    document.getElementById('peditCancel').addEventListener('click', close);
+    document.getElementById('peditClose')?.addEventListener('click', close);
+    document.getElementById('peditCancel')?.addEventListener('click', close);
     overlay.addEventListener('click', function(e){ if(e.target === overlay) close(); });
     document.addEventListener('keydown', function(e){ if(e.key === 'Escape') close(); });
 
-    /* Panatilihin ang search/filter pagkatapos mag-save */
-    function buildAction(){
-        form.setAttribute('action', 'patients.php' + (window.location.search || ''));
-    }
-
     document.querySelectorAll('.patient-edit-btn').forEach(function(btn){
         btn.addEventListener('click', function(){
-            buildAction();
+            form.setAttribute('action', 'patients.php' + (window.location.search || ''));
             fPatientId.value = btn.dataset.id || '';
             fPatientNumber.value = btn.dataset.patientId || '';
             fFirst.value = btn.dataset.first || '';
@@ -2860,9 +2221,72 @@ include __DIR__ . '/dentist_sidebar.php';
         });
     });
 })();
+
+// Auto-submit status filter dropdown on change
+(function () {
+    var statusSelect = document.getElementById('patientStatusFilter');
+    if (statusSelect && statusSelect.form) {
+        statusSelect.addEventListener('change', function () {
+            this.form.submit();
+        });
+    }
+})();
+
+// Close more dropdowns on outside click
+(function () {
+    document.addEventListener('click', function (e) {
+        document.querySelectorAll('details.more-wrap[open]').forEach(function (d) {
+            if (!d.contains(e.target)) d.removeAttribute('open');
+        });
+    });
+})();
 </script>
 
+<!-- DENTIST LOGOUT CONFIRM MODAL -->
+<div id="dentistLogoutConfirm" class="dentist-logout-overlay" style="display:none;">
+    <div class="dentist-logout-box">
+        <div class="dentist-logout-head">
+            <span class="dentist-logout-head-icon"><i class="bi bi-box-arrow-right"></i></span>
+            <h5>Log Out</h5>
+            <button type="button" class="dentist-logout-x" id="dentistLogoutClose" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="dentist-logout-body">
+            <div class="dentist-logout-icon"><i class="bi bi-exclamation-circle-fill"></i></div>
+            <h5>Are you sure you want to log out?</h5>
+            <p>You will need to log in again to access the dentist account.</p>
+        </div>
+        <div class="dentist-logout-foot">
+            <button type="button" class="btn btn-light" id="dentistLogoutCancel">Cancel</button>
+            <a href="../logout.php" class="btn dentist-logout-yes" id="dentistLogoutYes"><i class="bi bi-box-arrow-right me-1"></i>Log Out</a>
+        </div>
+    </div>
+</div>
 
+<style>
+.dentist-logout-overlay { position: fixed; inset: 0; background: rgba(10,59,52,.55); z-index: 3000; padding: 20px; align-items: center; justify-content: center; }
+.dentist-logout-box { background: #ffffff; border-radius: 18px; border: 1px solid #C9E9DA; box-shadow: 0 18px 45px rgba(0,0,0,.25); max-width: 440px; width: 100%; overflow: hidden; font-family: "DM Sans", system-ui, sans-serif; }
+.dentist-logout-head { display: flex; align-items: center; gap: 12px; padding: 18px 22px; background: linear-gradient(135deg, #D9F2E6 0%, #EAF7F0 100%); border-bottom: 1px solid #C9E9DA; }
+.dentist-logout-head-icon { width: 38px; height: 38px; border-radius: 11px; background: linear-gradient(135deg, #0E6B5E, #0A4A41); color: #ffffff; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 4px 10px rgba(14,107,94,.25); flex-shrink: 0; }
+.dentist-logout-head h5 { color: #143f51; font-family: "Plus Jakarta Sans", system-ui, sans-serif; font-weight: 800; font-size: 17px; margin: 0; flex: 1; }
+.dentist-logout-x { background: #ffffff; border: 1px solid #D1E7DD; color: #57727d; width: 30px; height: 30px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; }
+.dentist-logout-body { padding: 30px 28px 8px; text-align: center; }
+.dentist-logout-icon { width: 64px; height: 64px; border-radius: 18px; background: #FDECEC; color: #C0392B; border: 1px solid #F5C6C6; display: inline-flex; align-items: center; justify-content: center; font-size: 30px; margin-bottom: 14px; }
+.dentist-logout-body h5 { color: #143f51; font-family: "Plus Jakarta Sans", system-ui, sans-serif; font-weight: 800; font-size: 18px; margin: 0 0 8px; }
+.dentist-logout-body p { color: #8aa0a8; font-size: 13.5px; margin: 0; }
+.dentist-logout-foot { display: flex; gap: 12px; justify-content: center; padding: 18px 22px 22px; background: #F6FBF8; border-top: 1px solid #E6F2EC; margin-top: 20px; }
+.dentist-logout-foot .btn { border-radius: 10px; font-weight: 700; font-size: 14px; padding: 10px 26px; }
+.dentist-logout-foot .btn-light { background: #fff !important; border: 1px solid #D1E7DD !important; color: #57727d !important; }
+.dentist-logout-yes { background: linear-gradient(135deg, #E74C3C, #922B21) !important; border: none !important; color: #ffffff !important; box-shadow: 0 6px 14px rgba(192,57,43,.3) !important; }
+</style>
+
+<script>
+(function(){
+    function openDentistLogout(e){ if(e) e.preventDefault(); var el=document.getElementById("dentistLogoutConfirm"); if(el) el.style.display="flex"; }
+    function closeDentistLogout(){ var el=document.getElementById("dentistLogoutConfirm"); if(el) el.style.display="none"; }
+    document.querySelectorAll('a[href="../logout.php"], a[href="logout.php"]').forEach(function(a){ a.addEventListener("click", openDentistLogout); });
+    document.getElementById("dentistLogoutCancel")?.addEventListener("click", closeDentistLogout);
+    document.getElementById("dentistLogoutClose")?.addEventListener("click", closeDentistLogout);
+})();
+</script>
 </body>
-
 </html>
