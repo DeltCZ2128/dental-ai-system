@@ -5,11 +5,11 @@ An intelligent web-based clinic management and appointment scheduling system dev
 ---
 
 ## Group Members & Roles
-* **Tagudar, Rocel Anne T.** – Project Leader / System Analyst
-* **Ledesma, Samuelle G.** – Lead Developer / Full-Stack Engineer
-* **Canchela, Jonathan R.** – Backend Developer / Database Administrator
-* **Cruz, Renelyn P.** – Frontend / UI-UX Designer
-* **Pacamana, Michaela R.** – Quality Assurance / Technical Documentation
+* **Tagudar, Rocel Anne T.** – Project Manager / Documentation / Database Developer / Back-End Developer
+* **Pacamana, Michaela R.** – Documentation / Quality Assurance / Front-End Developer
+* **Ledesma, Samuelle G.** – Documentation / Evaluation Form Designer
+* **Cruz, Renelyn P.** – Documentation Assistant / PPT Designer
+* **Canchela, Jonathan R.** – Documentation
 
 * **Adviser:** Mrs. Anne Camille M. Maupay, MIT  
 * **Institution:** Global Reciprocal Colleges — College of Computer Studies (BSIT)
